@@ -156,6 +156,144 @@ This allows the resource allocation to remain up-to-date if the owner of the res
 
 THe function is called [AddEnvironmentServices](Phoenix.ps1).
 
+Mapping assets with services is done via:
+1. RepositoryName, SearchName, AssetType, Tag, Cidr, Fqdn, Netbios, OsNames, Hostnames, ProviderAccountId, ProviderAccountName, ResourceGroup - creates individual component for each property 
+Example config with all possible options listed:
+
+~~~
+Environment Groups:
+  - Name: TST_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+    Status: Production
+    Services:
+      - Service: stefan_service
+        Type: Infra
+        Tier: 8
+        TeamName: SP_lima20
+        SearchName: search_item
+        AssetType: REPOSITORY #Look up possible values in the documentation
+        Tag: tag1:tagv1
+        Cidr: 10.1.1.0/24
+        Fqdn: 
+          - testfqdn
+        Netbios: 
+          - testbios
+        OsNames: 
+          - testosnames
+        Hostnames: 
+          - testhostnames
+        ProviderAccountId: 
+          - testaccountid
+        ProviderAccountName: 
+          - testaccountname
+        ResourceGroup: 
+          - testresourcegroup
+~~~
+
+2. MultiConditionRule - can combine repos, search, tags etc in one rule
+
+~~~
+
+Environment Groups:
+  - Name: TST_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+    Status: Production
+    Tag: 
+    Team:
+    Services:
+      - Service: stefan_service
+        Type: Infra
+        Tier: 8
+        TeamName: SP_lima20
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo
+          SearchName: testsearch2
+          Tag: key1:value1
+          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          Fqdn: 
+            - testfqdn
+          Netbios: 
+            - testbios
+          OsNames: 
+            - testosnames
+          Hostnames: 
+            - testhostnames
+          ProviderAccountId: 
+            - testaccountid
+          ProviderAccountName: 
+            - testaccountname
+          ResourceGroup: 
+            - testresourcegroup
+
+~~~
+
+3. Combining single rule with multicondition rule is also supported
+
+~~~
+
+Environment Groups:
+  - Name: TST_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+    Status: Production
+    Services: 
+      - Service: stefan_service9
+        Type: Infra
+        Tier: 8
+        TeamName: SP_lima20
+        SearchName: search_item
+        AssetType: REPOSITORY #Look up possible values in the documentation
+        Tag: tag1:tagv1
+        Cidr: 10.1.1.0/24
+        Fqdn: 
+          - testfqdn
+        Netbios: 
+          - testbios
+        OsNames: 
+          - testosnames
+        Hostnames: 
+          - testhostnames
+        ProviderAccountId: 
+          - testaccountid
+        ProviderAccountName: 
+          - testaccountname
+        ResourceGroup: 
+          - testresourcegroup
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo
+          SearchName: testsearch2
+          Tag: key1:value1
+          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          Fqdn: 
+            - testfqdn
+          Netbios: 
+            - testbios
+          OsNames: 
+            - testosnames
+          Hostnames: 
+            - testhostnames
+          ProviderAccountId: 
+            - testaccountid
+          ProviderAccountName: 
+            - testaccountname
+          ResourceGroup: 
+            - testresourcegroup
+
+~~~
+
 ## Applications
 
 Applications are groupings of code that provide functionality for a service. As per environment services the `subdomain` in `core-structure.yaml`.

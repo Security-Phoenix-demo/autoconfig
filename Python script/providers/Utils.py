@@ -35,46 +35,29 @@ def environment_service_exist(env_id, phoenix_components, servicename):
     return False
 
 
-
-# Function to calculate criticality based on tier value
-#def calculate_criticality(tier):
-#    criticality = 5
-#    if tier == "0":
-#        criticality = 10
-#    elif tier == "1":
-#        criticality = 9
-#    elif tier == "2":
-#        criticality = 8
-#    elif tier == "3":
-#        criticality = 7
-#    elif tier == "4":
-#        criticality = 6
-#    return criticality
-
-
 # Function to calculate criticality based on tier value Tier 1 is the most critical tier 10 is the least critical, tier 6 is neutral tier 
 def calculate_criticality(tier):
     criticality = 5
-    if tier == "1":
+    if tier == 1:
         criticality = 10
-    elif tier == "2":
+    elif tier == 2:
         criticality = 9
-    elif tier == "3":
+    elif tier == 3:
         criticality = 8
-    elif tier == "4":
+    elif tier == 4:
         criticality = 7
-    elif tier == "5":
+    elif tier == 5:
         criticality = 6
-    elif tier == "6":
+    elif tier == 6:
         criticality = 5
-    elif tier == "7":
+    elif tier == 7:
         criticality = 4
-    elif tier == "8":
+    elif tier == 8:
         criticality = 3
-    elif tier == "9":
+    elif tier == 9:
         criticality = 2
-    elif tier == "10":
-        criticality = 10
+    elif tier == 10:
+        criticality = 1
     return criticality
 
 # Function to populate users who have access to all teams

@@ -1,5 +1,5 @@
 CustomEmail: False # If True, CompanyEmailDomain is ignored, and it's considered that all emails listed below in properties: Lead, Product are valid email address
-CompanyEmailDomain:  # Email domain that will be used if CustomEmail is False, it will alter the entries in Lead and Product, to generate email addresses. (e.g. company.com)
+CompanyEmailDomain: company.com  # Email domain that will be used if CustomEmail is False, it will alter the entries in Lead and Product, to generate email addresses. (e.g. company.com)
 Hives:
   - Name: Payments
     Lead: Joe Brady

@@ -91,14 +91,28 @@ def populate_environments_from_env_groups(resource_folder):
         # Now process the services under the "Team" or "Services" key
         if 'Services' in row:
             for service in row['Services']:
+                repository_names = service.get('RepositoryName', [])
+                if isinstance(repository_names, str):
+                    repository_names = [repository_names]
                 # Build the service entry with association details
                 service_entry = {
                     'Service': service['Service'],
                     'Type': service['Type'],
-                    'Association': service['Association'],
-                    'Association_value': service['Association_value'],
                     'Tier': service.get('Tier', 5),  # Default tier to 5 if not specified
-                    'TeamName': service.get('TeamName', item['TeamName'])  # Default to environment's TeamName if missing
+                    'TeamName': service.get('TeamName', item['TeamName']),  # Default to environment's TeamName if missing
+                    'MultiConditionRule': load_multi_condition_rule(service),
+                    'RepositoryName': repository_names,  # Properly handle missing 'RepositoryName'
+                    'SearchName': service.get('SearchName', None),
+                    "Tag": service.get("Tag", None),
+                    "Cidr": service.get("Cidr", None),
+                    "Fqdn": service.get("Fqdn", None),
+                    "Netbios": service.get("Netbios", None),
+                    "OsNames": service.get("OsNames", None),
+                    "Hostnames": service.get("Hostnames", None),
+                    "ProviderAccountId": service.get("ProviderAccountId", None),
+                    "ProviderAccountName": service.get("ProviderAccountName", None),
+                    "ResourceGroup": service.get("ResourceGroup", None),
+                    "AssetType": service.get("AssetType", None)
                 }
                 item['Services'].append(service_entry)
 
@@ -250,7 +264,7 @@ def populate_applications(resource_folder):
             'TeamNames': row['TeamNames'],
             'ReleaseDefinitions': row['ReleaseDefinitions'],
             'Responsable': row['Responsable'],
-            'Criticality': calculate_criticality(str(row.get('Tier', 5))),  # Use .get() to handle missing 'Tier'
+            'Criticality': calculate_criticality(row.get('Tier', 5)),  # Use .get() to handle missing 'Tier'
             'Components': []
         }
 

@@ -169,18 +169,58 @@ Environment Groups:
       - Service: Damn-Vulnerable-Source-Code_service
         Type: Cloud
         SearchName: Damn-Vulnerable-Source-Code
-        Association: Tag
-        Association_value: issue-test-asset3
+        Tag: issue:issue-test-asset3
         Tier: 2 #importance from 1-10
         Deployment_set: product106-repo10
         # Deployment_tag: tag_123 #alternative tag to match the assets that are associated with this id 
         TeamName: SP_lima20 #name of the team as it appears in hives and teams 
       - Service: ProdGRP2
         Type: Container
-        Association: Tag
-        Association_value: asset.type:workload
+        Tag: asset.type:workload
         Tier: 2 #importance from 1-10
         TeamName: SP_lima20 #name of the team as it appears in hives and teams  
+      - Service: stefan_service9
+        Type: Infra
+        Tier: 8
+        TeamName: SP_lima20
+        SearchName: search_item
+        AssetType: REPOSITORY #Look up possible values in the documentation
+        Tag: tag1:tagv1
+        Cidr: 10.1.1.0/24
+        Fqdn: 
+          - testfqdn
+        Netbios: 
+          - testbios
+        OsNames: 
+          - testosnames
+        Hostnames: 
+          - testhostnames
+        ProviderAccountId: 
+          - testaccountid
+        ProviderAccountName: 
+          - testaccountname
+        ResourceGroup: 
+          - testresourcegroup
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo
+          SearchName: testsearch2
+          Tag: key1:value1
+          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          Fqdn: 
+            - testfqdn
+          Netbios: 
+            - testbios
+          OsNames: 
+            - testosnames
+          Hostnames: 
+            - testhostnames
+          ProviderAccountId: 
+            - testaccountid
+          ProviderAccountName: 
+            - testaccountname
+          ResourceGroup: 
+            - testresourcegroup
   - Name: FR_Dev
     Type: CLOUD
     Status: Production
@@ -190,13 +230,11 @@ Environment Groups:
     Services:
       - Service: DevGRP1
         Type: Cloud #Type of asset
-        Association: Tag #Type of association /rule
-        Association_value: issue-test-asset3 #Value
+        Tag: issue:issue-test-asset3 #Value
         TeamName: SP_lima20 #name of the team as it appears in hives and teams 
       - Service: DevGRP2
         Type: Cloud
-        Association: Tag
-        Association_value: asset.type:workload 
+        Tag: asset.type:workload
         TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
 
   - Name: TST_Infra
@@ -209,31 +247,26 @@ Environment Groups:
     Services:
     - Service: InfraGRP1
       Type: Infra
-      Association: IP
-      Association_value: 10.1.1.0/24 #can be a /xx cidr
+      Cidr: 10.1.1.0/24 #can be a /xx cidr
       Tier: 2 #importance from 1-10
       TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
     - Service: External Services
       Type: Infra
-      Association: IP
-      Association_value: 109.113.0.0/16
+      Cidr: 109.113.0.0/16
       Tier: 2 #importance from 1-10
       TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
     - Service: External Services2
       Type: Infra
-      Association: IP
-      Association_value: 31.157.0.0/16, 31.158.0.0/16 #can be more than one network per rule
+      Cidr: 31.157.0.0/16, 31.158.0.0/16 #can be more than one network per rule
       Tier: 2 #importance from 1-10
       TeamName: SP_lima20 #name of the team as it appears in hives and teams 
     - Service: Printers
       Type: Infra
-      Association: IP
-      Association_value: 100.83.190.226, 169.254.250.250 #if not spefified is a /32 
+      Cidr: 100.83.190.226, 169.254.250.250 #if not spefified is a /32
       Tier: 2 #importance from 1-10
       TeamName: SP_lima20 #name of the team as it appears in hives and teams 
     - Service: InfraGRP2
       Type: Infra
-      Association: IP
-      Association_value: 10.2.2.0/24
+      Cidr: 10.2.2.0/24
       Tier: 2 #importance from 1-10
       TeamName: SP_lima20 #name of the team as it appears in hives and teams 
