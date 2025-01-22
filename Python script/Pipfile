@@ -8,6 +8,7 @@ requests = "*"
 multipledispatch = "*"
 pyyaml = "*"
 email-validator = "*"
+gitpython = "*"
 
 [dev-packages]
 

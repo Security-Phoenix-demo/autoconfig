@@ -331,3 +331,17 @@ def load_multi_condition_rule(component):
 
     return rule
     
+def load_remote_configuration_locations(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return []
+
+    repos_file = os.path.join(resource_folder, "distributed.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    if not 'configurations' in repos_yaml:
+        raise Exception("Distributed configuration is missing 'configurations' field")
+    
+    return repos_yaml['configurations']
