@@ -6,7 +6,7 @@ import logging
 from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments
 import providers.Phoenix as phoenix_module
 from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access
-from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications, load_remote_configuration_locations, print_dict_to_file
+from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications, load_remote_configuration_locations, print_dict_to_file, load_prompt_config_for_distributed_mode
 from providers.ConfigManager import try_to_add_config, validate_config_repo, ENVIRONMENTS, APPLICATIONS
 #from providers.Aks import get_subscriptions, get_clusters, get_cluster_images
 
@@ -53,6 +53,7 @@ else:
 resources_folder = os.path.join(os.path.dirname(__file__), 'Resources')
 repos_with_config = load_remote_configuration_locations(resources_folder)
 
+prompt_on_duplicate = load_prompt_config_for_distributed_mode(resources_folder)
 applied_configs = {}
 
 for repo_with_config in repos_with_config:
@@ -70,7 +71,7 @@ for repo_with_config in repos_with_config:
             continue
 
         environments = populate_environments_from_env_groups(repo_with_config)
-        environments = try_to_add_config(applied_configs, repo_with_config, ENVIRONMENTS, environments)
+        environments = try_to_add_config(applied_configs, repo_with_config, ENVIRONMENTS, environments, prompt_on_duplicate)
 
         # Populate data from various resources
         repos = populate_repositories(repo_with_config)
@@ -83,7 +84,7 @@ for repo_with_config in repos_with_config:
         defaultAllAccessAccounts = populate_all_access_emails(repo_with_config)
         all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)  # Populate users with full team access
         applications = populate_applications(repo_with_config)
-        applications = try_to_add_config(applied_configs, repo_with_config, APPLICATIONS, applications)
+        applications = try_to_add_config(applied_configs, repo_with_config, APPLICATIONS, applications, prompt_on_duplicate)
     except Exception as e:
         logger.exception(f'Error while processing configuration file in repository {repo_with_config}', exc_info=True)
         continue
@@ -168,51 +169,3 @@ for repo_with_config in repos_with_config:
         print(f"[Diagnostic] [Code] Time Taken: {time.time() - start_time}")
 
 print_dict_to_file("applied_configs.json", applied_configs)
-    
-    # Code actions
-    # if action_code:
-    #     cluster_images = []
-    
-    #     file = "AKSImages.csv"
-    #     subscriptions = get_subscriptions()
-    
-    #     for subscription in subscriptions:
-    #         print(subscription['Name'])
-    #         clusters = get_clusters(subscription)
-    #         for cluster in clusters:
-    #             cluster_images.extend(get_cluster_images(cluster))
-    
-    #         print(f"Total Images Tally: {len(cluster_images)}")
-    
-    #         if cluster_images:
-    #             with open(file, 'w', newline='') as csvfile:
-    #                 writer = csv.writer(csvfile)
-    #                 writer.writerow(cluster_images)
-    
-    #         time.sleep(5)
-    
-    #     if os.path.exists(file):
-    #         print(f"Processing {file}")
-    #         with open(file, 'r') as csvfile:
-    #             csv_data = csv.DictReader(csvfile)
-    
-    #             service_lookup = {"workload-identity-webhook": "Compute"}
-    
-    #             for row in csv_data:
-    #                 found = False
-    #                 if row['Repo']:
-    #                     print(f"Row: {row['Repo']}")
-    #                     if row['Repo'] in service_lookup:
-    #                         environment = next((env for env in environments if row['SubscriptionId'] in env['CloudAccounts']), None)
-    #                         if environment:
-    #                             print(f"Adding container rule for {row['ContainerUrl']} in {environment['Name']}")
-    #                             found = True
-    
-    #                     if not found:
-    #                         repo = next((r for r in repos if r['RepositoryName'] == row['Repo']), None)
-    #                         if repo:
-    #                             print(f"Match found. Subdomain: {repo['Subdomain']}")
-    #                             environment = next((env for env in environments if row['SubscriptionId'] in env['CloudAccounts']), None)
-    #                             if environment:
-    #                                 print(f"Environment found: {environment['Name']}")
-    #                                 print(f"Adding container rule for {row['ContainerUrl']} in {environment['Name']}")
