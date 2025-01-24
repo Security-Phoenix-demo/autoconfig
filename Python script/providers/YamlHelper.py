@@ -347,6 +347,18 @@ def load_remote_configuration_locations(resource_folder):
     
     return repos_yaml['configurations']
 
+def load_prompt_config_for_distributed_mode(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return []
+
+    repos_file = os.path.join(resource_folder, "distributed.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    return repos_yaml.get('promptOnDuplicate', False)
+
 def print_dict_to_file(output_file_path, data_dict):
     with open(output_file_path, 'w') as out:
         json.dump(data_dict, out, indent=4)
