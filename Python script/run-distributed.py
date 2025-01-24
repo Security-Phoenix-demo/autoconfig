@@ -6,7 +6,8 @@ import logging
 from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments
 import providers.Phoenix as phoenix_module
 from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access
-from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications, load_remote_configuration_locations
+from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications, load_remote_configuration_locations, print_dict_to_file
+from providers.ConfigManager import try_to_add_config, validate_config_repo, ENVIRONMENTS, APPLICATIONS
 #from providers.Aks import get_subscriptions, get_clusters, get_cluster_images
 
 
@@ -52,6 +53,8 @@ else:
 resources_folder = os.path.join(os.path.dirname(__file__), 'Resources')
 repos_with_config = load_remote_configuration_locations(resources_folder)
 
+applied_configs = {}
+
 for repo_with_config in repos_with_config:
     try:
         print(f'Pulling latest config for {repo_with_config}')
@@ -63,11 +66,14 @@ for repo_with_config in repos_with_config:
         continue
 
     try:
+        if not validate_config_repo(applied_configs, repo_with_config):
+            continue
+
         environments = populate_environments_from_env_groups(repo_with_config)
+        environments = try_to_add_config(applied_configs, repo_with_config, ENVIRONMENTS, environments)
 
         # Populate data from various resources
         repos = populate_repositories(repo_with_config)
-        domains = populate_domains(repos)
         teams = populate_teams(resources_folder)
         hive_staff = populate_hives(resources_folder)  # List of Hive team staff
         subdomain_owners = populate_subdomain_owners(repos)
@@ -77,6 +83,7 @@ for repo_with_config in repos_with_config:
         defaultAllAccessAccounts = populate_all_access_emails(repo_with_config)
         all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)  # Populate users with full team access
         applications = populate_applications(repo_with_config)
+        applications = try_to_add_config(applied_configs, repo_with_config, APPLICATIONS, applications)
     except Exception as e:
         logger.exception(f'Error while processing configuration file in repository {repo_with_config}', exc_info=True)
         continue
@@ -91,10 +98,7 @@ for repo_with_config in repos_with_config:
         except Exception as e:
             print(f"Error: {e}")
     
-    # Display domains and repos
-    print("\n[Domains]")
-    print(domains)
-    
+    # Display repos
     print("\n[Repos]")
     for repo in repos:
         print(repo['RepositoryName'])
@@ -162,11 +166,8 @@ for repo_with_config in repos_with_config:
         print("Performing deployment action")
         create_deployments(applications, environments, headers)
         print(f"[Diagnostic] [Code] Time Taken: {time.time() - start_time}")
-    
-    
-    
-    
-    
+
+print_dict_to_file("applied_configs.json", applied_configs)
     
     # Code actions
     # if action_code:
