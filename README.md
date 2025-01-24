@@ -589,3 +589,30 @@ This action will iterate over all environments, and then for each environment:
 - for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
     - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
 - if user confirms the component creation, component is created in that environment
+
+
+## Distributed mode
+
+This mode is currently supported in new script `run-distributed.py`.
+
+This mode is using multiple core-structure.yaml configurations, that are specified in 
+`distributed.yaml` file, in property  `configurations`.
+
+Example configuration is:
+
+```
+configurations: # List of local git repos that the script needs to update, and in which the script can find core-structure.yaml file
+  - C:\Users\Administrator\Projects\test_config
+  - C:\Users\Administrator\Projects\test-config2
+  - C:\Users\Administrator\Projects\test_config3
+  - C:\Users\Administrator\Projects\test_config4
+```
+
+This configuration represents folders on local machine that are holding the core-structure.yaml file, and also represent git repositories, that
+this new script will try to update by running `git pull`.
+
+Script will pick up applications and environments from each of the specified repos and run the entire process on each of those configs.
+
+In case there are duplicate applications or environments across different configs, script will do following:
+1. When property `promptOnDuplicate` (in `distributed.yaml`) is set to False, script will ignore duplicates
+2. When property `promptOnDuplicate` (in `distributed.yaml`) is set to True, script will prompt the user to decide whether to include duplicate definitions or not
