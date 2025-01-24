@@ -17,8 +17,7 @@ def validate_config_repo(applied_configs, config_repo):
     applied_configs[config_repo] = {}
     return True
 
-def try_to_add_config(applied_configs, config_repo, config_type, config):
-    print(f'Try to add config for {config_type}. Existing config: {applied_configs}')
+def try_to_add_config(applied_configs, config_repo, config_type, config, prompt_on_duplicate):
     configs_to_not_apply = []
     filtered_configs = []
     for applied_config_key, applied_config_value in applied_configs.copy().items():
@@ -29,7 +28,7 @@ def try_to_add_config(applied_configs, config_repo, config_type, config):
                 for incomming_env in config:
                     if environment['Name'] == incomming_env['Name']:
                         print(f'Detected environment {incomming_env['Name']} definition in {config_repo} that was already defined in {applied_config_key}')
-                        should_include = input(f'Do you want to include the new definition for {incomming_env['Name']}? [yes|no]')
+                        should_include = input(f'Do you want to include the new definition for {incomming_env['Name']}? [yes|no]') if prompt_on_duplicate else 'no'
                         if "no" == should_include:
                             configs_to_not_apply.append(incomming_env['Name'])
 
@@ -42,7 +41,7 @@ def try_to_add_config(applied_configs, config_repo, config_type, config):
                 for incomming_app in config:
                     if application['AppName'] == incomming_app['AppName']:
                         print(f'Detected application {incomming_app['AppName']} definition in {config_repo} that was already defined in {applied_config_key}')
-                        should_include = input(f'Do you want to include the new definition for {incomming_app['AppName']}? [yes|no]')
+                        should_include = input(f'Do you want to include the new definition for {incomming_app['AppName']}? [yes|no]') if prompt_on_duplicate else 'no'
                         if "no" == should_include:
                             configs_to_not_apply.append(incomming_app['AppName'])
             filtered_configs = [x for x in config if x['AppName'] not in configs_to_not_apply]
@@ -50,6 +49,5 @@ def try_to_add_config(applied_configs, config_repo, config_type, config):
                 applied_configs[config_repo] = {}
             applied_configs[config_repo].update({APPLICATIONS: filtered_configs})
 
-    print(f'Config for {config_type} after updating: {applied_configs}')
     return filtered_configs
 
