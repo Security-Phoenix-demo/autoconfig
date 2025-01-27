@@ -606,3 +606,5 @@ Script will pick up applications and environments from each of the specified rep
 In case there are duplicate applications or environments across different configs, script will do following:
 1. When property `promptOnDuplicate` (in `distributed.yaml`) is set to False, script will ignore duplicates
 2. When property `promptOnDuplicate` (in `distributed.yaml`) is set to True, script will prompt the user to decide whether to include duplicate definitions or not
+
+After the script has finished executing, it will generate an output file with all the applied configs, in applied_configs.json.
