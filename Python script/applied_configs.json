@@ -1,0 +1,278 @@
+{
+    "C:\\Users\\Administrator\\Projects\\test_config": {
+        "environments": [
+            {
+                "Name": "TST_Production",
+                "Type": "CLOUD",
+                "Criticality": 9,
+                "CloudAccounts": [
+                    ""
+                ],
+                "Status": "Production",
+                "Responsable": "frankadm@admin.com",
+                "TeamName": "SP_lima20",
+                "Services": [
+                    {
+                        "Service": "Damn-Vulnerable-Source-Code_service",
+                        "Type": "Cloud",
+                        "Tier": 2,
+                        "TeamName": "SP_lima20",
+                        "Deployment_set": "Service1",
+                        "MultiConditionRule": null,
+                        "RepositoryName": [],
+                        "SearchName": "Damn-Vulnerable-Source-Code",
+                        "Tag": "issue:issue-test-asset3",
+                        "Cidr": null,
+                        "Fqdn": null,
+                        "Netbios": null,
+                        "OsNames": null,
+                        "Hostnames": null,
+                        "ProviderAccountId": null,
+                        "ProviderAccountName": null,
+                        "ResourceGroup": null,
+                        "AssetType": null
+                    },
+                    {
+                        "Service": "ProdGRP2",
+                        "Type": "Container",
+                        "Tier": 2,
+                        "TeamName": "SP_lima20",
+                        "Deployment_set": null,
+                        "MultiConditionRule": null,
+                        "RepositoryName": [],
+                        "SearchName": null,
+                        "Tag": "asset.type:workload",
+                        "Cidr": null,
+                        "Fqdn": null,
+                        "Netbios": null,
+                        "OsNames": null,
+                        "Hostnames": null,
+                        "ProviderAccountId": null,
+                        "ProviderAccountName": null,
+                        "ResourceGroup": null,
+                        "AssetType": null
+                    },
+                    {
+                        "Service": "stefan_service9",
+                        "Type": "Infra",
+                        "Tier": 8,
+                        "TeamName": "SP_lima20",
+                        "Deployment_set": null,
+                        "MultiConditionRule": {
+                            "RepositoryName": "testrepo",
+                            "SearchName": "testsearch2",
+                            "Tags": null,
+                            "Cidr": "10.1.1.0/24",
+                            "Fqdn": [
+                                "testfqdn"
+                            ],
+                            "Netbios": [
+                                "testbios"
+                            ],
+                            "OsNames": [
+                                "testosnames"
+                            ],
+                            "Hostnames": [
+                                "testhostnames"
+                            ],
+                            "ProviderAccountId": [
+                                "testaccountid"
+                            ],
+                            "ProviderAccountName": [
+                                "testaccountname"
+                            ],
+                            "ResourceGroup": [
+                                "testresourcegroup"
+                            ],
+                            "AssetType": "REPOSITORY"
+                        },
+                        "RepositoryName": [],
+                        "SearchName": "search_item",
+                        "Tag": "tag1:tagv1",
+                        "Cidr": "10.1.1.0/24",
+                        "Fqdn": [
+                            "testfqdn"
+                        ],
+                        "Netbios": [
+                            "testbios"
+                        ],
+                        "OsNames": [
+                            "testosnames"
+                        ],
+                        "Hostnames": [
+                            "testhostnames"
+                        ],
+                        "ProviderAccountId": [
+                            "testaccountid"
+                        ],
+                        "ProviderAccountName": [
+                            "testaccountname"
+                        ],
+                        "ResourceGroup": [
+                            "testresourcegroup"
+                        ],
+                        "AssetType": "REPOSITORY"
+                    }
+                ]
+            }
+        ],
+        "applications": []
+    },
+    "C:\\Users\\Administrator\\Projects\\test-config2": {
+        "environments": [],
+        "applications": []
+    },
+    "C:\\Users\\Administrator\\Projects\\test_config3": {
+        "environments": [],
+        "applications": [
+            {
+                "AppName": "TST_TestApp109",
+                "Status": null,
+                "TeamNames": [
+                    "SP_lima20",
+                    "SP_axelot20"
+                ],
+                "ReleaseDefinitions": [],
+                "Responsable": "frankadm@admin.com",
+                "Criticality": 7,
+                "Deployment_set": "Service1",
+                "Components": [
+                    {
+                        "ComponentName": "product106-repo10",
+                        "Status": "Production",
+                        "Type": "Release",
+                        "TeamNames": [
+                            "SP_axelot20",
+                            "SP_lima20"
+                        ],
+                        "RepositoryName": [
+                            "Phoenix-ent-demo/Damn-Vulnerable-Source-Code"
+                        ],
+                        "SearchName": "search_item",
+                        "Tags": [
+                            "123",
+                            "1235"
+                        ],
+                        "Cidr": "10.1.1.0/24",
+                        "Fqdn": [
+                            "testfqdn"
+                        ],
+                        "Netbios": [
+                            "testbios"
+                        ],
+                        "OsNames": [
+                            "testosnames"
+                        ],
+                        "Hostnames": [
+                            "testhostnames"
+                        ],
+                        "ProviderAccountId": [
+                            "testaccountid"
+                        ],
+                        "ProviderAccountName": [
+                            "testaccountname"
+                        ],
+                        "ResourceGroup": [
+                            "testresourcegroup"
+                        ],
+                        "AssetType": "REPOSITORY",
+                        "MultiConditionRule": {
+                            "RepositoryName": "testrepo",
+                            "SearchName": "testsearch2",
+                            "Tags": [
+                                "123",
+                                "1235"
+                            ],
+                            "Cidr": "10.1.1.0/24",
+                            "Fqdn": [
+                                "testfqdn"
+                            ],
+                            "Netbios": [
+                                "testbios"
+                            ],
+                            "OsNames": [
+                                "testosnames"
+                            ],
+                            "Hostnames": [
+                                "testhostnames"
+                            ],
+                            "ProviderAccountId": [
+                                "testaccountid"
+                            ],
+                            "ProviderAccountName": [
+                                "testaccountname"
+                            ],
+                            "ResourceGroup": [
+                                "testresourcegroup"
+                            ],
+                            "AssetType": "REPOSITORY"
+                        },
+                        "Criticality": 8,
+                        "Domain": "Security",
+                        "SubDomain": "Simplified Access Management",
+                        "AutomaticSecurityReview": false
+                    },
+                    {
+                        "ComponentName": "product106-repo1-upsert",
+                        "Status": null,
+                        "Type": null,
+                        "TeamNames": [
+                            "SP_axelot20"
+                        ],
+                        "RepositoryName": [
+                            "Phoenix-ent-demo/Damn-Vulnerable-Source-Code222"
+                        ],
+                        "SearchName": null,
+                        "Tags": null,
+                        "Cidr": null,
+                        "Fqdn": null,
+                        "Netbios": null,
+                        "OsNames": null,
+                        "Hostnames": null,
+                        "ProviderAccountId": null,
+                        "ProviderAccountName": null,
+                        "ResourceGroup": null,
+                        "AssetType": null,
+                        "MultiConditionRule": null,
+                        "Criticality": 8,
+                        "Domain": "Security",
+                        "SubDomain": "Simplified Access Management",
+                        "AutomaticSecurityReview": false
+                    },
+                    {
+                        "ComponentName": "product105repo2",
+                        "Status": "Production",
+                        "Type": "Release",
+                        "TeamNames": [
+                            "SP_lima20"
+                        ],
+                        "RepositoryName": [
+                            "Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET",
+                            "Phoenix-ent-demo/gha-sample-workflows-WebGoat2.NET"
+                        ],
+                        "SearchName": null,
+                        "Tags": null,
+                        "Cidr": null,
+                        "Fqdn": null,
+                        "Netbios": null,
+                        "OsNames": null,
+                        "Hostnames": null,
+                        "ProviderAccountId": null,
+                        "ProviderAccountName": null,
+                        "ResourceGroup": null,
+                        "AssetType": null,
+                        "MultiConditionRule": null,
+                        "Criticality": 6,
+                        "Domain": null,
+                        "SubDomain": null,
+                        "AutomaticSecurityReview": null
+                    }
+                ]
+            }
+        ]
+    },
+    "C:\\Users\\Administrator\\Projects\\test_config4": {
+        "environments": [],
+        "applications": []
+    }
+}

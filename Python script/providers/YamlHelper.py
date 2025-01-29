@@ -1,5 +1,6 @@
 import os
 import yaml
+import json
 from pathlib import Path
 from providers.Utils import calculate_criticality
 from email_validator import validate_email, EmailNotValidError
@@ -26,7 +27,7 @@ def populate_repositories(resource_folder):
     with open(core_structure, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
-    for deployment_group in repos_yaml['DeploymentGroups']:
+    for deployment_group in repos_yaml.get('DeploymentGroups', []):
         if 'BuildDefinitions' not in deployment_group:
             continue
         
@@ -70,7 +71,7 @@ def populate_environments_from_env_groups(resource_folder):
     with open(banking_core, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
-    for row in repos_yaml['Environment Groups']:
+    for row in repos_yaml.get('Environment Groups', []):
         # Check if TeamName exists, otherwise, log and continue.
         if not 'TeamName' in row:
             print(f"Skipping environment {row['Name']}, as TeamName is missing.")
@@ -237,7 +238,7 @@ def populate_all_access_emails(resource_folder):
     with open(core_structure, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
-    return repos_yaml['AllAccessAccounts']
+    return repos_yaml.get('AllAccessAccounts', [])
 
 # Populate applications
 
@@ -254,7 +255,7 @@ def populate_applications(resource_folder):
     with open(core_structure, 'r') as stream:
         apps_yaml = yaml.safe_load(stream)
 
-    for row in apps_yaml['DeploymentGroups']:
+    for row in apps_yaml.get('DeploymentGroups', []):
         if not 'TeamNames' in row:
             print(f"Skipping application {row['AppName']}, as TeamNames are missing.")
             continue
@@ -331,3 +332,33 @@ def load_multi_condition_rule(component):
 
     return rule
     
+def load_remote_configuration_locations(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return []
+
+    repos_file = os.path.join(resource_folder, "distributed.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    if not 'configurations' in repos_yaml:
+        raise Exception("Distributed configuration is missing 'configurations' field")
+    
+    return repos_yaml['configurations']
+
+def load_prompt_config_for_distributed_mode(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return []
+
+    repos_file = os.path.join(resource_folder, "distributed.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    return repos_yaml.get('promptOnDuplicate', False)
+
+def print_dict_to_file(output_file_path, data_dict):
+    with open(output_file_path, 'w') as out:
+        json.dump(data_dict, out, indent=4)
