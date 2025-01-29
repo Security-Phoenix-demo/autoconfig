@@ -316,6 +316,7 @@ def load_multi_condition_rule(component):
         "RepositoryName": component['MultiConditionRule'].get("RepositoryName", None),
         "SearchName": component['MultiConditionRule'].get("SearchName", None),
         "Tags": component['MultiConditionRule'].get("Tags", None),
+        "Tag": component['MultiConditionRule'].get("Tag", None),
         "Cidr": component['MultiConditionRule'].get("Cidr", None),
         "Fqdn": component['MultiConditionRule'].get("Fqdn", None),
         "Netbios": component['MultiConditionRule'].get("Netbios", None),
@@ -327,7 +328,8 @@ def load_multi_condition_rule(component):
         "AssetType": component['MultiConditionRule'].get("AssetType", None)
     }
 
-    if not rule['RepositoryName'] and not rule['SearchName'] and not rule['Tags'] and not rule['Cidr']:
+    if not rule['RepositoryName'] and not rule['SearchName'] and not rule['Tags'] and not rule['Tag'] and not rule['Cidr']:
+        print(f'Multicondition rule is missing any of (RepositoryName, SearchName, Tags, Tag, Cidr), skipping multicondition rule.')
         return None
 
     return rule
