@@ -2,16 +2,21 @@ import time
 import csv
 import os
 from git import Repo
+from dotenv import load_dotenv
+import tempfile
 import logging
 from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments
 import providers.Phoenix as phoenix_module
-from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access
+from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access, add_PAT_to_github_repo_url
 from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications, load_remote_configuration_locations, print_dict_to_file, load_prompt_config_for_distributed_mode
 from providers.ConfigManager import try_to_add_config, validate_config_repo, ENVIRONMENTS, APPLICATIONS
 #from providers.Aks import get_subscriptions, get_clusters, get_cluster_images
 
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
+github_pat = os.getenv("GITHUB_PAT")
 
 # Global Variables
 #resource_folder = os.path.join(os.path.dirname(__file__), 'Resources')
@@ -51,42 +56,48 @@ else:
     client_secret = input("Please enter clientSecret: ")
 
 resources_folder = os.path.join(os.path.dirname(__file__), 'Resources')
-repos_with_config = load_remote_configuration_locations(resources_folder)
+repositories = load_remote_configuration_locations(resources_folder)
 
 prompt_on_duplicate = load_prompt_config_for_distributed_mode(resources_folder)
 applied_configs = {}
 
-for repo_with_config in repos_with_config:
+for repository in repositories:
     try:
-        print(f'Pulling latest config for {repo_with_config}')
-        repo = Repo.init(repo_with_config).remote()
+        local_folder = repository.rsplit("/")[4]
+        local_folder_path = os.path.join(tempfile.gettempdir(), local_folder)
+        logger.info(f'Pulling latest config for {local_folder}')
+        if not os.path.exists(local_folder):
+            logger.info(f'Cloning repo for {local_folder}')
+            repository = add_PAT_to_github_repo_url(github_pat, repository)
+            repo = Repo.clone_from(repository, local_folder_path)
+        repo = Repo.init(local_folder_path).remote()
         repo.pull()
-        print(f'Pulled latest config for {repo_with_config}')
+        logger.info(f'Pulled latest config for {local_folder}')
     except Exception as e:
-        logger.exception(f'Error occurred while pulling latest changes for repository {repo_with_config}', exc_info=True)
+        logger.exception(f'Error occurred while pulling latest changes for repository {repository}', exc_info=True)
         continue
 
     try:
-        if not validate_config_repo(applied_configs, repo_with_config):
+        if not validate_config_repo(applied_configs, local_folder_path):
             continue
 
-        environments = populate_environments_from_env_groups(repo_with_config)
-        environments = try_to_add_config(applied_configs, repo_with_config, ENVIRONMENTS, environments, prompt_on_duplicate)
+        environments = populate_environments_from_env_groups(local_folder_path)
+        environments = try_to_add_config(applied_configs, local_folder_path, ENVIRONMENTS, environments, prompt_on_duplicate)
 
         # Populate data from various resources
-        repos = populate_repositories(repo_with_config)
+        repos = populate_repositories(local_folder_path)
         teams = populate_teams(resources_folder)
         hive_staff = populate_hives(resources_folder)  # List of Hive team staff
         subdomain_owners = populate_subdomain_owners(repos)
         subdomains = get_subdomains(repos)
         access_token = get_auth_token(client_id, client_secret)
         pteams = populate_phoenix_teams(access_token)  # Pre-existing Phoenix teams
-        defaultAllAccessAccounts = populate_all_access_emails(repo_with_config)
+        defaultAllAccessAccounts = populate_all_access_emails(local_folder_path)
         all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)  # Populate users with full team access
-        applications = populate_applications(repo_with_config)
-        applications = try_to_add_config(applied_configs, repo_with_config, APPLICATIONS, applications, prompt_on_duplicate)
+        applications = populate_applications(local_folder_path)
+        applications = try_to_add_config(applied_configs, local_folder_path, APPLICATIONS, applications, prompt_on_duplicate)
     except Exception as e:
-        logger.exception(f'Error while processing configuration file in repository {repo_with_config}', exc_info=True)
+        logger.exception(f'Error while processing configuration file in repository {local_folder_path}', exc_info=True)
         continue
     
     # Display teams
@@ -165,7 +176,7 @@ for repo_with_config in repos_with_config:
     
     if action_deployment:
         print("Performing deployment action")
-        create_deployments(applications, environments, headers)
+        create_deployments(applications, environments, app_environments, headers)
         print(f"[Diagnostic] [Code] Time Taken: {time.time() - start_time}")
 
 print_dict_to_file("applied_configs.json", applied_configs)

@@ -345,10 +345,10 @@ def load_remote_configuration_locations(resource_folder):
     with open(repos_file, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
-    if not 'configurations' in repos_yaml:
+    if not 'repositories' in repos_yaml:
         raise Exception("Distributed configuration is missing 'configurations' field")
     
-    return repos_yaml['configurations']
+    return repos_yaml['repositories']
 
 def load_prompt_config_for_distributed_mode(resource_folder):
     if not resource_folder:

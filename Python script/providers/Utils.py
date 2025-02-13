@@ -99,4 +99,8 @@ def group_repos_by_subdomain(repos):
  
     return groupby(sorted_repos, lambda k: k['Subdomain'])
 
-    
+def add_PAT_to_github_repo_url(pat, repo_url):
+    # update the repo_url to contain the PAT right after https://
+    # only for github repos
+    if "https://github.com" in repo_url:
+        return repo_url[:8] + pat + "@" + repo_url[8:]

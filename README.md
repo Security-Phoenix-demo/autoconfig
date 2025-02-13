@@ -596,20 +596,25 @@ This action will iterate over all environments, and then for each environment:
 This mode is currently supported in new script `run-distributed.py`.
 
 This mode is using multiple core-structure.yaml configurations, that are specified in 
-`distributed.yaml` file, in property  `configurations`.
+`distributed.yaml` file, in property  `repositories`.
+
+Each entry in `repositories` is a GitHub repository, that contains configuration file in the root of the repo, in file assetconfig.phoenix (yaml format)
+
+Script now expects an .env file with the following config (in the same folder as `run-distributed.py` script):
+
+```
+
+GITHUB_PAT=<personal access token from GitHub>
+
+```
 
 Example configuration is:
 
 ```
-configurations: # List of local git repos that the script needs to update, and in which the script can find core-structure.yaml file
-  - C:\Users\Administrator\Projects\test_config
-  - C:\Users\Administrator\Projects\test-config2
-  - C:\Users\Administrator\Projects\test_config3
-  - C:\Users\Administrator\Projects\test_config4
-```
+repositories: # List of GitHub repos that the script needs to clone/pull, and in which the script can find assetconfig.phoenix file
+  - https://github.com/stefanpetrovic/test_config5
 
-This configuration represents folders on local machine that are holding the core-structure.yaml file, and also represent git repositories, that
-this new script will try to update by running `git pull`.
+```
 
 Script will pick up applications and environments from each of the specified repos and run the entire process on each of those configs.
 

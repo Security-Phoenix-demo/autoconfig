@@ -1,7 +1,4 @@
-configurations: # List of local git repos that the script needs to update, and in which the script can find core-structure.yaml file
-  - C:\Users\Administrator\Projects\test_config
-  - C:\Users\Administrator\Projects\test-config2
-  - C:\Users\Administrator\Projects\test_config3
-  - C:\Users\Administrator\Projects\test_config4
+repositories: # List of GitHub repos that the script needs to clone/pull, and in which the script can find assetconfig.phoenix file
+  - https://github.com/stefanpetrovic/test_config5
 
 promptOnDuplicate: False # in case a duplicate application or environment is detected, prompt the user to decide whether to include that duplicate config
