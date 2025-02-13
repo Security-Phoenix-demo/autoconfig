@@ -15,14 +15,14 @@ except ImportError:
 
 
 # Function to populate repositories
-def populate_repositories(resource_folder):
+def populate_repositories(resource_folder, config_file_name = "core-structure.yaml"):
     repos = []
 
     if not resource_folder:
         print("Please supply path for the resources")
         return repos
 
-    core_structure = os.path.join(resource_folder, "core-structure.yaml")
+    core_structure = os.path.join(resource_folder, config_file_name)
 
     with open(core_structure, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
@@ -59,14 +59,14 @@ def populate_repositories(resource_folder):
 
 
 # Function to populate environments
-def populate_environments_from_env_groups(resource_folder):
+def populate_environments_from_env_groups(resource_folder, config_file_name = "core-structure.yaml"):
     envs = []
 
     if not resource_folder:
         print("Please supply path for the resources")
         return envs
 
-    banking_core = os.path.join(resource_folder, "core-structure.yaml")
+    banking_core = os.path.join(resource_folder, config_file_name)
 
     with open(banking_core, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
@@ -227,14 +227,14 @@ def conditionally_replace_first_last_name_with_email(is_custom_email, company_em
     return first_last_name_or_email.strip().lower().replace(" ", ".") + "@" + company_email_domain
 
 
-def populate_all_access_emails(resource_folder):
+def populate_all_access_emails(resource_folder, config_file_name = "core-structure.yaml"):
     all_access_emails = []
 
     if not resource_folder:
         print("Please supply path for the resources")
         return all_access_emails
 
-    core_structure = os.path.join(resource_folder, "core-structure.yaml")
+    core_structure = os.path.join(resource_folder, config_file_name)
 
     with open(core_structure, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
@@ -244,14 +244,14 @@ def populate_all_access_emails(resource_folder):
 # Populate applications
 
 # Populate applications
-def populate_applications(resource_folder):
+def populate_applications(resource_folder, config_file_name = "core-structure.yaml"):
     apps = []
 
     if not resource_folder:
         print("Please supply path for the resources")
         return apps
 
-    core_structure = os.path.join(resource_folder, "core-structure.yaml")
+    core_structure = os.path.join(resource_folder, config_file_name)
 
     with open(core_structure, 'r') as stream:
         apps_yaml = yaml.safe_load(stream)

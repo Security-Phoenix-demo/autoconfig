@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 github_pat = os.getenv("GITHUB_PAT")
-
+config_file_name = "assetconfig.phoenix"
 # Global Variables
 #resource_folder = os.path.join(os.path.dirname(__file__), 'Resources')
 client_id = ""
@@ -81,20 +81,20 @@ for repository in repositories:
         if not validate_config_repo(applied_configs, local_folder_path):
             continue
 
-        environments = populate_environments_from_env_groups(local_folder_path)
+        environments = populate_environments_from_env_groups(local_folder_path, config_file_name)
         environments = try_to_add_config(applied_configs, local_folder_path, ENVIRONMENTS, environments, prompt_on_duplicate)
 
         # Populate data from various resources
-        repos = populate_repositories(local_folder_path)
+        repos = populate_repositories(local_folder_path, config_file_name)
         teams = populate_teams(resources_folder)
         hive_staff = populate_hives(resources_folder)  # List of Hive team staff
         subdomain_owners = populate_subdomain_owners(repos)
         subdomains = get_subdomains(repos)
         access_token = get_auth_token(client_id, client_secret)
         pteams = populate_phoenix_teams(access_token)  # Pre-existing Phoenix teams
-        defaultAllAccessAccounts = populate_all_access_emails(local_folder_path)
+        defaultAllAccessAccounts = populate_all_access_emails(local_folder_path, config_file_name)
         all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)  # Populate users with full team access
-        applications = populate_applications(local_folder_path)
+        applications = populate_applications(local_folder_path, config_file_name)
         applications = try_to_add_config(applied_configs, local_folder_path, APPLICATIONS, applications, prompt_on_duplicate)
     except Exception as e:
         logger.exception(f'Error while processing configuration file in repository {local_folder_path}', exc_info=True)
