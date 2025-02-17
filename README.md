@@ -579,3 +579,13 @@ Deployment sets are created for Levenshtein ratio greater than SIMILARITY_THRESH
 This action goes through all environments, services, applications and components, checks which teams are mentioned and 
 automatically creates them if they are missing.
 It will also create auto-link rules based on pteam tag.
+
+
+## Create components from environment assets
+
+This action will iterate over all environments, and then for each environment:
+- fetch assets for types ("CONTAINER", "CLOUD")
+- group assets per name similarity (similarity is configurable through ASSET_NAME_SIMILARITY_THRESHOLD variable in Phoenix.py)
+- for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
+    - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
+- if user confirms the component creation, component is created in that environment

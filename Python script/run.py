@@ -1,7 +1,7 @@
 import time
 import csv
 import os
-from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments, create_autolink_deployments, create_teams_from_pteams
+from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments, create_autolink_deployments, create_teams_from_pteams, create_components_from_assets
 import providers.Phoenix as phoenix_module
 from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access
 from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications
@@ -18,6 +18,7 @@ action_cloud = True
 action_deployment = True
 action_autolink_deploymentset = True
 action_autocreate_teams_from_pteam = True
+action_create_components_from_assets = True
 
 # Handle command-line arguments or prompt for input
 import sys
@@ -25,10 +26,10 @@ args = sys.argv[1:]
 
 print("Arguments supplied:", len(args))
 
-if len(args) == 9:
+if len(args) == 10:
     client_id = args[0]
     client_secret = args[1]
-    phoenix_module.APIdomain = args[8]
+    phoenix_module.APIdomain = args[9]
     if args[2].lower() == "false":
         action_teams = False
 
@@ -46,6 +47,9 @@ if len(args) == 9:
 
     if args[7].lower() == 'false':
         action_autocreate_teams_from_pteam = False
+
+    if args[8].lower() == 'false':
+        action_create_components_from_assets = False
 
     print(f"Teams: {action_teams}, Code: {action_code}, Cloud: {action_cloud}, Deployment: {action_deployment},\
            Autolink deploymentset: {action_autolink_deploymentset}")
@@ -161,6 +165,13 @@ if action_autocreate_teams_from_pteam:
     print("Performing autocreate teams from pteam")
     create_teams_from_pteams(applications, environments, pteams, access_token)
     print(f"[Diagnostic] [Autocreate teams from pteam] Time Taken: {time.time() - start_time}")
+    start_time = time.time()
+
+if action_create_components_from_assets:
+    print("Performing create components/services from assets")
+    create_components_from_assets(app_environments, phoenix_components, headers)
+    print(f"[Diagnostic] [Create components/services from assets] Time Taken: {time.time() - start_time}")
+
 
 
 # Code actions

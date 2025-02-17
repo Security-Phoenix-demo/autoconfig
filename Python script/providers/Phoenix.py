@@ -8,6 +8,9 @@ from providers.Utils import group_repos_by_subdomain, calculate_criticality
 
 
 SIMILARITY_THRESHOLD = 0.9 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
+ASSET_NAME_SIMILARITY_THRESHOLD = 0.9 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
+ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with similar name that will trigger component creation
+
 APIdomain = "https://api.YOURDOMAIN.securityphoenix.cloud" #change this with your specific domain
 DEBUG = False #debug settings to trigger debug output 
 
@@ -1588,3 +1591,82 @@ def create_autolink_deployments(applications, environments, headers):
             else:
                 print(f"Error: {e}")
                 exit(1)
+
+def get_assets(applicationEnvironmentId, type, headers):
+    asset_request = {
+        "requests": [
+            {
+                "type": type,
+                "applicationEnvironmentId": applicationEnvironmentId
+            }
+        ]
+    }
+    try:
+        print(f"Fetching assets for {applicationEnvironmentId} and {type}")
+        api_url = construct_api_url(f"/v1/assets?pageNumber=0&pageSize=100")
+        response = requests.post(api_url, headers=headers, json = asset_request)
+        response.raise_for_status()
+
+        data = response.json()
+        assets = [asset['name'] for asset in data.get('content', [])]
+        total_pages = data.get('totalPages', 1)
+        for i in range(1, total_pages):
+            api_url = construct_api_url(f"/v1/assets?pageNumber={i}&pageSize=100")
+            response = requests.post(api_url, headers=headers, json = asset_request)
+            new_assets = [asset['name'] for asset in response.json().get('content', [])]
+            assets += new_assets
+
+        return assets  
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        exit(1)
+
+def group_assets_by_similar_name(assets):
+    asset_groups = []
+    for asset in assets:
+        added_to_group = False
+        for group in asset_groups:
+            should_add_to_group = True
+            for groupped_asset in group:
+                if Levenshtein.ratio(asset, groupped_asset) < ASSET_NAME_SIMILARITY_THRESHOLD:
+                    should_add_to_group = False
+                    break
+            if should_add_to_group:
+                group.append(asset)
+                added_to_group = True
+                break
+        if not added_to_group:
+            asset_groups.append([asset,])
+            continue
+    return asset_groups
+
+def create_components_from_assets(applicationEnvironments, phoenix_components, headers):
+    types = ["CONTAINER", "CLOUD"]
+    phoenix_component_names = [pcomponent.get('name') for pcomponent in phoenix_components]
+    for type in types:
+        already_suggested_components = set()
+        for appEnv in applicationEnvironments:
+            if appEnv.get('type') == "ENVIRONMENT":
+                assets = get_assets(appEnv.get("id"), type, headers)
+                asset_groups = group_assets_by_similar_name(assets)
+                for group in asset_groups:
+                    if len(group) > ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION and not group[0] in already_suggested_components\
+                        and not group[0] in phoenix_component_names:
+                        answer = input(f'Would you like to create component {group[0]} in environment: {appEnv.get('name')}? [Y for yes] [N for no] [A for alter name]')
+                        already_suggested_components.add(group[0])
+                        component_name = group[0]
+                        if answer == 'N':
+                            continue
+                        if answer == 'A':
+                            component_name = input("Component name:")
+                            already_suggested_components.add(component_name)
+                        print(f'Creating component with name {component_name} in environment: {appEnv.get('name')}')
+                        component_to_create = {
+                            "Status": None,
+                            "Type": None,
+                            "TeamNames": [next((tag['value'] for tag in appEnv['tags'] if 'value' in tag and 'key' in tag and tag['key'] == 'pteam'), None)],
+                            "ComponentName": component_name
+                        }
+                        create_custom_component(appEnv['name'], component_to_create, headers)
+                        print(f'Created component with name {component_name} in environment: {appEnv.get('name')}')
