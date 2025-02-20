@@ -12,7 +12,7 @@ resource_folder = os.path.join(os.path.dirname(__file__), 'Resources')
 client_id = ""
 client_secret = ""
 access_token = ""
-action_teams = True
+action_teams = ""
 action_code = True
 action_cloud = True
 action_deployment = True
@@ -51,8 +51,7 @@ if len(args) == 10:
     if args[8].lower() == 'false':
         action_create_components_from_assets = False
 
-    print(f"Teams: {action_teams}, Code: {action_code}, Cloud: {action_cloud}, Deployment: {action_deployment},\
-           Autolink deploymentset: {action_autolink_deploymentset}")
+    print(f"Teams: {action_teams}, Code: {action_code}, Cloud: {action_cloud}, Deployment: {action_deployment}, Autolink deploymentset: {action_autolink_deploymentset}")
 else:
     client_id = input("Please enter clientID: ")
     client_secret = input("Please enter clientSecret: ")

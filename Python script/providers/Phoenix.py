@@ -3,12 +3,13 @@ import requests
 import json
 import time
 import Levenshtein
+import random
 from multipledispatch import dispatch
 from providers.Utils import group_repos_by_subdomain, calculate_criticality
 
 
-SIMILARITY_THRESHOLD = 0.9 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
-ASSET_NAME_SIMILARITY_THRESHOLD = 0.9 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
+SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
+ASSET_NAME_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
 ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with similar name that will trigger component creation
 
 APIdomain = "https://api.YOURDOMAIN.securityphoenix.cloud" #change this with your specific domain
@@ -188,26 +189,26 @@ def add_service_rule_batch(environment, service, headers):
             print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
             return
         
-        create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f'Rule for tags for {service['Service']}', headers)
+        create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
         
     if service.get('SearchName'):
-        create_component_rule(environmentName, serviceName, 'keyLike', service['SearchName'], f'Rule for keyLike for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'keyLike', service['SearchName'], f"Rule for keyLike for {service['ComponentName']}", headers)
     if service.get('Fqdn'):
-        create_component_rule(environmentName, serviceName, 'fqdn', service['Fqdn'], f'Rule for fqdn for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'fqdn', service['Fqdn'], f"Rule for fqdn for {serviceName}", headers)
     if service.get('Netbios'):
-        create_component_rule(environmentName, serviceName, 'netbios', service['Netbios'], f'Rule for netbios for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'netbios', service['Netbios'], f"Rule for netbios for {serviceName}", headers)
     if service.get('OsNames'):
-        create_component_rule(environmentName, serviceName, 'osNames', service['OsNames'], f'Rule for osNames for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'osNames', service['OsNames'], f"Rule for osNames for {serviceName}", headers)
     if service.get('Hostnames'):
-        create_component_rule(environmentName, serviceName, 'hostnames', service['Hostnames'], f'Rule for hostnames for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'hostnames', service['Hostnames'], f"Rule for hostnames for {serviceName}", headers)
     if service.get('ProviderAccountId'):
-        create_component_rule(environmentName, serviceName, 'providerAccountId', service['ProviderAccountId'], f'Rule for providerAccountId for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'providerAccountId', service['ProviderAccountId'], f"Rule for providerAccountId for {serviceName}", headers)
     if service.get('ProviderAccountName'):
-        create_component_rule(environmentName, serviceName, 'providerAccountName', service['ProviderAccountName'], f'Rule for providerAccountName for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'providerAccountName', service['ProviderAccountName'], f"Rule for providerAccountName for {serviceName}", headers)
     if service.get('ResourceGroup'):
-        create_component_rule(environmentName, serviceName, 'resourceGroup', service['ResourceGroup'], f'Rule for resourceGroup for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'resourceGroup', service['ResourceGroup'], f"Rule for resourceGroup for {serviceName}", headers)
     if service.get('AssetType'):
-        create_component_rule(environmentName, serviceName, 'assetType', service['AssetType'], f'Rule for assetType for {serviceName}', headers)
+        create_component_rule(environmentName, serviceName, 'assetType', service['AssetType'], f"Rule for assetType for {serviceName}", headers)
 
     if service.get('MultiConditionRule'):
         create_multicondition_service_rule(environmentName, serviceName, service.get('MultiConditionRule'), headers)
@@ -258,7 +259,7 @@ def create_application(app, headers):
 
     for team in app['TeamNames']:
         payload['tags'].append({"key": "pteam", "value": team})
-                               
+                    
     if DEBUG:
         print(f"Payload being sent to /v1rule: {json.dumps(payload, indent=2)}")
 
@@ -315,7 +316,7 @@ def create_custom_component(applicationName, component, headers):
     try:
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f"{component['ComponentName']} component added.")
+        print(f"Created component with name {component['ComponentName']} in environment: {applicationName}")
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
@@ -438,30 +439,30 @@ def update_application_crit_owner(application, existing_application, headers):
 
 def create_component_rules(applicationName, component, headers):
     if component.get('SearchName'):
-        create_component_rule(applicationName, component['ComponentName'], 'keyLike', component['SearchName'], f'Rule for keyLike for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'keyLike', component['SearchName'], f"Rule for keyLike for {component['ComponentName']}", headers)
     if component.get('Tags'):
         tags_to_add = []
         for tag in component.get('Tags'):
             tags_to_add.append({'value': tag})
-        create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f'Rule for tags for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
     if component.get('Cidr'):
-        create_component_rule(applicationName, component['ComponentName'], 'cidr', component['Cidr'], f'Rule for cidr for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'cidr', component['Cidr'], f"Rule for cidr for {component['ComponentName']}", headers)
     if component.get('Fqdn'):
-        create_component_rule(applicationName, component['ComponentName'], 'fqdn', component['Fqdn'], f'Rule for fqdn for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'fqdn', component['Fqdn'], f"Rule for fqdn for {component['ComponentName']}", headers)
     if component.get('Netbios'):
-        create_component_rule(applicationName, component['ComponentName'], 'netbios', component['Netbios'], f'Rule for netbios for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'netbios', component['Netbios'], f"Rule for netbios for {component['ComponentName']}", headers)
     if component.get('OsNames'):
-        create_component_rule(applicationName, component['ComponentName'], 'osNames', component['OsNames'], f'Rule for osNames for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'osNames', component['OsNames'], f"Rule for osNames for {component['ComponentName']}", headers)
     if component.get('Hostnames'):
-        create_component_rule(applicationName, component['ComponentName'], 'hostnames', component['Hostnames'], f'Rule for hostnames for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'hostnames', component['Hostnames'], f"Rule for hostnames for {component['ComponentName']}", headers)
     if component.get('ProviderAccountId'):
-        create_component_rule(applicationName, component['ComponentName'], 'providerAccountId', component['ProviderAccountId'], f'Rule for providerAccountId for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'providerAccountId', component['ProviderAccountId'], f"Rule for providerAccountId for {component['ComponentName']}", headers)
     if component.get('ProviderAccountName'):
-        create_component_rule(applicationName, component['ComponentName'], 'providerAccountName', component['ProviderAccountName'], f'Rule for providerAccountName for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'providerAccountName', component['ProviderAccountName'], f"Rule for providerAccountName for {component['ComponentName']}", headers)
     if component.get('ResourceGroup'):
-        create_component_rule(applicationName, component['ComponentName'], 'resourceGroup', component['ResourceGroup'], f'Rule for resourceGroup for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'resourceGroup', component['ResourceGroup'], f"Rule for resourceGroup for {component['ComponentName']}", headers)
     if component.get('AssetType'):
-        create_component_rule(applicationName, component['ComponentName'], 'assetType', component['AssetType'], f'Rule for assetType for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'assetType', component['AssetType'], f"Rule for assetType for {component['ComponentName']}", headers)
     
 
     if component.get('MultiConditionRule'):
@@ -471,7 +472,7 @@ def create_component_rules(applicationName, component, headers):
     if isinstance(repository_names, str):
         repository_names = [repository_names]
     for repo_name in repository_names:
-        create_component_rule(applicationName, component['ComponentName'], 'repository', [repo_name], f'Rule for repository for {component['ComponentName']}', headers)
+        create_component_rule(applicationName, component['ComponentName'], 'repository', [repo_name], f"Rule for repository for {component['ComponentName']}", headers)
 
             
 # Handle Repository Rule Creation for Components
@@ -1299,17 +1300,17 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers):
         print(f"Error adding tag: {e}")
 
 # Helper function to assign users to a team
-def api_call_assign_users_to_team(team_id, user_email, access_token):
+def api_call_assign_users_to_team(team_id, email, access_token):
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     payload = {
-        "users": [{"email": user_email}]
+        "users": [{"email": email}], "autoCreateUsers": True
     }
 
     api_url = construct_api_url(f"/v1/teams/{team_id}/users")
     
     response = requests.put(api_url, headers=headers, json=payload)
     response.raise_for_status()
-    print(f" + User {user_email} added to team {team_id}")
+    print(f" + User {email} added to team {team_id}")
 
 # Helper function to delete team members
 def delete_team_member(user_email, team_id, access_token):
@@ -1451,7 +1452,7 @@ def get_phoenix_team_members(team_id, headers):
         print(f"Error: {e}")
         return []
 
-def api_call_assign_users_to_team(team_id, email, headers):
+def api_call_assign_users_to_team(team_id, email, access_token):
     payload = {"users": [{"email": email}], "autoCreateUsers": True}
 
     try:
@@ -1468,7 +1469,7 @@ def api_call_assign_users_to_team(team_id, email, headers):
             print(f"Error: {e}")
             exit(1)
 
-def delete_team_member(email, team_id, headers):
+def delete_team_member(email, team_id, access_token):
     try:
         api_url = construct_api_url(f"/v1/teams/{team_id}/users/{email}")
         response = requests.delete(api_url, headers=headers)
@@ -1491,18 +1492,10 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
                 if service.get('Deployment_set') and service.get('Deployment_set') == deployment_set:
                     application_services.append({
                         "applicationSelector": {
-                            #"id": app.get("id"),
                             "name": app.get("AppName"),
-                            #"caseSensitive": true
                         },
                         "serviceSelector": {
-                            #"id": service.get("id"),
                             "name": service.get("Service"),
-                            #"tags": [
-                            #    {
-                            #        "value": deployment_set
-                            #    }
-                            #]
                         }
                     })
                 if service.get('Deployment_tag') and service.get('Deployment_tag') == deployment_set:
@@ -1521,29 +1514,51 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
     
     print(f'Number of deployments to add {len(application_services)}')
 
-    for deployment in application_services:
-        app_name = deployment['applicationSelector']['name']
-        app_id = next((x.get('id') for x in phoenix_apps_envs if x.get('type') == "APPLICATION" and x.get("name").lower() == app_name.lower()), None)
-        if not app_id:
-            print(f'App not found for name {app_name}')
-            continue
-        use_service_name = 'name' in deployment['serviceSelector']
-        try:
-            deployment = {"serviceSelector": deployment["serviceSelector"]}
-            api_url = construct_api_url(f"/v1/applications/{app_id}/deploy")
-            response = requests.patch(api_url, headers=headers, json=deployment)
-            response.raise_for_status()
-            print(f" + Deployment for application {app_name} and \
-                   { 'service name: ' + deployment['serviceSelector']['name'] if use_service_name \
-                    else 'Service deployment tag: ' + str(deployment['serviceSelector']['tags'][0])}")
-        except requests.exceptions.RequestException as e:
-            if response.status_code == 409:
-                print(f" + Deployment for application {app_name} and \
-                   { 'service name: ' + deployment['serviceSelector']['name'] if use_service_name \
-                    else 'Service deployment tag: ' + str(deployment['serviceSelector']['tags'])} already exists.")
-            else:
-                print(f"Error: {e}")
-                print(response.text)
+    batch_size = 10
+    consecutive_400_errors = 0  # Counter for consecutive 400 errors
+    for i in range(0, len(application_services), batch_size):
+        batch = application_services[i:i + batch_size]
+        for deployment in batch:
+            app_name = deployment['applicationSelector']['name']
+            app_id = next((x.get('id') for x in phoenix_apps_envs if x.get('type') == "APPLICATION" and x.get("name").lower() == app_name.lower()), None)
+            if not app_id:
+                print(f'App not found for name {app_name}')
+                continue
+            use_service_name = 'name' in deployment['serviceSelector']
+            retry_attempts = 3  # Number of retry attempts
+            for attempt in range(retry_attempts):
+                try:
+                    deployment_payload = {"serviceSelector": deployment["serviceSelector"]}
+                    api_url = construct_api_url(f"/v1/applications/{app_id}/deploy")
+                    response = requests.patch(api_url, headers=headers, json=deployment_payload)
+                    response.raise_for_status()
+                    print(f" + Deployment for application {app_name} and "
+                          f"{'service name: ' + deployment['serviceSelector']['name'] if use_service_name else 'Service deployment tag: ' + str(deployment['serviceSelector']['tags'])} created.")
+                    consecutive_400_errors = 0  # Reset counter on success
+                    break  # Exit the retry loop if successful
+                except requests.exceptions.RequestException as e:
+                    if response.status_code == 409:
+                        print(f" + Deployment for application {app_name} and "
+                              f"{'service name: ' + deployment['serviceSelector']['name'] if use_service_name else 'Service deployment tag: ' + str(deployment['serviceSelector']['tags'])} already exists.")
+                        consecutive_400_errors = 0  # Reset counter on success
+                        break  # No need to retry if the deployment already exists
+                    elif response.status_code == 400:
+                        print(f"Error 400: Bad request for deployment {app_name}. Waiting for 2 seconds before retrying...")
+                        time.sleep(2)  # Wait for 2 seconds before retrying
+                        consecutive_400_errors += 1
+                        if consecutive_400_errors > 3:
+                            wait_time = random.randint(2, 6)
+                            print(f"More than 3 consecutive 400 errors. Waiting for {wait_time} seconds...")
+                            time.sleep(wait_time)  # Wait for a random time between 2 and 6 seconds
+                    else:
+                        print(f"Error: {e}")
+                        if attempt < retry_attempts - 1:
+                            print(f"Retrying... (Attempt {attempt + 2}/{retry_attempts})")
+                            time.sleep(0.5)  # Wait for 0.5 seconds before retrying
+                        else:
+                            print("Failed after multiple attempts.")
+                            exit(1)
+        time.sleep(1)  # Wait for 1 second after processing each batch
 
 def check_app_name_matches_service_name(app_name, service_name):
     if app_name.lower() == service_name.lower():
@@ -1579,18 +1594,34 @@ def create_autolink_deployments(applications, environments, headers):
                     })
     print(f'Number of deployments to add {len(deployments)}')
 
-    for deployment in deployments:
-        try:
-            api_url = construct_api_url(f"/v1/applications/deploy")
-            response = requests.patch(api_url, headers=headers, json=deployment)
-            response.raise_for_status()
-            print(f" + Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']}")
-        except requests.exceptions.RequestException as e:
-            if response.status_code == 409:
-                print(f" - Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']} already exists.")
-            else:
-                print(f"Error: {e}")
-                exit(1)
+    batch_size = 10
+    for i in range(0, len(deployments), batch_size):
+        batch = deployments[i:i + batch_size]
+        for deployment in batch:
+            retry_attempts = 3  # Number of retry attempts
+            for attempt in range(retry_attempts):
+                try:
+                    api_url = construct_api_url(f"/v1/applications/deploy")
+                    response = requests.patch(api_url, headers=headers, json=deployment)
+                    response.raise_for_status()
+                    print(f" + Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']}")
+                    break  # Exit the retry loop if successful
+                except requests.exceptions.RequestException as e:
+                    if response.status_code == 409:
+                        print(f" - Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']} already exists.")
+                        break  # No need to retry if the deployment already exists
+                    elif response.status_code == 400:
+                        print(f"Error 400: Bad request for deployment {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']}. Waiting for 2 seconds before retrying...")
+                        time.sleep(2)  # Wait for 2 seconds before retrying
+                    else:
+                        print(f"Error: {e}")
+                        if attempt < retry_attempts - 1:
+                            print(f"Retrying... (Attempt {attempt + 2}/{retry_attempts})")
+                            time.sleep(0.5)  # Wait for 0.5 seconds before retrying
+                        else:
+                            print("Failed after multiple attempts.")
+                            exit(1)
+        time.sleep(1)  # Wait for 1 second after processing each batch
 
 def get_assets(applicationEnvironmentId, type, headers):
     asset_request = {
@@ -1653,7 +1684,7 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                 for group in asset_groups:
                     if len(group) > ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION and not group[0] in already_suggested_components\
                         and not group[0] in phoenix_component_names:
-                        answer = input(f'Would you like to create component {group[0]} in environment: {appEnv.get('name')}? [Y for yes] [N for no] [A for alter name]')
+                        answer = input(f"Would you like to create component {group[0]} in environment: {appEnv.get('name')}? [Y for yes] [N for no] [A for alter name]")
                         already_suggested_components.add(group[0])
                         component_name = group[0]
                         if answer == 'N':
@@ -1661,7 +1692,7 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                         if answer == 'A':
                             component_name = input("Component name:")
                             already_suggested_components.add(component_name)
-                        print(f'Creating component with name {component_name} in environment: {appEnv.get('name')}')
+                        print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
                         component_to_create = {
                             "Status": None,
                             "Type": None,
@@ -1669,4 +1700,4 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                             "ComponentName": component_name
                         }
                         create_custom_component(appEnv['name'], component_to_create, headers)
-                        print(f'Created component with name {component_name} in environment: {appEnv.get('name')}')
+                        print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
