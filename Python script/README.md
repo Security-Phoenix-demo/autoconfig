@@ -488,6 +488,9 @@ Deployed applications is the association of Applications to the Service.
 This is based on the logic that Applications (subdomains) are the same as the Service(subdomain).
 
 This association is achieved via `Deployment_set` element in Application and Service.
+Application and Service that have the same value of `Deployment_set` element will be included in the deployment. 
+Deployment is done by application and service names.
+
 Example:
 
 ```
@@ -589,3 +592,16 @@ This action will iterate over all environments, and then for each environment:
 - for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
     - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
 - if user confirms the component creation, component is created in that environment
+
+
+## Overview of commands to run autoconfig, with examples
+
+| Command to run                                                                 | client_id   | client_secret   | action_teams | action_code | action_cloud | action_deployment | action_autolink_deploymentset | action_autocreate_teams_from_pteams | action_create_components_from_assets | API domain   | Example command                                                                                 |
+|--------------------------------------------------------------------------------|-------------|-----------------|--------------|-------------|--------------|-------------------|-------------------------------|-------------------------------------|--------------------------------------|--------------|-------------------------------------------------------------------------------------------------|
+| create teams                                                                   | <client_id> | <client_secret> | True         | false       | false        | false             | false                         | false                               | false                                | <api domain> | python run.py <client_id> <client_secret> True false false false false false false <api domain> |
+| create applications and components                                             | <client_id> | <client_secret> | false        | True        | false        | false             | false                         | false                               | false                                | <api domain> | python run.py <client_id> <client_secret> false True false false false false false <api domain> |
+| create environments and services                                               | <client_id> | <client_secret> | false        | false       | True         | false             | false                         | false                               | false                                | <api domain> | python run.py <client_id> <client_secret> false false True false false false false <api domain> |
+| Deployment by 'Deployment_set' or 'Deployment_tag'                             | <client_id> | <client_secret> | false        | false       | false        | True              | false                         | false                               | false                                | <api domain> | python run.py <client_id> <client_secret> false false false True false false false <api domain> |
+| Auto create deployments based on application name  and service name similarity | <client_id> | <client_secret> | false        | false       | false        | false             | True                          | false                               | false                                | <api domain> | python run.py <client_id> <client_secret> false false false false True false false <api domain> |
+| Auto create teams from pteam tags in config                                    | <client_id> | <client_secret> | false        | false       | false        | false             | false                         | True                                | false                                | <api domain> | python run.py <client_id> <client_secret> false false false false false True false <api domain> |
+| Create assets from components/services  with similar name                      | <client_id> | <client_secret> | false        | false       | false        | false             | false                         | false                               | True                                 | <api domain> | python run.py <client_id> <client_secret> false false false false false false True <api domain> |
