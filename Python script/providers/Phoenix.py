@@ -210,6 +210,8 @@ def add_service_rule_batch(environment, service, headers):
     if service.get('AssetType'):
         create_component_rule(environmentName, serviceName, 'assetType', service['AssetType'], f"Rule for assetType for {serviceName}", headers)
 
+    if service.get('MultiConditionRule'):
+        create_multicondition_service_rules(environmentName, serviceName, [service.get('MultiConditionRule')], headers)
     if service.get('MultiConditionRules'):
         create_multicondition_service_rules(environmentName, serviceName, service.get('MultiConditionRules'), headers)
 
@@ -463,7 +465,9 @@ def create_component_rules(applicationName, component, headers):
         create_component_rule(applicationName, component['ComponentName'], 'resourceGroup', component['ResourceGroup'], f"Rule for resourceGroup for {component['ComponentName']}", headers)
     if component.get('AssetType'):
         create_component_rule(applicationName, component['ComponentName'], 'assetType', component['AssetType'], f"Rule for assetType for {component['ComponentName']}", headers)
-    
+
+    if component.get('MultiConditionRule'):
+        create_multicondition_component_rules(applicationName, component['ComponentName'], [component.get('MultiConditionRule')], headers)    
 
     if component.get('MultiConditionRules'):
         create_multicondition_component_rules(applicationName, component['ComponentName'], component.get('MultiConditionRules'), headers)

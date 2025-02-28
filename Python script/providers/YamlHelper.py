@@ -102,6 +102,7 @@ def populate_environments_from_env_groups(resource_folder):
                     'TeamName': service.get('TeamName', item['TeamName']),  # Default to environment's TeamName if missing
                     'Deployment_set': service.get('Deployment_set', None),
                     'Deployment_tag': service.get('Deployment_tag', None),
+                    'MultiConditionRule': load_multi_condition_rule(service.get('MultiConditionRule', None)),
                     'MultiConditionRules': load_multi_condition_rules(service),
                     'RepositoryName': repository_names,  # Properly handle missing 'RepositoryName'
                     'SearchName': service.get('SearchName', None),
@@ -297,6 +298,7 @@ def populate_applications(resource_folder):
                 "ProviderAccountName": component.get("ProviderAccountName", None),
                 "ResourceGroup": component.get("ResourceGroup", None),
                 "AssetType": component.get("AssetType", None),
+                'MultiConditionRule': load_multi_condition_rule(component.get('MultiConditionRule', None)),
                 'MultiConditionRules': load_multi_condition_rules(component),
                 'Criticality': calculate_criticality(component.get('Tier', 5)),  # Handle missing 'Tier'
                 'Domain': component.get('Domain', None),  # Handle missing 'Domain'
@@ -308,33 +310,40 @@ def populate_applications(resource_folder):
 
     return apps
 
+def load_multi_condition_rule(mcr):
+    if not mcr:
+        return None
+    rule = {
+        "RepositoryName": mcr.get("RepositoryName", None),
+        "SearchName": mcr.get("SearchName", None),
+        "Tags": mcr.get("Tags", None),
+        "Tag": mcr.get("Tag", None),
+        "Cidr": mcr.get("Cidr", None),
+        "Fqdn": mcr.get("Fqdn", None),
+        "Netbios": mcr.get("Netbios", None),
+        "OsNames": mcr.get("OsNames", None),
+        "Hostnames": mcr.get("Hostnames", None),
+        "ProviderAccountId": mcr.get("ProviderAccountId", None),
+        "ProviderAccountName": mcr.get("ProviderAccountName", None),
+        "ResourceGroup": mcr.get("ResourceGroup", None),
+        "AssetType": mcr.get("AssetType", None)
+    }
+
+    if not rule['RepositoryName'] and not rule['SearchName'] and not rule['Tags'] and not rule['Tag'] and not rule['Cidr']:
+        print(f'Multicondition rule is missing any of (RepositoryName, SearchName, Tags, Tag, Cidr), skipping multicondition rule. Received MultiConditionRule: {mcr}')
+        return None
+    return rule
+
 def load_multi_condition_rules(component):
-    if not 'MultiConditionRules' in component or not component['MultiConditionRules']:
+    if not 'MULTI_MultiConditionRules' in component or not component['MULTI_MultiConditionRules']:
         return None
     
     rules = []
 
-    for mcr in component['MultiConditionRules']:
-        rule = {
-            "RepositoryName": mcr.get("RepositoryName", None),
-            "SearchName": mcr.get("SearchName", None),
-            "Tags": mcr.get("Tags", None),
-            "Tag": mcr.get("Tag", None),
-            "Cidr": mcr.get("Cidr", None),
-            "Fqdn": mcr.get("Fqdn", None),
-            "Netbios": mcr.get("Netbios", None),
-            "OsNames": mcr.get("OsNames", None),
-            "Hostnames": mcr.get("Hostnames", None),
-            "ProviderAccountId": mcr.get("ProviderAccountId", None),
-            "ProviderAccountName": mcr.get("ProviderAccountName", None),
-            "ResourceGroup": mcr.get("ResourceGroup", None),
-            "AssetType": mcr.get("AssetType", None)
-        }
-
-        if not rule['RepositoryName'] and not rule['SearchName'] and not rule['Tags'] and not rule['Tag'] and not rule['Cidr']:
-            print(f'Multicondition rule is missing any of (RepositoryName, SearchName, Tags, Tag, Cidr), skipping multicondition rule. Received MultiConditionRule: {mcr}')
-            continue
-        rules.append(rule)
+    for mcr in component['MULTI_MultiConditionRules']:
+        rule = load_multi_condition_rule(mcr)
+        if rule:
+            rules.append(rule)
 
     return rules
     

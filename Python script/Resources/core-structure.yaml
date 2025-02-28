@@ -45,28 +45,50 @@ DeploymentGroups:
           - testaccountname
         ResourceGroup: 
           - testresourcegroup
-        MultiConditionRules:
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo5
+          SearchName: testsearch25
+          Tags:
+            - "1235"
+            - "12355"
+          Cidr: 10.1.5.0/24
+          Fqdn: 
+            - testfqdn5
+          Netbios: 
+            - testbios5
+          OsNames: 
+            - testosnames5
+          Hostnames: 
+            - testhostnames5
+          ProviderAccountId: 
+            - testaccountid5
+          ProviderAccountName: 
+            - testaccountname5
+          ResourceGroup: 
+            - testresourcegroup5
+        MULTI_MultiConditionRules:
           - AssetType: REPOSITORY #Look up possible values in the documentation
-            RepositoryName: testrepo
-            SearchName: testsearch2
+            RepositoryName: testrepo60
+            SearchName: testsearch26
             Tags:
-              - "123"
-              - "1235"
-            Cidr: 10.1.1.0/24
+              - "1236"
+              - "12356"
+            Cidr: 10.1.6.0/24
             Fqdn: 
-              - testfqdn
+              - testfqdn6
             Netbios: 
-              - testbios
+              - testbios6
             OsNames: 
-              - testosnames
+              - testosnames6
             Hostnames: 
-              - testhostnames
+              - testhostnames6
             ProviderAccountId: 
-              - testaccountid
+              - testaccountid6
             ProviderAccountName: 
-              - testaccountname
+              - testaccountname6
             ResourceGroup: 
-              - testresourcegroup
+              - testresourcegroup6
           - AssetType: REPOSITORY #Look up possible values in the documentation
             RepositoryName: testrepo2
             SearchName: testsearch3
@@ -223,26 +245,46 @@ Environment Groups:
           - testaccountname
         ResourceGroup: 
           - testresourcegroup
-        MultiConditionRules:
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo20
+          SearchName: testsearch40
+          Tag: key10:value100
+          Cidr: 10.1.6.0/24 # multiple cidrs are not supported in MultiConditionRule
+          Fqdn: 
+            - testfqdn30
+          Netbios: 
+            - testbios30
+          OsNames: 
+            - testosnames30
+          Hostnames: 
+            - testhostnames30
+          ProviderAccountId: 
+            - testaccountid30
+          ProviderAccountName: 
+            - testaccountname30
+          ResourceGroup: 
+            - testresourcegroup30
+        MULTI_MultiConditionRules:
           - AssetType: REPOSITORY #Look up possible values in the documentation
-            RepositoryName: testrepo
-            SearchName: testsearch2
-            Tag: key1:value1
-            Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+            RepositoryName: testrepo50
+            SearchName: testsearch25
+            Tag: key1:value15
+            Cidr: 10.1.5.0/24 # multiple cidrs are not supported in MultiConditionRule
             Fqdn: 
-              - testfqdn
+              - testfqdn5
             Netbios: 
-              - testbios
+              - testbios5
             OsNames: 
-              - testosnames
+              - testosnames5
             Hostnames: 
-              - testhostnames
+              - testhostnames5
             ProviderAccountId: 
-              - testaccountid
+              - testaccountid5
             ProviderAccountName: 
-              - testaccountname
+              - testaccountname5
             ResourceGroup: 
-              - testresourcegroup
+              - testresourcegroup5
           - AssetType: REPOSITORY #Look up possible values in the documentation
             RepositoryName: testrepo2
             SearchName: testsearch3
