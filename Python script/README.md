@@ -1,7 +1,7 @@
 ## Versioning
 
-V 4.1
-Date - 7 Feb 2025
+V 4.2
+Date - 28 Feb 2025
 
 # Introduction
 
@@ -194,7 +194,8 @@ Environment Groups:
           - testresourcegroup
 ~~~
 
-2. MultiConditionRule - can combine repos, search, tags etc in one rule
+2. MultiConditionRules - can combine repos, search, tags etc in one rule. Suppport for multiple multicondition rule is 
+done through MULTI_MultiConditionRules key.
 
 ~~~
 
@@ -215,24 +216,63 @@ Environment Groups:
         TeamName: SP_lima20
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
-          Tag: key1:value1
-          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          RepositoryName: testrepo2
+          SearchName: testsearch4
+          Tag: key10:value10
+          Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
           Fqdn: 
-            - testfqdn
+            - testfqdn3
           Netbios: 
-            - testbios
+            - testbios3
           OsNames: 
-            - testosnames
+            - testosnames3
           Hostnames: 
-            - testhostnames
+            - testhostnames3
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid3
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname3
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup3
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo
+            SearchName: testsearch2
+            Tag: key1:value1
+            Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn
+            Netbios: 
+              - testbios
+            OsNames: 
+              - testosnames
+            Hostnames: 
+              - testhostnames
+            ProviderAccountId: 
+              - testaccountid
+            ProviderAccountName: 
+              - testaccountname
+            ResourceGroup: 
+              - testresourcegroup
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tag: key2:value2
+            Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
 
 ~~~
 
@@ -273,24 +313,24 @@ Environment Groups:
           - testresourcegroup
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
-          Tag: key1:value1
-          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          RepositoryName: testrepo2
+          SearchName: testsearch4
+          Tag: key10:value10
+          Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
           Fqdn: 
-            - testfqdn
+            - testfqdn3
           Netbios: 
-            - testbios
+            - testbios3
           OsNames: 
-            - testosnames
+            - testosnames3
           Hostnames: 
-            - testhostnames
+            - testhostnames3
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid3
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname3
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup3
 
 ~~~
 
@@ -363,7 +403,8 @@ DeploymentGroups:
           - testresourcegroup
 ~~~
 
-2. MultiConditionRule - can combine repos, search, tags etc in one rule
+2. MultiConditionRules - can combine repos, search, tags etc in one rule. Suppport for multiple multicondition rule is 
+done through MULTI_MultiConditionRules key.
 
 ~~~
 
@@ -387,30 +428,73 @@ DeploymentGroups:
           - SP_lima20
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
+          RepositoryName: testrepo5
+          SearchName: testsearch25
           Tags:
-            - "123"
             - "1235"
-          Cidr: 10.1.1.0/24
+            - "12355"
+          Cidr: 10.1.5.0/24
           Fqdn: 
-            - testfqdn
+            - testfqdn5
           Netbios: 
-            - testbios
+            - testbios5
           OsNames: 
-            - testosnames
+            - testosnames5
           Hostnames: 
-            - testhostnames
+            - testhostnames5
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid5
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname5
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup5
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo7
+            SearchName: testsearch27
+            Tags:
+              - "1237"
+              - "12357"
+            Cidr: 10.1.7.0/24
+            Fqdn: 
+              - testfqdn7
+            Netbios: 
+              - testbios7
+            OsNames: 
+              - testosnames7
+            Hostnames: 
+              - testhostnames7
+            ProviderAccountId: 
+              - testaccountid7
+            ProviderAccountName: 
+              - testaccountname7
+            ResourceGroup: 
+              - testresourcegroup7
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tags:
+              - "1234"
+              - "12356"
+            Cidr: 10.1.2.0/24
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
 
 ~~~
 
-3. Combining single rule with multicondition rule is also supported
+3. Combining single rule with multicondition rules is also supported
 
 ~~~
 
@@ -455,26 +539,26 @@ DeploymentGroups:
           - testresourcegroup
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
+          RepositoryName: testrepo5
+          SearchName: testsearch25
           Tags:
-            - "123"
             - "1235"
-          Cidr: 10.1.1.0/24
+            - "12355"
+          Cidr: 10.1.5.0/24
           Fqdn: 
-            - testfqdn
+            - testfqdn5
           Netbios: 
-            - testbios
+            - testbios5
           OsNames: 
-            - testosnames
+            - testosnames5
           Hostnames: 
-            - testhostnames
+            - testhostnames5
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid5
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname5
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup5
 
 ~~~
 

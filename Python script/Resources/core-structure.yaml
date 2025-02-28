@@ -47,26 +47,69 @@ DeploymentGroups:
           - testresourcegroup
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
+          RepositoryName: testrepo5
+          SearchName: testsearch25
           Tags:
-            - "123"
             - "1235"
-          Cidr: 10.1.1.0/24
+            - "12355"
+          Cidr: 10.1.5.0/24
           Fqdn: 
-            - testfqdn
+            - testfqdn5
           Netbios: 
-            - testbios
+            - testbios5
           OsNames: 
-            - testosnames
+            - testosnames5
           Hostnames: 
-            - testhostnames
+            - testhostnames5
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid5
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname5
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup5
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo60
+            SearchName: testsearch26
+            Tags:
+              - "1236"
+              - "12356"
+            Cidr: 10.1.6.0/24
+            Fqdn: 
+              - testfqdn6
+            Netbios: 
+              - testbios6
+            OsNames: 
+              - testosnames6
+            Hostnames: 
+              - testhostnames6
+            ProviderAccountId: 
+              - testaccountid6
+            ProviderAccountName: 
+              - testaccountname6
+            ResourceGroup: 
+              - testresourcegroup6
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tags:
+              - "1234"
+              - "12356"
+            Cidr: 10.1.2.0/24
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
         Tier: 3 #importance from 1-10
         Domain: Security  #domain = component or application can be used to group by bysiness unit
         SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
@@ -204,24 +247,63 @@ Environment Groups:
           - testresourcegroup
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
-          Tag: key1:value1
-          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          RepositoryName: testrepo20
+          SearchName: testsearch40
+          Tag: key10:value100
+          Cidr: 10.1.6.0/24 # multiple cidrs are not supported in MultiConditionRule
           Fqdn: 
-            - testfqdn
+            - testfqdn30
           Netbios: 
-            - testbios
+            - testbios30
           OsNames: 
-            - testosnames
+            - testosnames30
           Hostnames: 
-            - testhostnames
+            - testhostnames30
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid30
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname30
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup30
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo50
+            SearchName: testsearch25
+            Tag: key1:value15
+            Cidr: 10.1.5.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn5
+            Netbios: 
+              - testbios5
+            OsNames: 
+              - testosnames5
+            Hostnames: 
+              - testhostnames5
+            ProviderAccountId: 
+              - testaccountid5
+            ProviderAccountName: 
+              - testaccountname5
+            ResourceGroup: 
+              - testresourcegroup5
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tag: key2:value2
+            Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
   - Name: FR_Dev
     Type: CLOUD
     Status: Production
