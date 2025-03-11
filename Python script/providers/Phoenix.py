@@ -90,13 +90,12 @@ def add_environment_services(repos, subdomains, environments, application_enviro
             for service in environment['Services']:
                 team_name = service.get('TeamName', None)
                 
-                if not team_name:
-                    print(f"Warning: Service {service['Service']} has no TeamName, skipping service.")
-                    continue
-
                 if not environment_service_exist(env_id, phoenix_components, service['Service']):
                     try:
-                        add_service(env_name, service['Service'], service['Tier'], team_name, headers)
+                        if team_name:
+                            add_service(env_name, service['Service'], service['Tier'], team_name, headers)
+                        else:
+                            add_service(env_name, service['Service'], service['Tier'], headers)
                     except NotImplementedError as e:
                         print(f"Error adding service {service['Service']} for environment {env_name}: {e}")
                 
