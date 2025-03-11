@@ -71,11 +71,6 @@ def populate_environments_from_env_groups(resource_folder):
         repos_yaml = yaml.safe_load(stream)
 
     for row in repos_yaml['Environment Groups']:
-        # Check if TeamName exists, otherwise, log and continue.
-        if not 'TeamName' in row:
-            print(f"Skipping environment {row['Name']}, as TeamName is missing.")
-            continue
-
         # Define the environment item
         item = {
             'Name': row['Name'],
@@ -257,14 +252,10 @@ def populate_applications(resource_folder):
         apps_yaml = yaml.safe_load(stream)
 
     for row in apps_yaml['DeploymentGroups']:
-        if not 'TeamNames' in row:
-            print(f"Skipping application {row['AppName']}, as TeamNames are missing.")
-            continue
-
         app = {
             'AppName': row['AppName'],
             'Status': row.get('Status', None),
-            'TeamNames': row['TeamNames'],
+            'TeamNames': row.get('TeamNames', []),
             'ReleaseDefinitions': row['ReleaseDefinitions'],
             'Responsable': row['Responsable'],
             'Criticality': calculate_criticality(row.get('Tier', 5)),  # Use .get() to handle missing 'Tier'

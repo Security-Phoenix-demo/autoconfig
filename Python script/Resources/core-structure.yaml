@@ -162,6 +162,20 @@ DeploymentGroups:
         Domain: Client Servicing
         SubDomain: Customer Relationship Management
         AutomaticSecurityReview: false
+  - AppName: Stefan_NOTEAM_APP
+    Status: NotStarted
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 7 #importance TST_limaom 1-10
+    Components:
+      - ComponentName: Stefan_NOTEAM_COMP
+        Status: Production
+        Type: Release
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code  #name of the repo as appears in phoenix
+        Tier: 3 #importance TST_limaom 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false
   - AppName: TST_lima_App305
     Status: NotStarted
     TeamNames: 
