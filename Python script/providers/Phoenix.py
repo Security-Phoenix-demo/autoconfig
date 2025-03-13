@@ -480,6 +480,11 @@ def create_component_rules(applicationName, component, headers):
             
 # Handle Repository Rule Creation for Components
 def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
+    if filterName == 'keyLike':
+        if not filterValue.startswith('*'):
+            filterValue = '*' + filterValue
+        if not filterValue.endswith('*'):
+            filterValue = filterValue + '*'
     rule = {
         "name": ruleName,
         "filter": {filterName: filterValue}
@@ -514,7 +519,12 @@ def create_multicondition_component_rules(applicationName, componentName, multic
         rule = {'name': 'Multicondition Rule'}
         rule['filter'] = {}
         if multicondition.get('SearchName'):
-            rule['filter']['keyLike'] = multicondition.get('SearchName')
+            searchName = multicondition.get('SearchName')
+            if not searchName.startswith('*'):
+                searchName = '*' + searchName
+            if not searchName.endswith('*'):
+                searchName = searchName + '*'
+            rule['filter']['keyLike'] = searchName
         if multicondition.get('RepositoryName'):
             repository_names = multicondition.get('RepositoryName')
             if isinstance(repository_names, str):
@@ -575,7 +585,12 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         rule = {'name': f'Multicondition Rule for {serviceName}'}
         rule['filter'] = {}
         if multicondition.get('SearchName'):
-            rule['filter']['keyLike'] = multicondition.get('SearchName')
+            searchName = multicondition.get('SearchName')
+            if not searchName.startswith('*'):
+                searchName = '*' + searchName
+            if not searchName.endswith('*'):
+                searchName = searchName + '*'
+            rule['filter']['keyLike'] = searchName
         if multicondition.get('RepositoryName'):
             repository_names = multicondition.get('RepositoryName')
             if isinstance(repository_names, str):
@@ -712,6 +727,10 @@ def add_cloud_asset_rules(repos, access_token):
 def cloud_asset_rule(name, search_term, environment_name, access_token):
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
+    if not search_term.startswith('*'):
+        search_term = '*' + search_term
+    if not search_term.endswith('*'):
+        search_term = search_term + '*'
     # Create the payload
     payload = {
         "selector": {

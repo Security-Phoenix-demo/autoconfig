@@ -2,7 +2,7 @@
 AllAccessAccounts: # Not mandatory - list of all access account emails
  - ciso@company.com
 DeploymentGroups:
-  - AppName: TST_TestApp10910 #name of the application
+  - AppName: TST_TestApp111 #name of the application
     AppID: 123444
     #Status: NotStarted #Status tags optionals (get added as tags)
     TeamNames: #names of the team responsble, can be a team responsible for the whole app or a specific component , this creates pteam tags
@@ -11,11 +11,11 @@ DeploymentGroups:
     Domain: Security  #domain = component or application can be used to group by bysiness unit
     SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Responsable: sp+test2@phoenix.security #owner of the application mandatory, needs to be one of the user already created in the phoenix security
     Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
     Deployment_set: Service1
     Components:
-      - ComponentName: product106-repo101 #name of the component 
+      - ComponentName: product112-repo101 #name of the component 
         Status: Production #Tag Optional
         AppID: 123444 #auto created
         Type: Release #Tag Optional
@@ -138,7 +138,7 @@ DeploymentGroups:
     TeamNames: 
       - SP_lima20
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com
+    Responsable: sp+test2@phoenix.security
     Tier: 7 #importance TST_limaom 1-10
     Components:
       - ComponentName: coreapp205_rule1-repo
@@ -165,7 +165,7 @@ DeploymentGroups:
   - AppName: Stefan_NOTEAM_APP
     Status: NotStarted
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com
+    Responsable: sp+test2@phoenix.security
     Tier: 7 #importance TST_limaom 1-10
     Components:
       - ComponentName: Stefan_NOTEAM_COMP
@@ -181,7 +181,7 @@ DeploymentGroups:
     TeamNames: 
       - SP_lima20
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com
+    Responsable: sp+test2@phoenix.security
     Tier: 2 #importance TST_limaom 1-10
     Components:
       - ComponentName: product305-prod #name of the component 
@@ -216,7 +216,7 @@ Environment Groups:
   - Name: TST_Production
     Type: CLOUD
     Status: Production
-    Responsable: frankadm@admin.com
+    Responsable: sp+test2@phoenix.security
     Tier: 2 #importance from 1-10
     TeamName: SP_lima20 #name of the team as it appears in hives and teams 
     Status: Production
@@ -237,7 +237,7 @@ Environment Groups:
         Tier: 2 #importance from 1-10
         TeamName: SP_lima20 #name of the team as it appears in hives and teams  
         #Deployment_tag: Service1
-      - Service: TST_TestApp1091
+      - Service: TST_TestApp111
         Type: Infra
         Tier: 8
         TeamName: SP_lima20
@@ -321,7 +321,7 @@ Environment Groups:
   - Name: FR_Dev
     Type: CLOUD
     Status: Production
-    Responsable: frankadm@admin.com
+    Responsable: sp+test2@phoenix.security
     Tier: 5
     Tag: dev
     Services:
@@ -337,7 +337,7 @@ Environment Groups:
   - Name: TST_Infra
     Type: INFRA
     Tier: 2 #importance from 1-10
-    Responsable: admin@admin.com
+    Responsable: sp+test2@phoenix.security
     TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
     Status: Production
     Tag: infra
