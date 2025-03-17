@@ -1,0 +1,60 @@
+AllAccessAccounts:
+- chris.vieira@chase.io
+- oleh.khomiak@chase.io
+Environment Groups:
+- Name: Production
+  Type: CLOUD
+  Status: Production
+  Tier: 2
+  Responsable: fc@securityphoenix.com
+  
+  Services:
+  - Service: PHX_GKE_Cluster
+    Type: cloud
+    Tier: 5
+    Deployment_set: PHX_GKE_Cluster
+    Ticketing:
+    - TInteegrationName: JPMC-Jira
+      Backlog: JPMCBacklog
+    Messaging:
+    - MInteegrationName: JPMC-Slack
+      Channel: JPMCchannel
+    TeamNames:
+    - GKE_Team
+    - SPHX_Deployement
+    MultiConditionRules:
+      - AssetType: CONTAINER #Look up possible values in the documentation
+        SearchName: registry.securityphoenix.com/webapp_front
+      - AssetType: CONTAINER #Look up possible values in the documentation
+        SearchName: registry.securityphoenix.com/webapp_front
+DeploymentGroups:
+- AppName: SPHX_Deployment
+  Status: Production
+  Deployment_set: PHX_GKE_Cluster
+  ReleaseDefinitions: Production
+  Responsable: fc@securityphoenix.com
+  Tier: 5
+  Components:
+  - ComponentName: frontend
+    Status: Production
+    Type: Release
+    TeamNames:
+    - SPHX_App
+    - SPHX_Deployement 
+    SearchName: NWCD_V3_NEW_repo_DEDUP/JPMC-testdev_frontend
+    MultiMultiConditionRules:
+      - AssetType: Repository #Look up possible values in the documentation
+        SearchName: NWCD_V3_NEW_repo_DEDUP.demo/JPMC-testdev_frontend
+      - AssetType: Repository #Look up possible values in the documentation
+        SearchName: NWCD_V3_NEW_repo_DEDUP/JPMC-testdev_frontend
+  - ComponentName: Backend
+    Status: Production
+    Type: Release
+    TeamNames:
+    - SPHX_App
+    - SPHX_Deployement 
+    MultiMultiConditionRules:
+      - AssetType: Repository #Look up possible values in the documentation
+        SearchName: NWCD_V3_NEW_repo_DEDUP/JPMC-testdev_backend
+      - AssetType: Repository #Look up possible values in the documentation
+        SearchName: NWCD_V3_NEW_repo_DEDUP.demo/JPMC-testdev_backend
