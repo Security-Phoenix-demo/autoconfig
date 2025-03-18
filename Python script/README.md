@@ -680,12 +680,21 @@ This action will iterate over all environments, and then for each environment:
 
 ## Overview of commands to run autoconfig, with examples
 
-| Command to run                                                                    | Example command                                                                                                                    | action_teams | action_code | action_cloud | action_deployment | action_autolink_deploymentset | action_autocreate_teams_from_pteams | action_create_components_from_assets |
-|-----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|--------------|-------------|--------------|-------------------|-------------------------------|-------------------------------------|--------------------------------------|
-| create teams                                                                      | <span style="white-space:nowrap;">python run.py client_id client_secret True false false false false false false api_domain</span> | True         | false       | false        | false             | false                         | false                               | false                                |
-| create applications and components                                                | <nobr>python run.py client_id client_secret false True false false false false false api_domain</nobr>                             | false        | True        | false        | false             | false                         | false                               | false                                |
-| create environments and services                                                  | <nobr>python run.py client_id client_secret false false True false false false false api_domain</nobr>                             | false        | false       | True         | false             | false                         | false                               | false                                |
-| Deployment by 'Deployment_set' or 'Deployment_tag'                                | <nobr>python run.py client_id client_secret false false false True false false false api_domain</nobr>                             | false        | false       | false        | True              | false                         | false                               | false                                |
-| Auto create deployments based on application name <br>and service name similarity | <nobr>python run.py client_id client_secret false false false false True false false api_domain</nobr>                             | false        | false       | false        | false             | True                          | false                               | false                                |
-| Auto create teams from pteam tags in config                                       | <nobr>python run.py client_id client_secret false false false false false True false api_domain</nobr>                             | false        | false       | false        | false             | false                         | True                                | false                                |
-| Create assets from components/services<br> with similar name                      | <nobr>python run.py client_id client_secret false false false false false false True api_domain</nobr>                             | false        | false       | false        | false             | false                         | false                               | True                                 |
+Command to run was updated to use different format:
+
+python run.py < clientId > < clientSecret > --api_domain=https://api.demo.appsecphx.io --verify=True --action_autocreate_teams_from_pteam=True
+
+It takes two positional arguments (clientId and clientSecret) right after the run.py
+After that, you may specify any of these items listed:
+
+| Option                                 | Description                                                                | Example                                     |
+|----------------------------------------|----------------------------------------------------------------------------|---------------------------------------------|
+| --api_domain                           | to override the value in Phoenix.py file                                   | --api_domain=https://api.demo.appsecphx.io  |
+| --verify                               | Flag to run the simulated mode, without committing the changes to platform | --verify=True                               |
+| --action_teams                         | Trigger teams action                                                       | --action_teams=True                         |
+| --action_code                          | Trigger code action                                                        | --action_code=True                          |
+| --action_cloud                         | Trigger cloud action                                                       | --action_cloud=True                         |
+| --action_deployment                    | Trigger deployment action                                                  | --action_deployment=True                    |
+| --action_autolink_deploymentset        | Trigger autolink deploymentset action                                      | --action_autolink_deploymentset=True        |
+| --action_autocreate_teams_from_pteam   | Trigger autocreate teams from pteam action                                 | --action_autocreate_teams_from_pteam=True   |
+| --action_create_components_from_assets | Trigger create components from assets action                               | --action_create_components_from_assets=True |
