@@ -227,6 +227,16 @@ Environment Groups:
         Type: Cloud
         SearchName: Damn-Vulnerable-Source-Code
         Tag: issue:issue-test-asset3
+        Tags:
+          - testtag1
+          - tag2:tag2
+          - tag345
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            Tag: key1:value15
+            Tags:
+              - multitag1
+              - multitag2:value2
         Tier: 2 #importance from 1-10
         #Deployment_set: Service1
         # Deployment_tag: tag_123 #alternative tag to match the assets that are associated with this id 
