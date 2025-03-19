@@ -9,6 +9,7 @@ multipledispatch = "*"
 pyyaml = "*"
 email-validator = "*"
 levenshtein = "==0.26.1"
+argparse = "*"
 
 [dev-packages]
 
