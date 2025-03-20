@@ -326,15 +326,24 @@ def load_multi_condition_rule(mcr):
     return rule
 
 def load_multi_condition_rules(component):
-    if not 'MULTI_MultiConditionRules' in component or not component['MULTI_MultiConditionRules']:
-        return None
-    
     rules = []
-
-    for mcr in component['MULTI_MultiConditionRules']:
-        rule = load_multi_condition_rule(mcr)
-        if rule:
-            rules.append(rule)
-
-    return rules
+    
+    # Check all possible variations of multicondition rule keys
+    rule_keys = [
+        'MULTI_MultiConditionRules',
+        'MultiMultiConditionRules',
+        'MultiConditionRules',
+        'MultiConditionRule'
+    ]
+    
+    for key in rule_keys:
+        if key in component and component[key]:
+            # If it's a single rule, wrap it in a list
+            rules_list = component[key] if isinstance(component[key], list) else [component[key]]
+            for mcr in rules_list:
+                rule = load_multi_condition_rule(mcr)
+                if rule:
+                    rules.append(rule)
+    
+    return rules if rules else None
     
