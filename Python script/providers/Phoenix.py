@@ -553,64 +553,85 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
 
 def create_multicondition_component_rules(applicationName, componentName, multiconditionRules, headers):
     for multicondition in multiconditionRules:
-        rule = {'name': 'Multicondition Rule'}
+        rule = {'name': f'MC-R {componentName}'}  # Shortened name format
         rule['filter'] = {}
         if multicondition.get('SearchName'):
-            rule['filter']['keyLike'] = multicondition.get('SearchName')
-        if multicondition.get('RepositoryName'):
-            repository_names = multicondition.get('RepositoryName')
-            if isinstance(repository_names, str):
-                repository_names = [repository_names]
-            rule['filter']['repository'] = repository_names
-        if multicondition.get('Tags'):
-            rule['filter']['tags'] = []
-            for tag in multicondition.get('Tags'):
-                rule['filter']['tags'].append({"value": tag})
-        if multicondition.get('Cidr'):
-            rule['filter']['cidr'] = multicondition.get('Cidr')
-        if multicondition.get('Fqdn'):
-            rule['filter']['fqdn'] = multicondition.get('Fqdn')
-        if multicondition.get('Netbios'):
-            rule['filter']['netbios'] = multicondition.get('Netbios')
-        if multicondition.get('OsNames'):
-            rule['filter']['osNames'] = multicondition.get('OsNames')
-        if multicondition.get('Hostnames'):
-            rule['filter']['hostnames'] = multicondition.get('Hostnames')
-        if multicondition.get('ProviderAccountId'):
-            rule['filter']['providerAccountId'] = multicondition.get('ProviderAccountId')
-        if multicondition.get('ProviderAccountName'):
-            rule['filter']['providerAccountName'] = multicondition.get('ProviderAccountName')
-        if multicondition.get('ResourceGroup'):
-            rule['filter']['resourceGroup'] = multicondition.get('ResourceGroup')
-        if multicondition.get('AssetType'):
-            rule['filter']['assetType'] = multicondition.get('AssetType')
+            keylike = multicondition.get('SearchName')
+            # Start with full keylike value
+            rule['filter']['keyLike'] = keylike
+            max_retries = 3
+            current_try = 0
+            
+            while current_try < max_retries:
+                try:
+                    if multicondition.get('RepositoryName'):
+                        repository_names = multicondition.get('RepositoryName')
+                        if isinstance(repository_names, str):
+                            repository_names = [repository_names]
+                        rule['filter']['repository'] = repository_names
+                    if multicondition.get('Tags'):
+                        rule['filter']['tags'] = []
+                        for tag in multicondition.get('Tags'):
+                            rule['filter']['tags'].append({"value": tag})
+                    if multicondition.get('Cidr'):
+                        rule['filter']['cidr'] = multicondition.get('Cidr')
+                    if multicondition.get('Fqdn'):
+                        rule['filter']['fqdn'] = multicondition.get('Fqdn')
+                    if multicondition.get('Netbios'):
+                        rule['filter']['netbios'] = multicondition.get('Netbios')
+                    if multicondition.get('OsNames'):
+                        rule['filter']['osNames'] = multicondition.get('OsNames')
+                    if multicondition.get('Hostnames'):
+                        rule['filter']['hostnames'] = multicondition.get('Hostnames')
+                    if multicondition.get('ProviderAccountId'):
+                        rule['filter']['providerAccountId'] = multicondition.get('ProviderAccountId')
+                    if multicondition.get('ProviderAccountName'):
+                        rule['filter']['providerAccountName'] = multicondition.get('ProviderAccountName')
+                    if multicondition.get('ResourceGroup'):
+                        rule['filter']['resourceGroup'] = multicondition.get('ResourceGroup')
+                    if multicondition.get('AssetType'):
+                        rule['filter']['assetType'] = multicondition.get('AssetType')
 
-        if not rule['filter']:
-            return
+                    if not rule['filter']:
+                        return
 
-        payload = {
-            "selector": {
-                "applicationSelector": {"name": applicationName, "caseSensitive": False},
-                "componentSelector": {"name": componentName, "caseSensitive": False}
-            },
-            "rules": [rule]
-        }
+                    payload = {
+                        "selector": {
+                            "applicationSelector": {"name": applicationName, "caseSensitive": False},
+                            "componentSelector": {"name": componentName, "caseSensitive": False}
+                        },
+                        "rules": [rule]
+                    }
 
-        if DEBUG:
-            print(f"Payload for multicondition {componentName}: {json.dumps(payload, indent=2)}")
+                    if DEBUG:
+                        print(f"\nSending payload for {componentName}:")
+                        print(json.dumps(payload, indent=2))
 
-        try:
-            api_url = construct_api_url("/v1/components/rules")
-            response = requests.post(api_url, headers=headers, json=payload)
-            response.raise_for_status()
-            print(f"Multicondition Rule for {componentName} created.")
-        except requests.exceptions.RequestException as e:
-            if response.status_code == 409:
-                print(f" > Multicondition Rule for {componentName} already exists.")
-            else:
-                print(f"Error: {e}")
-                print(f"Response content: {response.content}")
-                exit(1)
+                    api_url = construct_api_url("/v1/components/rules")
+                    response = requests.post(api_url, headers=headers, json=payload)
+                    response.raise_for_status()
+                    print(f"MC-R {componentName} created.")
+                    break  # Success, exit the retry loop
+                    
+                except requests.exceptions.RequestException as e:
+                    if response.status_code == 409:
+                        print(f" > MC-R {componentName} already exists.")
+                        break
+                    elif response.status_code == 400 and 'keyLike' in str(response.content):
+                        # If error is related to keyLike length, shorten it
+                        current_try += 1
+                        if current_try < max_retries:
+                            # Shorten the keyLike value by 25% each try
+                            reduction = int(len(keylike) * 0.75)
+                            keylike = keylike[:reduction]
+                            rule['filter']['keyLike'] = keylike
+                            if DEBUG:
+                                print(f"Retrying with shortened keyLike: {keylike}")
+                            continue
+                    if DEBUG:
+                        print(f"Error: {e}")
+                        print(f"Response content: {response.content}")
+                    break  # Exit on other errors
 
 def create_multicondition_service_rules(environmentName, serviceName, multiconditionRules, headers):
     for multicondition in multiconditionRules:
@@ -640,33 +661,38 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         rule = {'name': rule_name}
         rule['filter'] = {}
         
-        # Debug output to show what we're processing
-        print(f"\nProcessing rule for {serviceName}:")
+        if DEBUG:
+            print(f"\nProcessing rule for {serviceName}:")
         
         if multicondition.get('SearchName'):
             rule['filter']['keyLike'] = multicondition.get('SearchName')
-            print(f" + Adding SearchName filter: {multicondition.get('SearchName')}")
+            if DEBUG:
+                print(f" + Adding SearchName filter: {multicondition.get('SearchName')}")
             
         if multicondition.get('RepositoryName'):
             repository_names = multicondition.get('RepositoryName')
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
             rule['filter']['repository'] = repository_names
-            print(f" + Adding repository filter: {repository_names}")
+            if DEBUG:
+                print(f" + Adding repository filter: {repository_names}")
             
         if multicondition.get('Tag'):
             rule['filter']['tags'] = []
             tag_parts = multicondition.get('Tag').split(':')
             if len(tag_parts) == 2:
                 rule['filter']['tags'].append({"key": tag_parts[0], "value": tag_parts[1]})
-                print(f" + Adding tag filter: key={tag_parts[0]}, value={tag_parts[1]}")
+                if DEBUG:
+                    print(f" + Adding tag filter: key={tag_parts[0]}, value={tag_parts[1]}")
                 
         if multicondition.get('AssetType'):
             rule['filter']['assetType'] = multicondition.get('AssetType')
-            print(f" + Adding assetType filter: {multicondition.get('AssetType')}")
+            if DEBUG:
+                print(f" + Adding assetType filter: {multicondition.get('AssetType')}")
 
         if not rule['filter']:
-            print(" ! No valid filters found in rule, skipping")
+            if DEBUG:
+                print(" ! No valid filters found in rule, skipping")
             return
 
         payload = {
@@ -677,8 +703,9 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             "rules": [rule]
         }
 
-        print(f"\nSending payload for {serviceName}:")
-        print(json.dumps(payload, indent=2))
+        if DEBUG:
+            print(f"\nSending payload for {serviceName}:")
+            print(json.dumps(payload, indent=2))
 
         try:
             api_url = construct_api_url("/v1/components/rules")
@@ -689,8 +716,11 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             if response.status_code == 409:
                 print(f" > Multicondition rule for {serviceName} already exists")
             else:
-                print(f"Error: {e}")
-                print(f"Response content: {response.content}")
+                if DEBUG:
+                    print(f"Error: {e}")
+                    print(f"Response content: {response.content}")
+                else:
+                    print(f" ! Error creating rule for {serviceName}")
                 exit(1)
 
 
