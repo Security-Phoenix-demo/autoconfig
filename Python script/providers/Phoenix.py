@@ -6,7 +6,40 @@ import Levenshtein
 import random
 from multipledispatch import dispatch
 from providers.Utils import group_repos_by_subdomain, calculate_criticality
+import logging
+import datetime
 
+# Configure logging
+logging.basicConfig(
+    filename='errors.log',
+    level=logging.ERROR,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+def log_error(operation_type, name, environment, error_msg, details=None):
+    """
+    Log error information to errors.log
+    
+    Args:
+        operation_type: Type of operation (e.g., 'Service Creation', 'Rule Creation')
+        name: Name of the service/component/rule
+        environment: Environment name
+        error_msg: Error message
+        details: Additional details (optional)
+    """
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    error_entry = f"""
+TIME: {timestamp}
+OPERATION: {operation_type}
+NAME: {name}
+ENVIRONMENT: {environment}
+ERROR: {error_msg}
+"""
+    if details:
+        error_entry += f"DETAILS: {details}\n"
+    error_entry += "-" * 80 + "\n"
+    
+    logging.error(error_entry)
 
 SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
 ASSET_NAME_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
@@ -1633,15 +1666,14 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         print(f" + Added Service: {service}")
         
         # Verify service was created with retries
-        max_retries = 5  # Increased from 3 to 5
-        base_delay = 3   # Increased base delay
+        max_retries = 5
+        base_delay = 3
         for attempt in range(max_retries):
-            delay = base_delay * (2 ** attempt)  # Exponential backoff: 3s, 6s, 12s, 24s, 48s
+            delay = base_delay * (2 ** attempt)
             print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
             time.sleep(delay)
             
             try:
-                # Try to get the specific service directly
                 verify_url = construct_api_url(f"/v1/components")
                 params = {
                     "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
@@ -1651,7 +1683,6 @@ def add_service(applicationSelectorName, service, tier, team, headers):
                 verify_response.raise_for_status()
                 components = verify_response.json().get('content', [])
                 
-                # Check both by direct name match and case-insensitive
                 service_exists = any(
                     comp['name'].lower() == service.lower() 
                     for comp in components
@@ -1663,7 +1694,6 @@ def add_service(applicationSelectorName, service, tier, team, headers):
                 else:
                     print(f" ! Service {service} not found in verification attempt {attempt + 1}")
                     
-                    # On last attempt, try to get all components as fallback
                     if attempt == max_retries - 1:
                         all_components_url = construct_api_url("/v1/components")
                         all_response = requests.get(all_components_url, headers=headers)
@@ -1672,10 +1702,25 @@ def add_service(applicationSelectorName, service, tier, team, headers):
                         if any(comp['name'].lower() == service.lower() for comp in all_components):
                             print(f" + Service {service} found in full component list")
                             return True
+                        else:
+                            log_error(
+                                'Service Creation',
+                                service,
+                                applicationSelectorName,
+                                'Service creation verification failed after maximum retries',
+                                f'Team: {team}, Tier: {tier}'
+                            )
                             
             except requests.exceptions.RequestException as e:
                 print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
                 if attempt == max_retries - 1:
+                    log_error(
+                        'Service Creation',
+                        service,
+                        applicationSelectorName,
+                        str(e),
+                        f'Team: {team}, Tier: {tier}'
+                    )
                     return False
                 continue
         
@@ -1685,20 +1730,15 @@ def add_service(applicationSelectorName, service, tier, team, headers):
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Service {service} already exists")
-            # Even for existing services, verify we can access it
-            time.sleep(2)
-            try:
-                verify_url = construct_api_url("/v1/components")
-                verify_response = requests.get(verify_url, headers=headers)
-                verify_response.raise_for_status()
-                components = verify_response.json().get('content', [])
-                if any(comp['name'].lower() == service.lower() for comp in components):
-                    print(f" + Existing service {service} verified")
-                    return True
-            except:
-                pass
             return True
         else:
+            log_error(
+                'Service Creation',
+                service,
+                applicationSelectorName,
+                str(e),
+                f'Team: {team}, Tier: {tier}, Response: {response.content}'
+            )
             print(f"Error: {e}")
             print(f"Response content: {response.content}")
             return False
@@ -2086,14 +2126,37 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     print(f" ! Service not found, waiting {wait_time}s before retry...")
                     time.sleep(wait_time)
                     continue
+                log_error(
+                    'Rule Creation',
+                    ruleName,
+                    applicationName,
+                    f'Service {componentName} not found after {max_retries} attempts',
+                    f'Filter: {filterName}={filterValue}'
+                )
                 print(f" ! Service {componentName} not found after {max_retries} attempts")
                 return False
             elif response.status_code == 400:
-                print(f" ! Bad request error creating rule for {componentName}. Response: {response.content}")
+                error_msg = f"Bad request error: {response.content}"
+                log_error(
+                    'Rule Creation',
+                    ruleName,
+                    applicationName,
+                    error_msg,
+                    f'Component: {componentName}, Filter: {filterName}={filterValue}'
+                )
+                print(f" ! {error_msg}")
                 if DEBUG:
                     print(f"Attempted payload: {json.dumps(payload, indent=2)}")
                 return False
             else:
+                if attempt == max_retries - 1:
+                    log_error(
+                        'Rule Creation',
+                        ruleName,
+                        applicationName,
+                        str(e),
+                        f'Component: {componentName}, Filter: {filterName}={filterValue}, Response: {response.content}'
+                    )
                 print(f"Error creating rule for {componentName}: {e}")
                 print(f"Response content: {response.content}")
                 if DEBUG:
