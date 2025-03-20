@@ -481,36 +481,65 @@ def update_application_crit_owner(application, existing_application, headers):
         exit(1)
 
 def create_component_rules(applicationName, component, headers):
-    if component.get('SearchName'):
+    # Helper function to validate value
+    def is_valid_value(value):
+        if value is None:
+            return False
+        if isinstance(value, str) and (not value.strip() or value.lower() == 'null'):
+            return False
+        return True
+
+    # SearchName rule
+    if component.get('SearchName') and is_valid_value(component.get('SearchName')):
         create_component_rule(applicationName, component['ComponentName'], 'keyLike', component['SearchName'], f"Rule for keyLike for {component['ComponentName']}", headers)
+
+    # Tags rule
     if component.get('Tags'):
         tags_to_add = []
         for tag in component.get('Tags'):
-            tags_to_add.append({'value': tag})
-        create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
-    if component.get('Cidr'):
+            if is_valid_value(tag) and len(str(tag).strip()) >= 3:
+                tags_to_add.append({'value': tag})
+        if tags_to_add:
+            create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
+
+    # Repository rule
+    repository_names = component.get('RepositoryName', [])
+    if isinstance(repository_names, str):
+        repository_names = [repository_names]
+    
+    valid_repos = []
+    for repo_name in repository_names:
+        if is_valid_value(repo_name) and len(str(repo_name).strip()) >= 3:
+            valid_repos.append(repo_name.strip())
+    
+    if valid_repos:
+        create_component_rule(applicationName, component['ComponentName'], 'repository', valid_repos, f"Rule for repository for {component['ComponentName']}", headers)
+
+    # Other rules with validation
+    if component.get('Cidr') and is_valid_value(component.get('Cidr')):
         create_component_rule(applicationName, component['ComponentName'], 'cidr', component['Cidr'], f"Rule for cidr for {component['ComponentName']}", headers)
-    if component.get('Fqdn'):
+    if component.get('Fqdn') and is_valid_value(component.get('Fqdn')):
         create_component_rule(applicationName, component['ComponentName'], 'fqdn', component['Fqdn'], f"Rule for fqdn for {component['ComponentName']}", headers)
-    if component.get('Netbios'):
+    if component.get('Netbios') and is_valid_value(component.get('Netbios')):
         create_component_rule(applicationName, component['ComponentName'], 'netbios', component['Netbios'], f"Rule for netbios for {component['ComponentName']}", headers)
-    if component.get('OsNames'):
+    if component.get('OsNames') and is_valid_value(component.get('OsNames')):
         create_component_rule(applicationName, component['ComponentName'], 'osNames', component['OsNames'], f"Rule for osNames for {component['ComponentName']}", headers)
-    if component.get('Hostnames'):
+    if component.get('Hostnames') and is_valid_value(component.get('Hostnames')):
         create_component_rule(applicationName, component['ComponentName'], 'hostnames', component['Hostnames'], f"Rule for hostnames for {component['ComponentName']}", headers)
-    if component.get('ProviderAccountId'):
+    if component.get('ProviderAccountId') and is_valid_value(component.get('ProviderAccountId')):
         create_component_rule(applicationName, component['ComponentName'], 'providerAccountId', component['ProviderAccountId'], f"Rule for providerAccountId for {component['ComponentName']}", headers)
-    if component.get('ProviderAccountName'):
+    if component.get('ProviderAccountName') and is_valid_value(component.get('ProviderAccountName')):
         create_component_rule(applicationName, component['ComponentName'], 'providerAccountName', component['ProviderAccountName'], f"Rule for providerAccountName for {component['ComponentName']}", headers)
-    if component.get('ResourceGroup'):
+    if component.get('ResourceGroup') and is_valid_value(component.get('ResourceGroup')):
         create_component_rule(applicationName, component['ComponentName'], 'resourceGroup', component['ResourceGroup'], f"Rule for resourceGroup for {component['ComponentName']}", headers)
-    if component.get('AssetType'):
+    if component.get('AssetType') and is_valid_value(component.get('AssetType')):
         create_component_rule(applicationName, component['ComponentName'], 'assetType', component['AssetType'], f"Rule for assetType for {component['ComponentName']}", headers)
 
-    if component.get('MultiConditionRule'):
+    # MultiCondition rules
+    if component.get('MultiConditionRule') and is_valid_value(component.get('MultiConditionRule')):
         create_multicondition_component_rules(applicationName, component['ComponentName'], [component.get('MultiConditionRule')], headers)    
 
-    if component.get('MultiConditionRules'):
+    if component.get('MultiConditionRules') and is_valid_value(component.get('MultiConditionRules')):
         create_multicondition_component_rules(applicationName, component['ComponentName'], component.get('MultiConditionRules'), headers)
 
     repository_names = component.get('RepositoryName', [])
@@ -615,7 +644,8 @@ def create_multicondition_component_rules(applicationName, componentName, multic
                     
                 except requests.exceptions.RequestException as e:
                     if response.status_code == 409:
-                        print(f" > MC-R {componentName} already exists.")
+                        filter_str = json.dumps(rule['filter'])
+                        print(f" > MC-R {componentName} with filter {filter_str} already exists.")
                         break
                     elif response.status_code == 400 and 'keyLike' in str(response.content):
                         # If error is related to keyLike length, shorten it
@@ -714,7 +744,8 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             print(f" + Created {rule_name}")
         except requests.exceptions.RequestException as e:
             if response.status_code == 409:
-                print(f" > Multicondition rule for {serviceName} already exists")
+                filter_str = json.dumps(rule['filter'])
+                print(f" > {rule_name} with filter {filter_str} already exists")
             else:
                 if DEBUG:
                     print(f"Error: {e}")
@@ -725,13 +756,22 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
 
 
 def get_repositories_from_component(component):
-    if not component['RepositoryName']:
+    repository = component.get('RepositoryName')
+    
+    # Handle None, null, Null, empty string, whitespace, or missing key cases
+    if repository is None or not str(repository).strip() or str(repository).lower() == 'null':
         return []
     
-    if type(component['RepositoryName']) == str:
-        return [component['RepositoryName']]
+    # Handle string case
+    if isinstance(repository, str):
+        repository = repository.strip()
+        return [repository] if repository else []
     
-    return component['RepositoryName']
+    # Handle list case
+    if isinstance(repository, list):
+        return [r.strip() for r in repository if r and str(r).strip() and str(r).lower() != 'null']
+    
+    return []
 
 # CreateRepositories Function
 def create_repositories(repos, access_token):
