@@ -126,18 +126,30 @@ def add_service_rule_batch(environment, service, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
 
-    # First, verify that the service exists
-    api_url = construct_api_url("/v1/components")
-    try:
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-        components = response.json().get('content', [])
-        if not any(comp['name'] == serviceName for comp in components):
-            print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
+    # First, verify that the service exists with retries
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            api_url = construct_api_url("/v1/components")
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+            components = response.json().get('content', [])
+            if any(comp['name'] == serviceName for comp in components):
+                break
+            else:
+                if attempt < max_retries - 1:
+                    print(f" ! Service {serviceName} not found, retrying in {(attempt + 1) * 2} seconds...")
+                    time.sleep((attempt + 1) * 2)  # Exponential backoff
+                    continue
+                else:
+                    print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
+                    return False
+        except requests.exceptions.RequestException as e:
+            print(f"Error verifying service existence: {e}")
+            if attempt < max_retries - 1:
+                time.sleep((attempt + 1) * 2)
+                continue
             return False
-    except requests.exceptions.RequestException as e:
-        print(f"Error verifying service existence: {e}")
-        return False
 
     # First, delete existing rules for this service
     try:
@@ -215,9 +227,43 @@ def add_service_rule_batch(environment, service, headers):
                 print(f"Response content: {response.content}")
                 success = False
 
+    # Handle Tag rules first
+    if service.get('Tag'):
+        tag_value = service.get('Tag')
+        try:
+            if isinstance(tag_value, list):
+                for tag_item in tag_value:
+                    if ':' in tag_item:
+                        tag_parts = tag_item.split(':')
+                        if len(tag_parts) >= 2:
+                            rule_result = create_component_rule(
+                                environmentName, 
+                                serviceName, 
+                                'tags', 
+                                [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
+                                f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
+                                headers
+                            )
+                            success = success and (rule_result if rule_result is not None else False)
+            else:
+                if ':' in tag_value:
+                    tag_parts = tag_value.split(':')
+                    if len(tag_parts) >= 2:
+                        rule_result = create_component_rule(
+                            environmentName, 
+                            serviceName, 
+                            'tags', 
+                            [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
+                            f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
+                            headers
+                        )
+                        success = success and (rule_result if rule_result is not None else False)
+        except Exception as e:
+            print(f"Error creating Tag rule: {e}")
+            success = False
+
     # Handle other rules
     for rule_type, rule_value in [
-        ('Tag', service.get('Tag')),
         ('SearchName', service.get('SearchName')),
         ('Fqdn', service.get('Fqdn')),
         ('Netbios', service.get('Netbios')),
@@ -230,24 +276,15 @@ def add_service_rule_batch(environment, service, headers):
     ]:
         if rule_value:
             try:
-                if rule_type == 'Tag':
-                    if isinstance(rule_value, list):
-                        for tag_item in rule_value:
-                            if ':' in tag_item:
-                                tag_parts = tag_item.split(':')
-                                if len(tag_parts) >= 2:
-                                    success &= create_component_rule(environmentName, serviceName, 'tags', 
-                                                                  [{"key": tag_parts[0], "value": tag_parts[1]}], 
-                                                                  f"Rule for tags for {serviceName}", headers)
-                    else:
-                        tag_parts = rule_value.split(':')
-                        if len(tag_parts) >= 2:
-                            success &= create_component_rule(environmentName, serviceName, 'tags', 
-                                                          [{"key": tag_parts[0], "value": tag_parts[1]}], 
-                                                          f"Rule for tags for {serviceName}", headers)
-                else:
-                    success &= create_component_rule(environmentName, serviceName, rule_type.lower(), 
-                                                   rule_value, f"Rule for {rule_type} for {serviceName}", headers)
+                rule_result = create_component_rule(
+                    environmentName, 
+                    serviceName, 
+                    rule_type, 
+                    rule_value, 
+                    f"Rule for {rule_type} for {serviceName}", 
+                    headers
+                )
+                success = success and (rule_result if rule_result is not None else False)
             except Exception as e:
                 print(f"Error creating {rule_type} rule: {e}")
                 success = False
@@ -1541,17 +1578,31 @@ def add_service(applicationSelectorName, service, tier, headers):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f" + Added Service: {service}")
-        # Wait for service to be fully created
-        time.sleep(2)
-        # Verify service was created
-        verify_url = construct_api_url("/v1/components")
-        verify_response = requests.get(verify_url, headers=headers)
-        verify_response.raise_for_status()
-        components = verify_response.json().get('content', [])
-        if not any(comp['name'] == service for comp in components):
-            print(f" ! Warning: Service {service} creation could not be verified")
-            return False
-        return True
+        
+        # Verify service was created with retries
+        max_retries = 3
+        for attempt in range(max_retries):
+            time.sleep(2 * (attempt + 1))  # Exponential backoff: 2s, 4s, 6s
+            try:
+                verify_url = construct_api_url("/v1/components")
+                verify_response = requests.get(verify_url, headers=headers)
+                verify_response.raise_for_status()
+                components = verify_response.json().get('content', [])
+                if any(comp['name'] == service for comp in components):
+                    if DEBUG:
+                        print(f" + Service {service} verified successfully")
+                    return True
+                else:
+                    print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+            except requests.exceptions.RequestException as e:
+                print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
+                if attempt == max_retries - 1:
+                    return False
+                continue
+        
+        print(f" ! Service {service} could not be verified after {max_retries} attempts")
+        return False
+        
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Service {service} already exists")
@@ -1561,7 +1612,6 @@ def add_service(applicationSelectorName, service, tier, headers):
             print(f"Response content: {response.content}")
             return False
 
-# Dispatch version for when all arguments, including team, are provided
 @dispatch(str, str, int, str, dict)
 def add_service(applicationSelectorName, service, tier, team, headers):
     criticality = calculate_criticality(tier)
@@ -1581,17 +1631,31 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f" + Added Service: {service}")
-        # Wait for service to be fully created
-        time.sleep(2)
-        # Verify service was created
-        verify_url = construct_api_url("/v1/components")
-        verify_response = requests.get(verify_url, headers=headers)
-        verify_response.raise_for_status()
-        components = verify_response.json().get('content', [])
-        if not any(comp['name'] == service for comp in components):
-            print(f" ! Warning: Service {service} creation could not be verified")
-            return False
-        return True
+        
+        # Verify service was created with retries
+        max_retries = 3
+        for attempt in range(max_retries):
+            time.sleep(2 * (attempt + 1))  # Exponential backoff: 2s, 4s, 6s
+            try:
+                verify_url = construct_api_url("/v1/components")
+                verify_response = requests.get(verify_url, headers=headers)
+                verify_response.raise_for_status()
+                components = verify_response.json().get('content', [])
+                if any(comp['name'] == service for comp in components):
+                    if DEBUG:
+                        print(f" + Service {service} verified successfully")
+                    return True
+                else:
+                    print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+            except requests.exceptions.RequestException as e:
+                print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
+                if attempt == max_retries - 1:
+                    return False
+                continue
+        
+        print(f" ! Service {service} could not be verified after {max_retries} attempts")
+        return False
+        
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Service {service} already exists")
@@ -1601,7 +1665,7 @@ def add_service(applicationSelectorName, service, tier, team, headers):
             print(f"Response content: {response.content}")
             return False
 
-@dispatch(str,dict,dict)
+@dispatch(str, dict, dict)
 def does_member_exist(email, team, headers):
     """
     Check if a member with a specific email exists in the given team.
@@ -1909,9 +1973,9 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"- Rule name: {ruleName}")
 
     # Special handling for tags
-    if filterName == 'tags':
+    if filterName.lower() == 'tags':
         # If filterValue is already a list of dicts with 'value' key, use it as is
-        if isinstance(filterValue, list) and all(isinstance(tag, dict) and 'value' in tag for tag in filterValue):
+        if isinstance(filterValue, list) and all(isinstance(tag, dict) and ('value' in tag or ('key' in tag and 'value' in tag)) for tag in filterValue):
             filter_content = filterValue
         else:
             # Convert single tag or list of tags to proper format
@@ -1928,7 +1992,8 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         'provideraccountid': 'providerAccountId',
         'provideraccountname': 'providerAccountName',
         'resourcegroup': 'resourceGroup',
-        'assettype': 'assetType'
+        'assettype': 'assetType',
+        'tags': 'tags'  # Keep tags lowercase in mapping
     }
 
     # Use the correct case-sensitive filter name
