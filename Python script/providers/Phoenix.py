@@ -12,7 +12,7 @@ SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service
 ASSET_NAME_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
 ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with similar name that will trigger component creation
 
-APIdomain = "https://api.YOURDOMAIN.securityphoenix.cloud" #change this with your specific domain
+APIdomain = "https://api.demo.appsecphx.io" #change this with your specific domain
 DEBUG = False #debug settings to trigger debug output 
 
 def get_auth_token(clientID, clientSecret, retries=3):
@@ -89,8 +89,9 @@ def add_environment_services(repos, subdomains, environments, application_enviro
         if environment['Services']:  # Updated key to Services
             for service in environment['Services']:
                 team_name = service.get('TeamName', None)
+                service_exists = environment_service_exist(env_id, phoenix_components, service['Service'])
                 
-                if not environment_service_exist(env_id, phoenix_components, service['Service']):
+                if not service_exists:
                     try:
                         if team_name:
                             add_service(env_name, service['Service'], service['Tier'], team_name, headers)
@@ -98,8 +99,12 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                             add_service(env_name, service['Service'], service['Tier'], headers)
                     except NotImplementedError as e:
                         print(f"Error adding service {service['Service']} for environment {env_name}: {e}")
+                else:
+                    print(f" > Service {service['Service']} exists, updating rules...")
                 
+                # Always update rules, whether the service is new or existing
                 add_service_rule_batch(environment, service, headers)
+                time.sleep(1)  # Add small delay between operations
 
 # AddContainerRule Function
 def add_container_rule(image, subdomain, environment_name, access_token):
@@ -122,6 +127,28 @@ def add_service_rule_batch(environment, service, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
 
+    # First, delete existing rules for this service
+    try:
+        api_url = construct_api_url(f"/v1/components/rules")
+        # Get existing rules for this service
+        params = {
+            "applicationSelector": {"name": environmentName, "caseSensitive": False},
+            "componentSelector": {"name": serviceName, "caseSensitive": False}
+        }
+        response = requests.get(api_url, headers=headers, params=params)
+        if response.status_code == 200:
+            existing_rules = response.json()
+            # Delete each existing rule
+            for rule in existing_rules:
+                if rule.get('id'):
+                    delete_url = construct_api_url(f"/v1/components/rules/{rule['id']}")
+                    delete_response = requests.delete(delete_url, headers=headers)
+                    if delete_response.status_code == 200:
+                        print(f" - Deleted existing rule for {serviceName}")
+    except requests.exceptions.RequestException as e:
+        print(f"Warning: Could not clean up existing rules: {e}")
+
+    # Now proceed with creating new rules
     # Handle INFRA services with CIDR association (IP-based)
     if service.get('Cidr') and service['Type'] == 'Infra':
         print(f"Adding Service Rule {serviceName} to {environmentName} for Cidr")
@@ -182,14 +209,25 @@ def add_service_rule_batch(environment, service, headers):
 
     # Handle Tag-based association
     if service.get('Tag'):
-        tag_parts = service['Tag'].split(':')
-
-        if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
-            print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
-            return
-        
-        create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
-        
+        # Check if Tag is a list or a string
+        if isinstance(service['Tag'], list):
+            # Handle list of tags
+            for tag_item in service['Tag']:
+                if ':' in tag_item:
+                    tag_parts = tag_item.split(':')
+                    if len(tag_parts) >= 2 and tag_parts[0] and tag_parts[1]:
+                        create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
+                    else:
+                        print(f"Error: Invalid tag format in list for {service['Service']}. Expected 'key:value', got {tag_item}")
+                else:
+                    print(f"Error: Missing separator ':' in tag {tag_item} for {service['Service']}")
+        else:
+            # Handle string tag (old format)
+            tag_parts = service['Tag'].split(':')
+            if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
+                print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
+                return
+            create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
     if service.get('SearchName'):
         create_component_rule(environmentName, serviceName, 'keyLike', service['SearchName'], f"Rule for keyLike for {serviceName}", headers)
     if service.get('Fqdn'):
@@ -572,43 +610,47 @@ def create_multicondition_component_rules(applicationName, componentName, multic
 
 def create_multicondition_service_rules(environmentName, serviceName, multiconditionRules, headers):
     for multicondition in multiconditionRules:
-        rule = {'name': f'Multicondition Rule for {serviceName}'}
+        rule = {}
         rule['filter'] = {}
+        
+        # Build a descriptive name based on the filters
+        rule_name_parts = []
+        
+        # Debug output to show what we're processing
+        print(f"\nProcessing rule for {serviceName}:")
+        
         if multicondition.get('SearchName'):
             rule['filter']['keyLike'] = multicondition.get('SearchName')
+            rule_name_parts.append(f"SearchName({multicondition.get('SearchName')})")
+            print(f" + Adding SearchName filter: {multicondition.get('SearchName')}")
+            
         if multicondition.get('RepositoryName'):
             repository_names = multicondition.get('RepositoryName')
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
             rule['filter']['repository'] = repository_names
+            rule_name_parts.append(f"Repository({', '.join(repository_names)})")
+            print(f" + Adding repository filter: {repository_names}")
+            
         if multicondition.get('Tag'):
             rule['filter']['tags'] = []
             tag_parts = multicondition.get('Tag').split(':')
-            if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
-                print(f"Error: Invalid tag format for {serviceName}. Expected 'key:value', got {multicondition['Tag']}")
-                return
-            rule['filter']['tags'].append({"key": tag_parts[0], "value": tag_parts[1]})
-        if multicondition.get('Cidr'):
-            rule['filter']['cidr'] = multicondition.get('Cidr')
-        if multicondition.get('Fqdn'):
-            rule['filter']['fqdn'] = multicondition.get('Fqdn')
-        if multicondition.get('Netbios'):
-            rule['filter']['netbios'] = multicondition.get('Netbios')
-        if multicondition.get('OsNames'):
-            rule['filter']['osNames'] = multicondition.get('OsNames')
-        if multicondition.get('Hostnames'):
-            rule['filter']['hostnames'] = multicondition.get('Hostnames')
-        if multicondition.get('ProviderAccountId'):
-            rule['filter']['providerAccountId'] = multicondition.get('ProviderAccountId')
-        if multicondition.get('ProviderAccountName'):
-            rule['filter']['providerAccountName'] = multicondition.get('ProviderAccountName')
-        if multicondition.get('ResourceGroup'):
-            rule['filter']['resourceGroup'] = multicondition.get('ResourceGroup')
+            if len(tag_parts) == 2:
+                rule['filter']['tags'].append({"key": tag_parts[0], "value": tag_parts[1]})
+                rule_name_parts.append(f"Tag({tag_parts[0]}:{tag_parts[1]})")
+                print(f" + Adding tag filter: key={tag_parts[0]}, value={tag_parts[1]}")
+                
         if multicondition.get('AssetType'):
             rule['filter']['assetType'] = multicondition.get('AssetType')
+            rule_name_parts.append(f"AssetType({multicondition.get('AssetType')})")
+            print(f" + Adding AssetType filter: {multicondition.get('AssetType')}")
 
         if not rule['filter']:
+            print(" ! No valid filters found in rule, skipping")
             return
+
+        # Create a descriptive name combining all filters
+        rule['name'] = f"{serviceName} - {' AND '.join(rule_name_parts)}"
 
         payload = {
             "selector": {
@@ -618,17 +660,17 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             "rules": [rule]
         }
 
-        if DEBUG:
-            print(f"Payload for multicondition {serviceName}: {json.dumps(payload, indent=2)}")
+        print(f"\nSending payload for {serviceName}:")
+        print(json.dumps(payload, indent=2))
 
         try:
             api_url = construct_api_url("/v1/components/rules")
             response = requests.post(api_url, headers=headers, json=payload)
             response.raise_for_status()
-            print(f"Multicondition Rule for {serviceName} created.")
+            print(f" + Created multicondition rule for {serviceName}")
         except requests.exceptions.RequestException as e:
             if response.status_code == 409:
-                print(f" > Multicondition Rule for {serviceName} already exists.")
+                print(f" > Multicondition rule for {serviceName} already exists")
             else:
                 print(f"Error: {e}")
                 print(f"Response content: {response.content}")
@@ -1379,12 +1421,20 @@ def add_service(applicationSelectorName, service, tier, headers):
     }
 
     if DEBUG:
-            print(f"Payload being sent to /v1components: {json.dumps(payload, indent=2)}")
+        print(f"Payload being sent to /v1components: {json.dumps(payload, indent=2)}")
 
-    api_url = construct_api_url("/v1/components")
-    response = requests.post(api_url, headers=headers, json=payload)
-    response.raise_for_status()
-    print(f" + Added Service: {service}")
+    try:
+        api_url = construct_api_url("/v1/components")
+        response = requests.post(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        print(f" + Added Service: {service}")
+    except requests.exceptions.RequestException as e:
+        if response.status_code == 409:
+            print(f" > Service {service} already exists")
+        else:
+            print(f"Error: {e}")
+            print(f"Response content: {response.content}")
+            exit(1)
     time.sleep(2)
 
 # Dispatch version for when all arguments, including team, are provided
@@ -1402,10 +1452,18 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         "tags": [{"key": "pteam", "value": team}]
     }
 
-    api_url = construct_api_url("/v1/components")
-    response = requests.post(api_url, headers=headers, json=payload)
-    response.raise_for_status()
-    print(f" + Added Service: {service}")
+    try:
+        api_url = construct_api_url("/v1/components")
+        response = requests.post(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        print(f" + Added Service: {service}")
+    except requests.exceptions.RequestException as e:
+        if response.status_code == 409:
+            print(f" > Service {service} already exists")
+        else:
+            print(f"Error: {e}")
+            print(f"Response content: {response.content}")
+            exit(1)
     time.sleep(2)
 
 @dispatch(str,dict,dict)
