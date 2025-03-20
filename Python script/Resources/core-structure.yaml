@@ -223,7 +223,7 @@ Environment Groups:
     Tag: 
     Team:
     Services:
-      - Service: Damn-Vulnerable-Source-Code_service
+      - Service: Damn-Vulnerable-Source-Code_service2
         Type: Cloud
         SearchName: Damn-Vulnerable-Source-Code
         Tag: issue:issue-test-asset3

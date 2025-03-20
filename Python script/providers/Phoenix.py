@@ -184,7 +184,7 @@ def add_service_rule_batch(environment, service, headers):
     tags_to_add = []
     if service.get('Tag'):
         tag_parts = service['Tag'].split(':')
-
+        try:
             if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
                 print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
             else:
@@ -196,7 +196,7 @@ def add_service_rule_batch(environment, service, headers):
             tags_to_add.append({'value': tag})
     
     if tags_to_add:
-        rules.append(create_component_rule(environmentName, serviceName, 'tags', tags_to_add, f"Rule for tags for {serviceName}", headers, verify_only))
+        create_component_rule(environmentName, serviceName, 'tags', tags_to_add, f"Rule for tags for {serviceName}", headers)
     if service.get('SearchName'):
         create_component_rule(environmentName, serviceName, 'keyLike', service['SearchName'], f"Rule for keyLike for {serviceName}", headers)
     if service.get('Fqdn'):

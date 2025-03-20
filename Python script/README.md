@@ -1,7 +1,7 @@
 ## Versioning
 
-V 4.2
-Date - 28 Feb 2025
+V 4.3
+Date - 20 Mar 2025
 
 # Introduction
 
@@ -177,6 +177,10 @@ Environment Groups:
         SearchName: search_item
         AssetType: REPOSITORY #Look up possible values in the documentation
         Tag: tag1:tagv1
+        Tags:
+          - testtag1
+          - tag2:tag2
+          - tag345
         Cidr: 10.1.1.0/24
         Fqdn: 
           - testfqdn
