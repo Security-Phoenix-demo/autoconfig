@@ -1633,20 +1633,46 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         print(f" + Added Service: {service}")
         
         # Verify service was created with retries
-        max_retries = 3
+        max_retries = 5  # Increased from 3 to 5
+        base_delay = 3   # Increased base delay
         for attempt in range(max_retries):
-            time.sleep(2 * (attempt + 1))  # Exponential backoff: 2s, 4s, 6s
+            delay = base_delay * (2 ** attempt)  # Exponential backoff: 3s, 6s, 12s, 24s, 48s
+            print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
+            time.sleep(delay)
+            
             try:
-                verify_url = construct_api_url("/v1/components")
-                verify_response = requests.get(verify_url, headers=headers)
+                # Try to get the specific service directly
+                verify_url = construct_api_url(f"/v1/components")
+                params = {
+                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
+                    "componentSelector": {"name": service, "caseSensitive": False}
+                }
+                verify_response = requests.get(verify_url, headers=headers, params=params)
                 verify_response.raise_for_status()
                 components = verify_response.json().get('content', [])
-                if any(comp['name'] == service for comp in components):
-                    if DEBUG:
-                        print(f" + Service {service} verified successfully")
+                
+                # Check both by direct name match and case-insensitive
+                service_exists = any(
+                    comp['name'].lower() == service.lower() 
+                    for comp in components
+                )
+                
+                if service_exists:
+                    print(f" + Service {service} verified successfully")
                     return True
                 else:
                     print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+                    
+                    # On last attempt, try to get all components as fallback
+                    if attempt == max_retries - 1:
+                        all_components_url = construct_api_url("/v1/components")
+                        all_response = requests.get(all_components_url, headers=headers)
+                        all_response.raise_for_status()
+                        all_components = all_response.json().get('content', [])
+                        if any(comp['name'].lower() == service.lower() for comp in all_components):
+                            print(f" + Service {service} found in full component list")
+                            return True
+                            
             except requests.exceptions.RequestException as e:
                 print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
                 if attempt == max_retries - 1:
@@ -1659,6 +1685,18 @@ def add_service(applicationSelectorName, service, tier, team, headers):
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Service {service} already exists")
+            # Even for existing services, verify we can access it
+            time.sleep(2)
+            try:
+                verify_url = construct_api_url("/v1/components")
+                verify_response = requests.get(verify_url, headers=headers)
+                verify_response.raise_for_status()
+                components = verify_response.json().get('content', [])
+                if any(comp['name'].lower() == service.lower() for comp in components):
+                    print(f" + Existing service {service} verified")
+                    return True
+            except:
+                pass
             return True
         else:
             print(f"Error: {e}")
