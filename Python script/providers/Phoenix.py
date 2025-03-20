@@ -502,18 +502,10 @@ def create_component_rules(applicationName, component, headers):
         if tags_to_add:
             create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
 
-    # Repository rule
-    repository_names = component.get('RepositoryName', [])
-    if isinstance(repository_names, str):
-        repository_names = [repository_names]
-    
-    valid_repos = []
-    for repo_name in repository_names:
-        if is_valid_value(repo_name) and len(str(repo_name).strip()) >= 3:
-            valid_repos.append(repo_name.strip())
-    
-    if valid_repos:
-        create_component_rule(applicationName, component['ComponentName'], 'repository', valid_repos, f"Rule for repository for {component['ComponentName']}", headers)
+    # Repository rule - using get_repositories_from_component helper
+    repository_names = get_repositories_from_component(component)
+    if repository_names:  # This will handle empty lists as well
+        create_component_rule(applicationName, component['ComponentName'], 'repository', repository_names, f"Rule for repository for {component['ComponentName']}", headers)
 
     # Other rules with validation
     if component.get('Cidr') and is_valid_value(component.get('Cidr')):
@@ -664,22 +656,35 @@ def create_multicondition_component_rules(applicationName, componentName, multic
                     break  # Exit on other errors
 
 def create_multicondition_service_rules(environmentName, serviceName, multiconditionRules, headers):
+    # Helper function to validate value
+    def is_valid_value(value):
+        if value is None:
+            return False
+        if isinstance(value, str) and (not value.strip() or value.lower() == 'null'):
+            return False
+        return True
+
     for multicondition in multiconditionRules:
+        if not is_valid_value(multicondition):
+            if DEBUG:
+                print(f" ! Skipping invalid multicondition rule for {serviceName}")
+            continue
+
         # Start building the rule name based on conditions
         rule_name_parts = []
         
-        if multicondition.get('AssetType'):
+        if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
             rule_name_parts.append(f"{multicondition.get('AssetType')}")
         
-        if multicondition.get('Tag'):
+        if multicondition.get('Tag') and is_valid_value(multicondition.get('Tag')):
             tag_parts = multicondition.get('Tag').split(':')
-            if len(tag_parts) == 2:
+            if len(tag_parts) == 2 and is_valid_value(tag_parts[0]) and is_valid_value(tag_parts[1]):
                 rule_name_parts.append(f"{tag_parts[0]}")
         
-        if multicondition.get('SearchName'):
+        if multicondition.get('SearchName') and is_valid_value(multicondition.get('SearchName')):
             rule_name_parts.append("SearchName")
             
-        if multicondition.get('RepositoryName'):
+        if multicondition.get('RepositoryName') and is_valid_value(multicondition.get('RepositoryName')):
             rule_name_parts.append("Repository")
             
         # Create a descriptive rule name
@@ -694,7 +699,8 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         if DEBUG:
             print(f"\nProcessing rule for {serviceName}:")
         
-        if multicondition.get('SearchName'):
+        # Only add valid filters
+        if multicondition.get('SearchName') and is_valid_value(multicondition.get('SearchName')):
             rule['filter']['keyLike'] = multicondition.get('SearchName')
             if DEBUG:
                 print(f" + Adding SearchName filter: {multicondition.get('SearchName')}")
@@ -703,19 +709,20 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             repository_names = multicondition.get('RepositoryName')
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
-            rule['filter']['repository'] = repository_names
-            if DEBUG:
-                print(f" + Adding repository filter: {repository_names}")
+            valid_repos = [repo for repo in repository_names if is_valid_value(repo)]
+            if valid_repos:
+                rule['filter']['repository'] = valid_repos
+                if DEBUG:
+                    print(f" + Adding repository filter: {valid_repos}")
             
-        if multicondition.get('Tag'):
-            rule['filter']['tags'] = []
+        if multicondition.get('Tag') and is_valid_value(multicondition.get('Tag')):
             tag_parts = multicondition.get('Tag').split(':')
-            if len(tag_parts) == 2:
-                rule['filter']['tags'].append({"key": tag_parts[0], "value": tag_parts[1]})
+            if len(tag_parts) == 2 and is_valid_value(tag_parts[0]) and is_valid_value(tag_parts[1]):
+                rule['filter']['tags'] = [{"key": tag_parts[0], "value": tag_parts[1]}]
                 if DEBUG:
                     print(f" + Adding tag filter: key={tag_parts[0]}, value={tag_parts[1]}")
                 
-        if multicondition.get('AssetType'):
+        if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
             rule['filter']['assetType'] = multicondition.get('AssetType')
             if DEBUG:
                 print(f" + Adding assetType filter: {multicondition.get('AssetType')}")
@@ -723,7 +730,7 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         if not rule['filter']:
             if DEBUG:
                 print(" ! No valid filters found in rule, skipping")
-            return
+            continue
 
         payload = {
             "selector": {
@@ -756,21 +763,48 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
 
 
 def get_repositories_from_component(component):
+    """
+    Get repository names from a component, handling all edge cases.
+    
+    Args:
+        component (dict): The component dictionary that may contain repository information
+        
+    Returns:
+        list: A list of valid repository names, or an empty list if none are found
+    """
+    # Handle case where component is None
+    if not component:
+        return []
+        
     repository = component.get('RepositoryName')
     
-    # Handle None, null, Null, empty string, whitespace, or missing key cases
-    if repository is None or not str(repository).strip() or str(repository).lower() == 'null':
+    # Handle None, null, empty string, or missing key cases
+    if repository is None:
         return []
-    
+        
     # Handle string case
     if isinstance(repository, str):
+        # Clean and validate the string
         repository = repository.strip()
-        return [repository] if repository else []
+        if not repository or repository.lower() == 'null':
+            return []
+        if len(repository) >= 3:  # Only return if length requirement is met
+            return [repository]
+        return []
     
     # Handle list case
     if isinstance(repository, list):
-        return [r.strip() for r in repository if r and str(r).strip() and str(r).lower() != 'null']
+        valid_repos = []
+        for repo in repository:
+            if repo and isinstance(repo, str):
+                repo = repo.strip()
+                if repo and repo.lower() != 'null' and len(repo) >= 3:
+                    valid_repos.append(repo)
+        return valid_repos
     
+    # If we get here, repository is an unexpected type
+    if DEBUG:
+        print(f"Warning: Unexpected repository type: {type(repository)}")
     return []
 
 # CreateRepositories Function
