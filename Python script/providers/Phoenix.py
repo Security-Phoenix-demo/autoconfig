@@ -2024,29 +2024,46 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"Full payload:")
         print(json.dumps(payload, indent=2))
 
-    try:
-        api_url = construct_api_url("/v1/components/rules")
-        response = requests.post(api_url, headers=headers, json=payload)
-        
-        if DEBUG:
-            print(f"Response status code: {response.status_code}")
-            print(f"Response content: {response.content}")
+    # Add retry logic for rule creation
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            api_url = construct_api_url("/v1/components/rules")
+            response = requests.post(api_url, headers=headers, json=payload)
             
-        response.raise_for_status()
-        print(f"+ Rule created: {ruleName}")
-        return True
-    except requests.exceptions.RequestException as e:
-        if response.status_code == 409:
-            print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
+            if DEBUG:
+                print(f"Response status code: {response.status_code}")
+                print(f"Response content: {response.content}")
+                
+            response.raise_for_status()
+            print(f"+ Rule created: {ruleName}")
             return True
-        elif response.status_code == 400:
-            print(f" ! Bad request error creating rule for {componentName}. Response: {response.content}")
-            if DEBUG:
-                print(f"Attempted payload: {json.dumps(payload, indent=2)}")
-            return False
-        else:
-            print(f"Error creating rule for {componentName}: {e}")
-            print(f"Response content: {response.content}")
-            if DEBUG:
-                print(f"Full error details: {e.__dict__}")
-            return False
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 409:
+                print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
+                return True
+            elif response.status_code == 404:
+                if attempt < max_retries - 1:
+                    wait_time = 2 * (attempt + 1)  # Exponential backoff
+                    print(f" ! Service not found, waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                print(f" ! Service {componentName} not found after {max_retries} attempts")
+                return False
+            elif response.status_code == 400:
+                print(f" ! Bad request error creating rule for {componentName}. Response: {response.content}")
+                if DEBUG:
+                    print(f"Attempted payload: {json.dumps(payload, indent=2)}")
+                return False
+            else:
+                print(f"Error creating rule for {componentName}: {e}")
+                print(f"Response content: {response.content}")
+                if DEBUG:
+                    print(f"Full error details: {e.__dict__}")
+                if attempt < max_retries - 1:
+                    wait_time = 2 * (attempt + 1)
+                    print(f" ! Error occurred, waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                return False
+    return False
