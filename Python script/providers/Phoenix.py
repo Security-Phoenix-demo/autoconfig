@@ -726,6 +726,8 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             return False
         return True
 
+    success = True  # Track overall success
+    
     for multicondition in multiconditionRules:
         if not is_valid_value(multicondition):
             if DEBUG:
@@ -781,28 +783,60 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             print(f"\nSending payload for {serviceName}:")
             print(json.dumps(payload, indent=2))
 
-        try:
-            api_url = construct_api_url("/v1/components/rules")
-            response = requests.post(api_url, headers=headers, json=payload)
-            
-            if DEBUG:
-                print(f"Response status code: {response.status_code}")
-                print(f"Response content: {response.content}")
+        # Enhanced retry logic for rule creation
+        max_retries = 3
+        current_delay = 1
+        for attempt in range(max_retries):
+            try:
+                api_url = construct_api_url("/v1/components/rules")
+                response = requests.post(api_url, headers=headers, json=payload)
                 
-            response.raise_for_status()
-            print(f" + Created rule: {rule_name}")
-        except requests.exceptions.RequestException as e:
-            if response.status_code == 409:
-                filter_str = json.dumps(rule['filter'])
-                print(f" > Rule for {serviceName} with conditions [{' AND '.join(filter_details)}] already exists")
-            else:
-                if DEBUG:
-                    print(f"Error: {e}")
-                    print(f"Response content: {response.content}")
+                if response.status_code == 200:
+                    print(f" + Created rule: {rule_name}")
+                    break
+                elif response.status_code == 409:
+                    print(f" > Rule for {serviceName} with conditions [{' AND '.join(filter_details)}] already exists")
+                    break
+                elif response.status_code in [503, 429]:
+                    if attempt < max_retries - 1:
+                        wait_time = current_delay * (2 ** attempt)
+                        print(f" ! Service unavailable/rate limited. Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
                 else:
-                    print(f" ! Error creating rule for {serviceName}")
-                exit(1)
+                    error_msg = f"Error creating rule (HTTP {response.status_code})"
+                    if DEBUG:
+                        print(f" ! {error_msg}: {response.content}")
+                    log_error(
+                        'Rule Creation',
+                        rule_name,
+                        environmentName,
+                        error_msg,
+                        f'Service: {serviceName}, Response: {response.content}'
+                    )
+                    success = False
+                    break
+                    
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    wait_time = current_delay * (2 ** attempt)
+                    print(f" ! Network error. Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    error_msg = f"Network error after {max_retries} retries: {str(e)}"
+                    print(f" ! {error_msg}")
+                    log_error(
+                        'Rule Creation',
+                        rule_name,
+                        environmentName,
+                        error_msg,
+                        f'Service: {serviceName}'
+                    )
+                    success = False
+                    break
 
+    return success
 
 def get_repositories_from_component(component):
     """
@@ -2099,50 +2133,49 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(json.dumps(payload, indent=2))
 
     # Enhanced retry configuration
-    max_retries = 7  # Increased for more retries
-    base_delay = 5   # Increased initial delay
-    max_delay = 60   # Maximum delay cap
-    jitter_factor = 0.2  # 20% jitter
+    max_retries = 5  # Reduced from 7
+    base_delay = 1   # Reduced initial delay from 5
+    max_delay = 30   # Reduced from 60
+    jitter_factor = 0.1  # Reduced jitter
     
-    def calculate_delay(attempt, consecutive_503s=0):
-        # Base exponential backoff
-        exponential_delay = min(max_delay, base_delay * (2 ** attempt))
-        
-        # Add extra delay for consecutive 503s
-        if consecutive_503s > 0:
-            exponential_delay = min(max_delay, exponential_delay * (1.5 ** consecutive_503s))
+    def calculate_delay(attempt, consecutive_errors=0):
+        # No delay on first attempt or if no consecutive errors
+        if attempt == 0 or consecutive_errors == 0:
+            return 0
             
-        # Add jitter
-        jitter = random.uniform(-jitter_factor * exponential_delay, jitter_factor * exponential_delay)
-        final_delay = exponential_delay + jitter
-        
-        return max(base_delay, min(max_delay, final_delay))
+        # Only apply exponential backoff when we have consecutive errors
+        if consecutive_errors > 0:
+            exponential_delay = min(max_delay, base_delay * (2 ** (consecutive_errors - 1)))
+            # Add minimal jitter
+            jitter = random.uniform(0, jitter_factor * exponential_delay)
+            return exponential_delay + jitter
+            
+        # Default small delay for non-consecutive errors
+        return base_delay
 
     # Track different types of errors
-    consecutive_503s = 0
-    consecutive_429s = 0
+    consecutive_errors = 0
     total_attempts = 0
     last_error = None
-    current_delay = base_delay  # Initialize delay variable
+    current_delay = 0  # Start with no delay
 
     while total_attempts < max_retries:
         try:
-            # Calculate appropriate delay based on previous errors
-            if total_attempts > 0:
-                current_delay = calculate_delay(total_attempts, consecutive_503s)
+            # Only add delay if we've had errors
+            if current_delay > 0:
                 print(f" * Waiting {current_delay:.1f}s before retry {total_attempts + 1}/{max_retries}...")
                 time.sleep(current_delay)
 
             api_url = construct_api_url("/v1/components/rules")
             
-            # Add custom headers for rate limiting
+            # Add custom headers only if we're experiencing issues
             request_headers = headers.copy()
-            if consecutive_429s > 0 or consecutive_503s > 0:
+            if consecutive_errors > 1:
                 request_headers['X-Rate-Limit-Wait'] = str(int(current_delay))
                 request_headers['X-Client-Timeout'] = str(int(current_delay * 2))
             
-            # Set request timeout
-            timeout = current_delay * 2 if total_attempts > 0 else 30  # Default 30s timeout for first attempt
+            # Dynamic timeout based on error pattern
+            timeout = 30 if consecutive_errors == 0 else current_delay * 2
             
             response = requests.post(api_url, headers=request_headers, json=payload, timeout=timeout)
             
@@ -2154,21 +2187,22 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
                 return True
                 
-            elif response.status_code == 503:
-                consecutive_503s += 1
-                last_error = "503 Service Unavailable"
-                print(f" ! Service Unavailable (503), possible WAF/throttling. (Attempt {total_attempts + 1}/{max_retries})")
+            elif response.status_code in [503, 429]:
+                consecutive_errors += 1
+                last_error = f"{response.status_code} {'Service Unavailable' if response.status_code == 503 else 'Rate Limit'}"
+                print(f" ! {last_error}. (Attempt {total_attempts + 1}/{max_retries})")
                 
-            elif response.status_code == 429:
-                consecutive_429s += 1
-                retry_after = int(response.headers.get('Retry-After', current_delay))
-                last_error = "429 Rate Limit Exceeded"
-                print(f" ! Rate limit exceeded (429). (Attempt {total_attempts + 1}/{max_retries})")
-                current_delay = retry_after  # Use the server's suggested retry delay
+                # Use server's retry-after if available
+                if response.status_code == 429 and 'Retry-After' in response.headers:
+                    current_delay = int(response.headers['Retry-After'])
+                else:
+                    current_delay = calculate_delay(total_attempts, consecutive_errors)
                 
             elif response.status_code == 404:
                 last_error = "404 Not Found"
                 print(f" ! Service not found. (Attempt {total_attempts + 1}/{max_retries})")
+                consecutive_errors = 0  # Reset as this is a different type of error
+                current_delay = base_delay
                 
             elif response.status_code == 400:
                 error_msg = f"Bad request error: {response.content}"
@@ -2179,36 +2213,29 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     error_msg,
                     f'Component: {componentName}, Filter: {filterName}={filterValue}'
                 )
-                if DEBUG:
-                    print(f"Attempted payload: {json.dumps(payload, indent=2)}")
                 return False
                 
             else:
                 last_error = f"HTTP {response.status_code}"
                 print(f" ! Unexpected error {response.status_code}. (Attempt {total_attempts + 1}/{max_retries})")
-                if DEBUG:
-                    print(f"Response content: {response.content}")
+                consecutive_errors = 0  # Reset for different error types
+                current_delay = base_delay
             
-            # Reset consecutive error counters if we get a different error
-            if response.status_code != 503:
-                consecutive_503s = 0
-            if response.status_code != 429:
-                consecutive_429s = 0
-                
         except requests.exceptions.RequestException as e:
             last_error = str(e)
             print(f" ! Network error: {str(e)}. (Attempt {total_attempts + 1}/{max_retries})")
+            consecutive_errors += 1
+            current_delay = calculate_delay(total_attempts, consecutive_errors)
             
         total_attempts += 1
         
-        # If we've had too many consecutive 503s or 429s, take a longer break
-        if consecutive_503s >= 3 or consecutive_429s >= 3:
+        # Take a longer break only if we have many consecutive errors
+        if consecutive_errors >= 3:
             long_break = min(max_delay, base_delay * 4)
-            print(f" ! Too many consecutive errors. Taking a {long_break}s break...")
+            print(f" ! Multiple consecutive errors. Taking a {long_break}s break...")
             time.sleep(long_break)
-            consecutive_503s = 0
-            consecutive_429s = 0
-            current_delay = base_delay  # Reset delay after long break
+            consecutive_errors = 1  # Reduce but don't reset completely
+            current_delay = base_delay
 
     # Log final error after all retries exhausted
     log_error(
