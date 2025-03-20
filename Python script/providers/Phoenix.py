@@ -12,7 +12,7 @@ SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service
 ASSET_NAME_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
 ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with similar name that will trigger component creation
 
-APIdomain = "https://api.demo.appsecphx.io" #change this with your specific domain
+APIdomain = "https://api.bv.securityphoenix.cloud" #change this with your specific domain
 DEBUG = False #debug settings to trigger debug output 
 
 def get_auth_token(clientID, clientSecret, retries=3):
@@ -1972,6 +1972,19 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"- Filter value: {filterValue}")
         print(f"- Rule name: {ruleName}")
 
+    # Map filter names to their correct API case-sensitive versions
+    filter_name_mapping = {
+        'keylike': 'keyLike',
+        'searchname': 'keyLike',  # SearchName is actually keyLike in the API
+        'searchName': 'keyLike',  # Both cases handled
+        'osnames': 'osNames',
+        'provideraccountid': 'providerAccountId',
+        'provideraccountname': 'providerAccountName',
+        'resourcegroup': 'resourceGroup',
+        'assettype': 'assetType',
+        'tags': 'tags'
+    }
+
     # Special handling for tags
     if filterName.lower() == 'tags':
         # If filterValue is already a list of dicts with 'value' key, use it as is
@@ -1984,20 +1997,15 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     else:
         filter_content = filterValue
 
-    # Map filter names to their correct API case-sensitive versions
-    filter_name_mapping = {
-        'keylike': 'keyLike',
-        'searchname': 'searchName',
-        'osnames': 'osNames',
-        'provideraccountid': 'providerAccountId',
-        'provideraccountname': 'providerAccountName',
-        'resourcegroup': 'resourceGroup',
-        'assettype': 'assetType',
-        'tags': 'tags'  # Keep tags lowercase in mapping
-    }
-
     # Use the correct case-sensitive filter name
     api_filter_name = filter_name_mapping.get(filterName.lower(), filterName)
+
+    # For SearchName/keyLike, ensure the value is a string
+    if api_filter_name == 'keyLike' and isinstance(filter_content, (list, dict)):
+        if isinstance(filter_content, list):
+            filter_content = filter_content[0] if filter_content else ""
+        elif isinstance(filter_content, dict):
+            filter_content = str(filter_content.get('value', ''))
 
     rule = {
         "name": ruleName,
@@ -2025,17 +2033,19 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             print(f"Response content: {response.content}")
             
         response.raise_for_status()
-        print(f"Rule for {filterValue} created.")
+        print(f"+ Rule created: {ruleName}")
         return True
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > Rule for {filterValue} already exists.")
+            print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
             return True
         elif response.status_code == 400:
-            print(f" ! Bad request error for {filterValue}. Response: {response.content}")
+            print(f" ! Bad request error creating rule for {componentName}. Response: {response.content}")
+            if DEBUG:
+                print(f"Attempted payload: {json.dumps(payload, indent=2)}")
             return False
         else:
-            print(f"Error: {e}")
+            print(f"Error creating rule for {componentName}: {e}")
             print(f"Response content: {response.content}")
             if DEBUG:
                 print(f"Full error details: {e.__dict__}")
