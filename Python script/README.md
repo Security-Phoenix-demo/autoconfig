@@ -3,6 +3,335 @@
 V 4.2
 Date - 28 Feb 2025
 
+# Quick Start Guide
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Security-Phoenix-demo/autoconfig.git
+cd autoconfig/Python\ script
+```
+
+2. Install dependencies:
+```bash
+pip install -r providers/requirements.txt
+```
+
+## Basic Usage
+
+The script can be run with different combinations of flags to perform specific operations:
+
+```bash
+python run.py <client_id> <client_secret> <teams> <code> <cloud> <deployment> <autolink> <autocreate_teams> <create_components> <api_domain>
+```
+
+### Minimal Example
+
+```bash
+python run.py your_client_id your_client_secret True False False False False False False api.yourdomain.securityphoenix.cloud
+```
+
+## Configuration Files
+
+### Core Structure (core-structure.yaml)
+
+The main configuration file that defines your organization's structure:
+
+```yaml
+DeploymentGroups:
+  - AppName: MyApp
+    TeamNames:
+      - DevTeam
+    Responsable: admin@company.com
+    Tier: 3
+    Components:
+      - ComponentName: Frontend
+        TeamNames:
+          - FrontendTeam
+        RepositoryName: company/frontend-repo
+
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Tier: 1
+    Responsable: ops@company.com
+    Services:
+      - Service: WebService
+        Type: Cloud
+        TeamName: WebTeam
+```
+
+### Teams Configuration (Teams/*.yaml)
+
+Individual team configurations in the `Teams` directory:
+
+```yaml
+TeamName: DevTeam
+AzureDevopsAreaPath: company\DevTeam
+TeamMembers:
+  - Name: John Doe
+    EmailAddress: john.doe@company.com
+    EmployeeType: Employee
+```
+
+### Hives Configuration (hives.yaml)
+
+Define team hierarchies and leadership:
+
+```yaml
+CustomEmail: false
+CompanyEmailDomain: company.com
+Hives:
+  - Name: Development
+    Teams:
+      - Name: DevTeam
+        Lead: jane.smith
+        Product: john.doe
+```
+
+## Advanced Configuration
+
+### Service Configuration Options
+
+1. **Basic Service**:
+```yaml
+Services:
+  - Service: MyService
+    Type: Cloud
+    Tier: 3
+    TeamName: DevTeam
+```
+
+2. **Service with Tags**:
+```yaml
+Services:
+  - Service: MyService
+    Type: Cloud
+    Tag: environment:production
+    SearchName: my-service-*
+```
+
+3. **Service with Multiple Rules**:
+```yaml
+Services:
+  - Service: MyService
+    MultiConditionRules:
+      - RepositoryName: repo1
+        SearchName: service1
+      - RepositoryName: repo2
+        SearchName: service2
+```
+
+### Component Configuration Options
+
+1. **Basic Component**:
+```yaml
+Components:
+  - ComponentName: MyComponent
+    TeamNames:
+      - DevTeam
+    RepositoryName: company/repo
+```
+
+2. **Component with Multiple Rules**:
+```yaml
+Components:
+  - ComponentName: MyComponent
+    MultiConditionRule:
+      RepositoryName: repo1
+      SearchName: component1
+    MULTI_MultiConditionRules:
+      - RepositoryName: repo2
+        SearchName: component2
+```
+
+## Environment Variables
+
+Optional environment variables for configuration:
+
+```bash
+export PHOENIX_DEBUG=True           # Enable debug logging
+export PHOENIX_MAX_RETRIES=5       # Set max retry attempts
+export PHOENIX_BASE_DELAY=3        # Set base delay for retries
+```
+
+## Script Modes
+
+### 1. Team Management Mode
+```bash
+python run.py client_id client_secret True false false false false false false api_domain
+```
+- Creates and updates teams
+- Assigns members to teams
+- Updates team permissions
+
+### 2. Code Management Mode
+```bash
+python run.py client_id client_secret false True false false false false false api_domain
+```
+- Creates applications and components
+- Sets up repository associations
+- Configures code-related rules
+
+### 3. Cloud Infrastructure Mode
+```bash
+python run.py client_id client_secret false false True false false false false api_domain
+```
+- Sets up cloud environments
+- Creates service definitions
+- Configures cloud asset rules
+
+### 4. Deployment Management Mode
+```bash
+python run.py client_id client_secret false false false True false false false api_domain
+```
+- Creates deployment associations
+- Links applications to services
+- Sets up deployment rules
+
+## Performance Optimization
+
+### Batch Operations
+For large deployments, use batch operations:
+```yaml
+batch_size: 10           # Number of operations per batch
+delay_between_batches: 1 # Delay in seconds between batches
+```
+
+### Retry Configuration
+Customize retry behavior:
+```python
+max_retries = 5      # Maximum retry attempts
+base_delay = 3       # Base delay between retries
+max_delay = 60       # Maximum delay for exponential backoff
+```
+
+## Monitoring and Maintenance
+
+### Health Checks
+Monitor script health:
+1. Check `errors.log` for failures
+2. Monitor API response times
+3. Track resource creation success rates
+
+### Regular Maintenance
+Maintain script health:
+1. Rotate log files weekly
+2. Clean up old error logs
+3. Update API credentials regularly
+4. Review and update team configurations
+
+## Security Considerations
+
+1. **API Credentials**:
+   - Store credentials securely
+   - Rotate credentials regularly
+   - Use environment variables for sensitive data
+
+2. **Access Control**:
+   - Review team permissions regularly
+   - Audit team membership changes
+   - Monitor service access patterns
+
+3. **Data Protection**:
+   - Validate input data
+   - Sanitize configuration files
+   - Encrypt sensitive information
+
+## Troubleshooting Guide
+
+### Common Issues
+
+1. **Service Creation Fails**
+```
+Issue: 404 Not Found after service creation
+Solution: Increase verification retries and delays
+```
+
+2. **Rule Creation Fails**
+```
+Issue: 400 Bad Request for rule creation
+Solution: Check field names and case sensitivity
+```
+
+3. **Team Assignment Fails**
+```
+Issue: User cannot be assigned to team
+Solution: Verify user has logged in to Phoenix portal
+```
+
+### Debug Steps
+
+1. Enable debug mode:
+```python
+DEBUG = True
+```
+
+2. Check API responses:
+```python
+print(f"Response content: {response.content}")
+```
+
+3. Verify configurations:
+```bash
+python run.py --validate-config
+```
+
+## Integration Examples
+
+### CI/CD Pipeline Integration
+
+```yaml
+# GitHub Actions Example
+name: Phoenix Configuration
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Configuration
+        run: |
+          python run.py ${{ secrets.PHOENIX_CLIENT_ID }} \
+                       ${{ secrets.PHOENIX_CLIENT_SECRET }} \
+                       true false false false false false false \
+                       ${{ secrets.PHOENIX_API_DOMAIN }}
+```
+
+### Automation Scripts
+
+```bash
+#!/bin/bash
+# Daily update script
+python run.py $CLIENT_ID $CLIENT_SECRET true true true true false false false $API_DOMAIN
+```
+
+## Best Practices
+
+1. **Configuration Management**:
+   - Use version control for configurations
+   - Document all configuration changes
+   - Validate configurations before deployment
+
+2. **Error Handling**:
+   - Implement proper error logging
+   - Use retries with exponential backoff
+   - Handle API rate limits
+
+3. **Performance**:
+   - Use batch operations when possible
+   - Implement caching for frequent operations
+   - Monitor execution times
+
+4. **Maintenance**:
+   - Regular configuration reviews
+   - Periodic credential rotation
+   - Log file management
+
 # Introduction
 
 This [repo](xxx) provides a method of getting data from your organization's repos, teams, and domains to [Phoenix](https://demo2.appsecphx.io/) using
@@ -689,3 +1018,159 @@ This action will iterate over all environments, and then for each environment:
 | Auto create deployments based on application name <br>and service name similarity | <nobr>python run.py client_id client_secret false false false false True false false api_domain</nobr>                             | false        | false       | false        | false             | True                          | false                               | false                                |
 | Auto create teams from pteam tags in config                                       | <nobr>python run.py client_id client_secret false false false false false True false api_domain</nobr>                             | false        | false       | false        | false             | false                         | True                                | false                                |
 | Create assets from components/services<br> with similar name                      | <nobr>python run.py client_id client_secret false false false false false false True api_domain</nobr>                             | false        | false       | false        | false             | false                         | false                               | True                                 |
+
+## Error Handling and Logging
+
+The script includes comprehensive error logging functionality that tracks failures in service creation, rule creation, and other operations. All errors are logged to an `errors.log` file in the same directory as the script.
+
+### Error Log Format
+
+Each error entry in the log file contains:
+```
+TIME: [Timestamp]
+OPERATION: [Type of Operation]
+NAME: [Name of Service/Component/Rule]
+ENVIRONMENT: [Environment Name]
+ERROR: [Error Message]
+DETAILS: [Additional Context]
+--------------------------------------------------------------------------------
+```
+
+### Types of Logged Errors
+
+1. Service Creation Failures:
+   - Failed service verifications
+   - API errors during service creation
+   - Timeout errors
+   - Authentication failures
+
+2. Rule Creation Failures:
+   - Invalid rule configurations
+   - Missing service errors
+   - API validation errors
+   - Case sensitivity issues
+
+3. Component Creation Failures:
+   - Component validation errors
+   - Duplicate component errors
+   - Missing required fields
+
+### Example Error Log Entries
+
+```
+TIME: 2024-03-21 14:30:45
+OPERATION: Service Creation
+NAME: my-service
+ENVIRONMENT: production
+ERROR: Service creation verification failed after maximum retries
+DETAILS: Team: dev-team, Tier: 3
+--------------------------------------------------------------------------------
+
+TIME: 2024-03-21 14:31:12
+OPERATION: Rule Creation
+NAME: repository-rule
+ENVIRONMENT: staging
+ERROR: Service not found after 3 attempts
+DETAILS: Component: my-component, Filter: repository=repo-name
+--------------------------------------------------------------------------------
+```
+
+### Using the Error Log
+
+1. **Monitoring Failed Operations**:
+   - Check `errors.log` after script execution to identify any failures
+   - Each error entry includes timestamp and context for debugging
+   - Failed operations are logged but don't stop script execution
+
+2. **Debugging Common Issues**:
+   - Service creation failures often indicate API timing issues
+   - Rule creation failures may indicate missing or invalid configurations
+   - Component failures usually relate to validation or duplicate entries
+
+3. **Error Resolution**:
+   - Review error details for specific failure reasons
+   - Check component and service names for case sensitivity
+   - Verify API credentials and permissions
+   - Ensure all required fields are properly configured
+
+### Error Log Location
+
+The `errors.log` file is created in the same directory as the script. Each run appends new errors to the existing log file.
+
+### Debug Mode
+
+Set `DEBUG = True` in `Phoenix.py` to enable additional logging:
+- Detailed API request payloads
+- Response content for failed requests
+- Verification attempt details
+- Rule creation debugging information
+
+### Common Error Types and Solutions
+
+1. **Service Not Found (404)**:
+   - Cause: Service creation succeeded but verification failed
+   - Solution: Increase retry attempts or delay between retries
+   - Configuration: Adjust `max_retries` and `base_delay` in service creation
+
+2. **Bad Request (400)**:
+   - Cause: Invalid payload or configuration
+   - Solution: Check field names and values in configuration
+   - Common issues: Case sensitivity, invalid characters in names
+
+3. **Conflict (409)**:
+   - Cause: Resource already exists
+   - Solution: Usually safe to ignore, indicates duplicate creation attempt
+   - Check existing resources if unexpected
+
+4. **Authentication Errors**:
+   - Cause: Invalid or expired credentials
+   - Solution: Verify API credentials and token refresh
+   - Check access permissions for operations
+
+### Best Practices
+
+1. **Regular Log Review**:
+   - Check logs after each script run
+   - Monitor for patterns in failures
+   - Address recurring issues
+
+2. **Log Maintenance**:
+   - Rotate logs periodically
+   - Archive old logs for reference
+   - Clean up logs to manage file size
+
+3. **Error Resolution**:
+   - Address critical errors first
+   - Group similar errors for batch resolution
+   - Document common solutions
+
+4. **Configuration Updates**:
+   - Update configurations based on error patterns
+   - Adjust timeouts and retries as needed
+   - Document configuration changes
+
+### Troubleshooting Tips
+
+1. **Service Creation Issues**:
+   ```python
+   # Increase retry attempts and delays
+   max_retries = 5  # Default: 3
+   base_delay = 5   # Default: 2
+   ```
+
+2. **Rule Creation Issues**:
+   ```python
+   # Enable debug mode for detailed logging
+   DEBUG = True
+   ```
+
+3. **Component Verification**:
+   ```python
+   # Add verification delay
+   time.sleep(delay)  # Adjust delay as needed
+   ```
+
+4. **API Rate Limiting**:
+   - Monitor response headers for rate limits
+   - Implement exponential backoff
+   - Batch operations when possible 
