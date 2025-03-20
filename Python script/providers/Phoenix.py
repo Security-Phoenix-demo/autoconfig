@@ -251,6 +251,10 @@ def add_service_rule_batch(environment, service, headers):
         create_multicondition_service_rules(environmentName, serviceName, [service.get('MultiConditionRule')], headers)
     if service.get('MultiConditionRules'):
         create_multicondition_service_rules(environmentName, serviceName, service.get('MultiConditionRules'), headers)
+    if service.get('MULTI_MultiConditionRules'):
+        create_multicondition_service_rules(environmentName, serviceName, service.get('MULTI_MultiConditionRules'), headers)
+    if service.get('MultiMultiConditionRules'):
+        create_multicondition_service_rules(environmentName, serviceName, service.get('MultiMultiConditionRules'), headers)
 
 
 # AddServiceRule Function
