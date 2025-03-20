@@ -123,9 +123,21 @@ def add_container_rule(image, subdomain, environment_name, access_token):
     }
 
 def add_service_rule_batch(environment, service, headers):
-    payload = None
     serviceName = service['Service']
     environmentName = environment['Name']
+
+    # First, verify that the service exists
+    api_url = construct_api_url("/v1/components")
+    try:
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+        components = response.json().get('content', [])
+        if not any(comp['name'] == serviceName for comp in components):
+            print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"Error verifying service existence: {e}")
+        return False
 
     # First, delete existing rules for this service
     try:
@@ -149,6 +161,8 @@ def add_service_rule_batch(environment, service, headers):
         print(f"Warning: Could not clean up existing rules: {e}")
 
     # Now proceed with creating new rules
+    success = True
+
     # Handle INFRA services with CIDR association (IP-based)
     if service.get('Cidr') and service['Type'] == 'Infra':
         print(f"Adding Service Rule {serviceName} to {environmentName} for Cidr")
@@ -157,7 +171,7 @@ def add_service_rule_batch(environment, service, headers):
         
         if not cidrs:
             print(f"Error: No valid CIDR values found for {serviceName}.")
-            return
+            return False
         
         for index, cidr in enumerate(cidrs, start=1):
             # Ensure proper CIDR formatting
@@ -181,7 +195,7 @@ def add_service_rule_batch(environment, service, headers):
                     {
                         "name": f"CIDR rule for {serviceName} - {index}",
                         "filter": {
-                            "assetType": "INFRA",  # Should be a single string, not an array
+                            "assetType": "INFRA",
                             "cidr": finalCidr
                         }
                     }
@@ -191,71 +205,63 @@ def add_service_rule_batch(environment, service, headers):
             if DEBUG:
                 print(f"Payload being sent for CIDR {finalCidr}: {json.dumps(payload, indent=2)}")
 
-            # Send the request to add the rule
             try:
                 api_url = construct_api_url("/v1/components/rules")
                 response = requests.post(api_url, headers=headers, json=payload)
-                response.raise_for_status()  # This will raise HTTPError for 4xx and 5xx responses
+                response.raise_for_status()
                 print(f"+ CIDR Rule {index} for {finalCidr} added to {serviceName}.")
-            except requests.exceptions.HTTPError as e:
-                print(f"Error: {e}")
-                print(f"Response content: {response.content}")  # Log response content for debugging
-                if response.status_code == 400:
-                    print("Bad Request: Check if all required fields are provided and valid in the payload.")
-                elif response.status_code == 409:
-                    print(f" > CIDR Rule for {finalCidr} already exists.")
-                else:
-                    exit(1)
+            except requests.exceptions.RequestException as e:
+                print(f"Error creating CIDR rule: {e}")
+                print(f"Response content: {response.content}")
+                success = False
 
-    # Handle Tag-based association
-    if service.get('Tag'):
-        # Check if Tag is a list or a string
-        if isinstance(service['Tag'], list):
-            # Handle list of tags
-            for tag_item in service['Tag']:
-                if ':' in tag_item:
-                    tag_parts = tag_item.split(':')
-                    if len(tag_parts) >= 2 and tag_parts[0] and tag_parts[1]:
-                        create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
+    # Handle other rules
+    for rule_type, rule_value in [
+        ('Tag', service.get('Tag')),
+        ('SearchName', service.get('SearchName')),
+        ('Fqdn', service.get('Fqdn')),
+        ('Netbios', service.get('Netbios')),
+        ('OsNames', service.get('OsNames')),
+        ('Hostnames', service.get('Hostnames')),
+        ('ProviderAccountId', service.get('ProviderAccountId')),
+        ('ProviderAccountName', service.get('ProviderAccountName')),
+        ('ResourceGroup', service.get('ResourceGroup')),
+        ('AssetType', service.get('AssetType'))
+    ]:
+        if rule_value:
+            try:
+                if rule_type == 'Tag':
+                    if isinstance(rule_value, list):
+                        for tag_item in rule_value:
+                            if ':' in tag_item:
+                                tag_parts = tag_item.split(':')
+                                if len(tag_parts) >= 2:
+                                    success &= create_component_rule(environmentName, serviceName, 'tags', 
+                                                                  [{"key": tag_parts[0], "value": tag_parts[1]}], 
+                                                                  f"Rule for tags for {serviceName}", headers)
                     else:
-                        print(f"Error: Invalid tag format in list for {service['Service']}. Expected 'key:value', got {tag_item}")
+                        tag_parts = rule_value.split(':')
+                        if len(tag_parts) >= 2:
+                            success &= create_component_rule(environmentName, serviceName, 'tags', 
+                                                          [{"key": tag_parts[0], "value": tag_parts[1]}], 
+                                                          f"Rule for tags for {serviceName}", headers)
                 else:
-                    print(f"Error: Missing separator ':' in tag {tag_item} for {service['Service']}")
-        else:
-            # Handle string tag (old format)
-            tag_parts = service['Tag'].split(':')
-            if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
-                print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
-                return
-            create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
-    if service.get('SearchName'):
-        create_component_rule(environmentName, serviceName, 'keyLike', service['SearchName'], f"Rule for keyLike for {serviceName}", headers)
-    if service.get('Fqdn'):
-        create_component_rule(environmentName, serviceName, 'fqdn', service['Fqdn'], f"Rule for fqdn for {serviceName}", headers)
-    if service.get('Netbios'):
-        create_component_rule(environmentName, serviceName, 'netbios', service['Netbios'], f"Rule for netbios for {serviceName}", headers)
-    if service.get('OsNames'):
-        create_component_rule(environmentName, serviceName, 'osNames', service['OsNames'], f"Rule for osNames for {serviceName}", headers)
-    if service.get('Hostnames'):
-        create_component_rule(environmentName, serviceName, 'hostnames', service['Hostnames'], f"Rule for hostnames for {serviceName}", headers)
-    if service.get('ProviderAccountId'):
-        create_component_rule(environmentName, serviceName, 'providerAccountId', service['ProviderAccountId'], f"Rule for providerAccountId for {serviceName}", headers)
-    if service.get('ProviderAccountName'):
-        create_component_rule(environmentName, serviceName, 'providerAccountName', service['ProviderAccountName'], f"Rule for providerAccountName for {serviceName}", headers)
-    if service.get('ResourceGroup'):
-        create_component_rule(environmentName, serviceName, 'resourceGroup', service['ResourceGroup'], f"Rule for resourceGroup for {serviceName}", headers)
-    if service.get('AssetType'):
-        create_component_rule(environmentName, serviceName, 'assetType', service['AssetType'], f"Rule for assetType for {serviceName}", headers)
+                    success &= create_component_rule(environmentName, serviceName, rule_type.lower(), 
+                                                   rule_value, f"Rule for {rule_type} for {serviceName}", headers)
+            except Exception as e:
+                print(f"Error creating {rule_type} rule: {e}")
+                success = False
 
-    if service.get('MultiConditionRule'):
-        create_multicondition_service_rules(environmentName, serviceName, [service.get('MultiConditionRule')], headers)
-    if service.get('MultiConditionRules'):
-        create_multicondition_service_rules(environmentName, serviceName, service.get('MultiConditionRules'), headers)
-    if service.get('MULTI_MultiConditionRules'):
-        create_multicondition_service_rules(environmentName, serviceName, service.get('MULTI_MultiConditionRules'), headers)
-    if service.get('MultiMultiConditionRules'):
-        create_multicondition_service_rules(environmentName, serviceName, service.get('MultiMultiConditionRules'), headers)
+    # Handle MultiCondition rules
+    for rule_type in ['MultiConditionRule', 'MultiConditionRules', 'MULTI_MultiConditionRules', 'MultiMultiConditionRules']:
+        if service.get(rule_type):
+            try:
+                create_multicondition_service_rules(environmentName, serviceName, service.get(rule_type), headers)
+            except Exception as e:
+                print(f"Error creating multicondition rule: {e}")
+                success = False
 
+    return success
 
 # AddServiceRule Function
 def add_service_rule(environment, service, tag_name, tag_value, access_token):
@@ -656,40 +662,14 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
                 print(f" ! Skipping invalid multicondition rule for {serviceName}")
             continue
 
-        # Start building the rule name based on conditions
-        rule_name_parts = []
+        # Build the filter first
+        rule = {'filter': {}}
+        filter_details = []
         
-        if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
-            rule_name_parts.append(f"{multicondition.get('AssetType')}")
-        
-        if multicondition.get('Tag') and is_valid_value(multicondition.get('Tag')):
-            tag_parts = multicondition.get('Tag').split(':')
-            if len(tag_parts) == 2 and is_valid_value(tag_parts[0]) and is_valid_value(tag_parts[1]):
-                rule_name_parts.append(f"{tag_parts[0]}")
-        
-        if multicondition.get('SearchName') and is_valid_value(multicondition.get('SearchName')):
-            rule_name_parts.append("SearchName")
-            
-        if multicondition.get('RepositoryName') and is_valid_value(multicondition.get('RepositoryName')):
-            rule_name_parts.append("Repository")
-            
-        # Create a descriptive rule name
-        rule_name = "Multicondition rule"
-        if rule_name_parts:
-            rule_name += " for " + " and ".join(rule_name_parts)
-        rule_name += f" - {serviceName}"
-        
-        rule = {'name': rule_name}
-        rule['filter'] = {}
-        
-        if DEBUG:
-            print(f"\nProcessing rule for {serviceName}:")
-        
-        # Only add valid filters
+        # Add each condition to the filter and collect details for logging
         if multicondition.get('SearchName') and is_valid_value(multicondition.get('SearchName')):
             rule['filter']['keyLike'] = multicondition.get('SearchName')
-            if DEBUG:
-                print(f" + Adding SearchName filter: {multicondition.get('SearchName')}")
+            filter_details.append(f"SearchName: {multicondition.get('SearchName')}")
             
         if multicondition.get('RepositoryName'):
             repository_names = multicondition.get('RepositoryName')
@@ -698,25 +678,26 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             valid_repos = [repo for repo in repository_names if is_valid_value(repo)]
             if valid_repos:
                 rule['filter']['repository'] = valid_repos
-                if DEBUG:
-                    print(f" + Adding repository filter: {valid_repos}")
+                filter_details.append(f"Repository: {', '.join(valid_repos)}")
             
         if multicondition.get('Tag') and is_valid_value(multicondition.get('Tag')):
             tag_parts = multicondition.get('Tag').split(':')
             if len(tag_parts) == 2 and is_valid_value(tag_parts[0]) and is_valid_value(tag_parts[1]):
                 rule['filter']['tags'] = [{"key": tag_parts[0], "value": tag_parts[1]}]
-                if DEBUG:
-                    print(f" + Adding tag filter: key={tag_parts[0]}, value={tag_parts[1]}")
+                filter_details.append(f"Tag: {tag_parts[0]}:{tag_parts[1]}")
                 
         if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
             rule['filter']['assetType'] = multicondition.get('AssetType')
-            if DEBUG:
-                print(f" + Adding assetType filter: {multicondition.get('AssetType')}")
+            filter_details.append(f"AssetType: {multicondition.get('AssetType')}")
 
         if not rule['filter']:
             if DEBUG:
-                print(" ! No valid filters found in rule, skipping")
+                print(f" ! No valid filters found in rule for {serviceName}, skipping")
             continue
+
+        # Create descriptive rule name based on the filter type and value
+        rule_name = f"Rule for {serviceName} with conditions [{' AND '.join(filter_details)}]"
+        rule['name'] = rule_name
 
         payload = {
             "selector": {
@@ -733,12 +714,17 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         try:
             api_url = construct_api_url("/v1/components/rules")
             response = requests.post(api_url, headers=headers, json=payload)
+            
+            if DEBUG:
+                print(f"Response status code: {response.status_code}")
+                print(f"Response content: {response.content}")
+                
             response.raise_for_status()
-            print(f" + Created {rule_name}")
+            print(f" + Created rule: {rule_name}")
         except requests.exceptions.RequestException as e:
             if response.status_code == 409:
                 filter_str = json.dumps(rule['filter'])
-                print(f" > {rule_name} with filter {filter_str} already exists")
+                print(f" > Rule for {serviceName} with conditions [{' AND '.join(filter_details)}] already exists")
             else:
                 if DEBUG:
                     print(f"Error: {e}")
@@ -1547,25 +1533,33 @@ def add_service(applicationSelectorName, service, tier, headers):
         "applicationSelector": {
             "name": applicationSelectorName
         },
-        "tags": []  # No team tag since it's missing
+        "tags": []
     }
-
-    if DEBUG:
-        print(f"Payload being sent to /v1components: {json.dumps(payload, indent=2)}")
 
     try:
         api_url = construct_api_url("/v1/components")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f" + Added Service: {service}")
+        # Wait for service to be fully created
+        time.sleep(2)
+        # Verify service was created
+        verify_url = construct_api_url("/v1/components")
+        verify_response = requests.get(verify_url, headers=headers)
+        verify_response.raise_for_status()
+        components = verify_response.json().get('content', [])
+        if not any(comp['name'] == service for comp in components):
+            print(f" ! Warning: Service {service} creation could not be verified")
+            return False
+        return True
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Service {service} already exists")
+            return True
         else:
             print(f"Error: {e}")
             print(f"Response content: {response.content}")
-            exit(1)
-    time.sleep(2)
+            return False
 
 # Dispatch version for when all arguments, including team, are provided
 @dispatch(str, str, int, str, dict)
@@ -1587,14 +1581,25 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f" + Added Service: {service}")
+        # Wait for service to be fully created
+        time.sleep(2)
+        # Verify service was created
+        verify_url = construct_api_url("/v1/components")
+        verify_response = requests.get(verify_url, headers=headers)
+        verify_response.raise_for_status()
+        components = verify_response.json().get('content', [])
+        if not any(comp['name'] == service for comp in components):
+            print(f" ! Warning: Service {service} creation could not be verified")
+            return False
+        return True
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Service {service} already exists")
+            return True
         else:
             print(f"Error: {e}")
             print(f"Response content: {response.content}")
-            exit(1)
-    time.sleep(2)
+            return False
 
 @dispatch(str,dict,dict)
 def does_member_exist(email, team, headers):
@@ -1915,9 +1920,23 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     else:
         filter_content = filterValue
 
+    # Map filter names to their correct API case-sensitive versions
+    filter_name_mapping = {
+        'keylike': 'keyLike',
+        'searchname': 'searchName',
+        'osnames': 'osNames',
+        'provideraccountid': 'providerAccountId',
+        'provideraccountname': 'providerAccountName',
+        'resourcegroup': 'resourceGroup',
+        'assettype': 'assetType'
+    }
+
+    # Use the correct case-sensitive filter name
+    api_filter_name = filter_name_mapping.get(filterName.lower(), filterName)
+
     rule = {
         "name": ruleName,
-        "filter": {filterName: filter_content}
+        "filter": {api_filter_name: filter_content}
     }
 
     payload = {
@@ -1942,14 +1961,17 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             
         response.raise_for_status()
         print(f"Rule for {filterValue} created.")
+        return True
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Rule for {filterValue} already exists.")
+            return True
         elif response.status_code == 400:
             print(f" ! Bad request error for {filterValue}. Response: {response.content}")
+            return False
         else:
             print(f"Error: {e}")
             print(f"Response content: {response.content}")
             if DEBUG:
                 print(f"Full error details: {e.__dict__}")
-            exit(1)
+            return False
