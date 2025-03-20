@@ -181,15 +181,22 @@ def add_service_rule_batch(environment, service, headers):
                     exit(1)
 
     # Handle Tag-based association
+    tags_to_add = []
     if service.get('Tag'):
         tag_parts = service['Tag'].split(':')
 
-        if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
-            print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
-            return
-        
-        create_component_rule(environment['Name'], service['Service'], 'tags', [{"key": tag_parts[0], "value": tag_parts[1]}], f"Rule for tags for {service['Service']}", headers)
-        
+            if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
+                print(f"Error: Invalid tag format for {service['Service']}. Expected 'key:value', got {service['Tag']}")
+            else:
+                tags_to_add.append({"key": tag_parts[0], "value": tag_parts[1]})
+        except Exception as e:
+            print(f"Error: Parsing tag for {service['Service']} failed. Expected 'key:value', got {service['Tag']}")
+    if service.get('Tags'):
+        for tag in service.get('Tags'):
+            tags_to_add.append({'value': tag})
+    
+    if tags_to_add:
+        rules.append(create_component_rule(environmentName, serviceName, 'tags', tags_to_add, f"Rule for tags for {serviceName}", headers, verify_only))
     if service.get('SearchName'):
         create_component_rule(environmentName, serviceName, 'keyLike', service['SearchName'], f"Rule for keyLike for {serviceName}", headers)
     if service.get('Fqdn'):
@@ -581,13 +588,22 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
             rule['filter']['repository'] = repository_names
+        tags_to_add = []
         if multicondition.get('Tag'):
             rule['filter']['tags'] = []
-            tag_parts = multicondition.get('Tag').split(':')
-            if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
-                print(f"Error: Invalid tag format for {serviceName}. Expected 'key:value', got {multicondition['Tag']}")
-                return
-            rule['filter']['tags'].append({"key": tag_parts[0], "value": tag_parts[1]})
+            try:
+                tag_parts = multicondition.get('Tag').split(':')
+                if len(tag_parts) < 2 or not tag_parts[0] or not tag_parts[1]:
+                    print(f"Error: Invalid tag format for {serviceName}. Expected 'key:value', got {multicondition['Tag']}")
+                else:
+                    tags_to_add.append({"key": tag_parts[0], "value": tag_parts[1]})
+            except Exception as e:
+                print(f"Error: Parsing tag for multicondition service rule failed. Expected 'key:value', got {multicondition['Tag']}")
+        if multicondition.get('Tags'):
+            for tag in multicondition.get('Tags'):
+                tags_to_add.append({"value": tag})
+        if tags_to_add:
+            rule['filter']['tags'] = tags_to_add
         if multicondition.get('Cidr'):
             rule['filter']['cidr'] = multicondition.get('Cidr')
         if multicondition.get('Fqdn'):

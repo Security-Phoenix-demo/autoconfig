@@ -219,6 +219,10 @@ Environment Groups:
           RepositoryName: testrepo2
           SearchName: testsearch4
           Tag: key10:value10
+          Tags:
+            - testtag1
+            - tag2:tag2
+            - tag345
           Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
           Fqdn: 
             - testfqdn3
@@ -239,6 +243,10 @@ Environment Groups:
             RepositoryName: testrepo
             SearchName: testsearch2
             Tag: key1:value1
+            Tags:
+              - testtag1
+              - tag2:tag2
+              - tag345
             Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
             Fqdn: 
               - testfqdn

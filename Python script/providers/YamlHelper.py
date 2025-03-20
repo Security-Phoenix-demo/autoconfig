@@ -102,6 +102,7 @@ def populate_environments_from_env_groups(resource_folder):
                     'RepositoryName': repository_names,  # Properly handle missing 'RepositoryName'
                     'SearchName': service.get('SearchName', None),
                     "Tag": service.get("Tag", None),
+                    "Tags": service.get("Tags", []),
                     "Cidr": service.get("Cidr", None),
                     "Fqdn": service.get("Fqdn", None),
                     "Netbios": service.get("Netbios", None),
