@@ -388,7 +388,6 @@ def update_application(application, existing_apps_envs, existing_components, hea
             continue
 
         update_component(application, component, existing_component, headers)
-        create_component_rules(application['AppName'], component, headers)
 
 def update_component(application, component, existing_component, headers):
     for team in filter(lambda tag: tag.get('key') == 'pteam', existing_component.get('tags')):
@@ -489,6 +488,13 @@ def create_component_rules(applicationName, component, headers):
             return False
         return True
 
+    def is_valid_tag(tag):
+        if not is_valid_value(tag):
+            return False
+        # Tag must be between 3 and 255 characters
+        tag_str = str(tag).strip()
+        return 3 <= len(tag_str) <= 255
+
     # SearchName rule
     if component.get('SearchName') and is_valid_value(component.get('SearchName')):
         create_component_rule(applicationName, component['ComponentName'], 'keyLike', component['SearchName'], f"Rule for keyLike for {component['ComponentName']}", headers)
@@ -497,10 +503,28 @@ def create_component_rules(applicationName, component, headers):
     if component.get('Tags'):
         tags_to_add = []
         for tag in component.get('Tags'):
-            if is_valid_value(tag) and len(str(tag).strip()) >= 3:
-                tags_to_add.append({'value': tag})
+            if isinstance(tag, dict) and 'value' in tag:
+                # If tag is already in correct format, validate the value
+                if is_valid_tag(tag['value']):
+                    tags_to_add.append(tag)
+                elif DEBUG:
+                    print(f" ! Skipping invalid tag value: '{tag['value']}' (must be between 3 and 255 characters)")
+            else:
+                # If tag is a string, validate and convert to correct format
+                if is_valid_tag(tag):
+                    tags_to_add.append({'value': tag})
+                elif DEBUG:
+                    print(f" ! Skipping invalid tag: '{tag}' (must be between 3 and 255 characters)")
+        
         if tags_to_add:
-            create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
+            try:
+                create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
+            except Exception as e:
+                if DEBUG:
+                    print(f" ! Error creating tag rule for {component['ComponentName']}: {str(e)}")
+                    print(f" ! Tags attempted: {json.dumps(tags_to_add, indent=2)}")
+        elif DEBUG:
+            print(f" ! No valid tags found for {component['ComponentName']}")
 
     # Repository rule - using get_repositories_from_component helper
     repository_names = get_repositories_from_component(component)
@@ -734,14 +758,25 @@ def get_repositories_from_component(component):
     Returns:
         list: A list of valid repository names, or an empty list if none are found
     """
+    if DEBUG:
+        print("\nProcessing repositories from component:")
+        print(f"Component: {json.dumps(component, indent=2)}")
+    
     # Handle case where component is None
     if not component:
+        if DEBUG:
+            print("Component is None, returning empty list")
         return []
         
     repository = component.get('RepositoryName')
     
+    if DEBUG:
+        print(f"Raw repository value: {repository}")
+    
     # Handle None, null, empty string, or missing key cases
     if repository is None:
+        if DEBUG:
+            print("Repository is None, returning empty list")
         return []
         
     # Handle string case
@@ -749,19 +784,31 @@ def get_repositories_from_component(component):
         # Clean and validate the string
         repository = repository.strip()
         if not repository or repository.lower() == 'null':
+            if DEBUG:
+                print(f"Repository is empty or 'null': {repository}")
             return []
         if len(repository) >= 3:  # Only return if length requirement is met
+            if DEBUG:
+                print(f"Valid repository found: {repository}")
             return [repository]
+        if DEBUG:
+            print(f"Repository too short: {repository}")
         return []
     
     # Handle list case
     if isinstance(repository, list):
+        if DEBUG:
+            print("Processing repository list")
         valid_repos = []
         for repo in repository:
             if repo and isinstance(repo, str):
                 repo = repo.strip()
                 if repo and repo.lower() != 'null' and len(repo) >= 3:
+                    if DEBUG:
+                        print(f"Valid repository found in list: {repo}")
                     valid_repos.append(repo)
+                elif DEBUG:
+                    print(f"Invalid repository in list: {repo}")
         return valid_repos
     
     # If we get here, repository is an unexpected type
@@ -1850,6 +1897,12 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
 
 # Handle Repository Rule Creation for Components
 def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
+    if DEBUG:
+        print(f"\nCreating rule for {componentName}:")
+        print(f"- Filter type: {filterName}")
+        print(f"- Filter value: {filterValue}")
+        print(f"- Rule name: {ruleName}")
+
     rule = {
         "name": ruleName,
         "filter": {filterName: filterValue}
@@ -1864,17 +1917,27 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     }
 
     if DEBUG:
-        print(f"Payload for {componentName}: {json.dumps(payload, indent=2)}")
+        print(f"Full payload:")
+        print(json.dumps(payload, indent=2))
 
     try:
         api_url = construct_api_url("/v1/components/rules")
         response = requests.post(api_url, headers=headers, json=payload)
+        
+        if DEBUG:
+            print(f"Response status code: {response.status_code}")
+            print(f"Response content: {response.content}")
+            
         response.raise_for_status()
         print(f"Rule for {filterValue} created.")
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > Rule for {filterValue} already exists.")
+        elif response.status_code == 400:
+            print(f" ! Bad request error for {filterValue}. Response: {response.content}")
         else:
             print(f"Error: {e}")
             print(f"Response content: {response.content}")
+            if DEBUG:
+                print(f"Full error details: {e.__dict__}")
             exit(1)
