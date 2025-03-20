@@ -726,8 +726,6 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             return False
         return True
 
-    success = True  # Track overall success
-    
     for multicondition in multiconditionRules:
         if not is_valid_value(multicondition):
             if DEBUG:
@@ -783,60 +781,28 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             print(f"\nSending payload for {serviceName}:")
             print(json.dumps(payload, indent=2))
 
-        # Enhanced retry logic for rule creation
-        max_retries = 3
-        current_delay = 1
-        for attempt in range(max_retries):
-            try:
-                api_url = construct_api_url("/v1/components/rules")
-                response = requests.post(api_url, headers=headers, json=payload)
+        try:
+            api_url = construct_api_url("/v1/components/rules")
+            response = requests.post(api_url, headers=headers, json=payload)
+            
+            if DEBUG:
+                print(f"Response status code: {response.status_code}")
+                print(f"Response content: {response.content}")
                 
-                if response.status_code == 200:
-                    print(f" + Created rule: {rule_name}")
-                    break
-                elif response.status_code == 409:
-                    print(f" > Rule for {serviceName} with conditions [{' AND '.join(filter_details)}] already exists")
-                    break
-                elif response.status_code in [503, 429]:
-                    if attempt < max_retries - 1:
-                        wait_time = current_delay * (2 ** attempt)
-                        print(f" ! Service unavailable/rate limited. Waiting {wait_time}s before retry...")
-                        time.sleep(wait_time)
-                        continue
+            response.raise_for_status()
+            print(f" + Created rule: {rule_name}")
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 409:
+                filter_str = json.dumps(rule['filter'])
+                print(f" > Rule for {serviceName} with conditions [{' AND '.join(filter_details)}] already exists")
+            else:
+                if DEBUG:
+                    print(f"Error: {e}")
+                    print(f"Response content: {response.content}")
                 else:
-                    error_msg = f"Error creating rule (HTTP {response.status_code})"
-                    if DEBUG:
-                        print(f" ! {error_msg}: {response.content}")
-                    log_error(
-                        'Rule Creation',
-                        rule_name,
-                        environmentName,
-                        error_msg,
-                        f'Service: {serviceName}, Response: {response.content}'
-                    )
-                    success = False
-                    break
-                    
-            except requests.exceptions.RequestException as e:
-                if attempt < max_retries - 1:
-                    wait_time = current_delay * (2 ** attempt)
-                    print(f" ! Network error. Waiting {wait_time}s before retry...")
-                    time.sleep(wait_time)
-                    continue
-                else:
-                    error_msg = f"Network error after {max_retries} retries: {str(e)}"
-                    print(f" ! {error_msg}")
-                    log_error(
-                        'Rule Creation',
-                        rule_name,
-                        environmentName,
-                        error_msg,
-                        f'Service: {serviceName}'
-                    )
-                    success = False
-                    break
+                    print(f" ! Error creating rule for {serviceName}")
+                exit(1)
 
-    return success
 
 def get_repositories_from_component(component):
     """
