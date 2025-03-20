@@ -2098,30 +2098,53 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"Full payload:")
         print(json.dumps(payload, indent=2))
 
-    # Enhanced retry mechanism with exponential backoff and jitter
-    max_retries = 5  # Increased from 3 to 5
-    base_delay = 3   # Increased from 2 to 3 seconds
-    max_delay = 30   # Maximum delay cap
+    # Enhanced retry configuration
+    max_retries = 7  # Increased for more retries
+    base_delay = 5   # Increased initial delay
+    max_delay = 60   # Maximum delay cap
+    jitter_factor = 0.2  # 20% jitter
     
-    def calculate_delay(attempt):
-        # Exponential backoff with jitter
+    def calculate_delay(attempt, consecutive_503s=0):
+        # Base exponential backoff
         exponential_delay = min(max_delay, base_delay * (2 ** attempt))
-        jitter = random.uniform(0, 0.1 * exponential_delay)  # 10% jitter
-        return exponential_delay + jitter
+        
+        # Add extra delay for consecutive 503s
+        if consecutive_503s > 0:
+            exponential_delay = min(max_delay, exponential_delay * (1.5 ** consecutive_503s))
+            
+        # Add jitter
+        jitter = random.uniform(-jitter_factor * exponential_delay, jitter_factor * exponential_delay)
+        final_delay = exponential_delay + jitter
+        
+        return max(base_delay, min(max_delay, final_delay))
 
-    # Track 503 errors separately
+    # Track different types of errors
     consecutive_503s = 0
-    max_503_retries = 3  # Additional retries for 503s
+    consecutive_429s = 0
+    total_attempts = 0
+    last_error = None
+    current_delay = base_delay  # Initialize delay variable
 
-    for attempt in range(max_retries + max_503_retries):
+    while total_attempts < max_retries:
         try:
+            # Calculate appropriate delay based on previous errors
+            if total_attempts > 0:
+                current_delay = calculate_delay(total_attempts, consecutive_503s)
+                print(f" * Waiting {current_delay:.1f}s before retry {total_attempts + 1}/{max_retries}...")
+                time.sleep(current_delay)
+
             api_url = construct_api_url("/v1/components/rules")
             
-            # Add rate limiting headers if configured
-            if attempt > 0:
-                headers['X-Rate-Limit-Wait'] = str(int(delay))
+            # Add custom headers for rate limiting
+            request_headers = headers.copy()
+            if consecutive_429s > 0 or consecutive_503s > 0:
+                request_headers['X-Rate-Limit-Wait'] = str(int(current_delay))
+                request_headers['X-Client-Timeout'] = str(int(current_delay * 2))
             
-            response = requests.post(api_url, headers=headers, json=payload)
+            # Set request timeout
+            timeout = current_delay * 2 if total_attempts > 0 else 30  # Default 30s timeout for first attempt
+            
+            response = requests.post(api_url, headers=request_headers, json=payload, timeout=timeout)
             
             if response.status_code == 200:
                 print(f"+ Rule created: {ruleName}")
@@ -2133,31 +2156,19 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 
             elif response.status_code == 503:
                 consecutive_503s += 1
-                delay = calculate_delay(consecutive_503s + attempt)
-                print(f" ! Service Unavailable (503), possible WAF/throttling. Waiting {delay:.1f}s before retry...")
-                time.sleep(delay)
-                continue
+                last_error = "503 Service Unavailable"
+                print(f" ! Service Unavailable (503), possible WAF/throttling. (Attempt {total_attempts + 1}/{max_retries})")
                 
-            elif response.status_code == 429:  # Rate limit exceeded
-                retry_after = int(response.headers.get('Retry-After', calculate_delay(attempt)))
-                print(f" ! Rate limit exceeded, waiting {retry_after}s before retry...")
-                time.sleep(retry_after)
-                continue
+            elif response.status_code == 429:
+                consecutive_429s += 1
+                retry_after = int(response.headers.get('Retry-After', current_delay))
+                last_error = "429 Rate Limit Exceeded"
+                print(f" ! Rate limit exceeded (429). (Attempt {total_attempts + 1}/{max_retries})")
+                current_delay = retry_after  # Use the server's suggested retry delay
                 
             elif response.status_code == 404:
-                if attempt < max_retries - 1:
-                    delay = calculate_delay(attempt)
-                    print(f" ! Service not found, waiting {delay:.1f}s before retry...")
-                    time.sleep(delay)
-                    continue
-                log_error(
-                    'Rule Creation',
-                    ruleName,
-                    applicationName,
-                    f'Service {componentName} not found after {max_retries} attempts',
-                    f'Filter: {filterName}={filterValue}'
-                )
-                return False
+                last_error = "404 Not Found"
+                print(f" ! Service not found. (Attempt {total_attempts + 1}/{max_retries})")
                 
             elif response.status_code == 400:
                 error_msg = f"Bad request error: {response.content}"
@@ -2173,34 +2184,39 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 return False
                 
             else:
-                if attempt < max_retries - 1:
-                    delay = calculate_delay(attempt)
-                    print(f" ! Error {response.status_code}, waiting {delay:.1f}s before retry...")
-                    time.sleep(delay)
-                    continue
-                log_error(
-                    'Rule Creation',
-                    ruleName,
-                    applicationName,
-                    f"HTTP {response.status_code}: {response.content}",
-                    f'Component: {componentName}, Filter: {filterName}={filterValue}'
-                )
-                return False
+                last_error = f"HTTP {response.status_code}"
+                print(f" ! Unexpected error {response.status_code}. (Attempt {total_attempts + 1}/{max_retries})")
+                if DEBUG:
+                    print(f"Response content: {response.content}")
+            
+            # Reset consecutive error counters if we get a different error
+            if response.status_code != 503:
+                consecutive_503s = 0
+            if response.status_code != 429:
+                consecutive_429s = 0
                 
         except requests.exceptions.RequestException as e:
-            if attempt < max_retries - 1:
-                delay = calculate_delay(attempt)
-                print(f" ! Network error: {str(e)}, waiting {delay:.1f}s before retry...")
-                time.sleep(delay)
-                continue
-            log_error(
-                'Rule Creation',
-                ruleName,
-                applicationName,
-                str(e),
-                f'Component: {componentName}, Filter: {filterName}={filterValue}'
-            )
-            return False
+            last_error = str(e)
+            print(f" ! Network error: {str(e)}. (Attempt {total_attempts + 1}/{max_retries})")
+            
+        total_attempts += 1
+        
+        # If we've had too many consecutive 503s or 429s, take a longer break
+        if consecutive_503s >= 3 or consecutive_429s >= 3:
+            long_break = min(max_delay, base_delay * 4)
+            print(f" ! Too many consecutive errors. Taking a {long_break}s break...")
+            time.sleep(long_break)
+            consecutive_503s = 0
+            consecutive_429s = 0
+            current_delay = base_delay  # Reset delay after long break
 
-    print(f" ! Failed to create rule after {max_retries + max_503_retries} attempts")
+    # Log final error after all retries exhausted
+    log_error(
+        'Rule Creation',
+        ruleName,
+        applicationName,
+        f"Failed after {max_retries} attempts. Last error: {last_error}",
+        f'Component: {componentName}, Filter: {filterName}={filterValue}'
+    )
+    print(f" ! Failed to create rule after {max_retries} attempts. Last error: {last_error}")
     return False
