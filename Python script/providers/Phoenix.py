@@ -1903,9 +1903,21 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"- Filter value: {filterValue}")
         print(f"- Rule name: {ruleName}")
 
+    # Special handling for tags
+    if filterName == 'tags':
+        # If filterValue is already a list of dicts with 'value' key, use it as is
+        if isinstance(filterValue, list) and all(isinstance(tag, dict) and 'value' in tag for tag in filterValue):
+            filter_content = filterValue
+        else:
+            # Convert single tag or list of tags to proper format
+            tags = filterValue if isinstance(filterValue, list) else [filterValue]
+            filter_content = [{"value": tag} for tag in tags if tag and len(str(tag).strip()) >= 3]
+    else:
+        filter_content = filterValue
+
     rule = {
         "name": ruleName,
-        "filter": {filterName: filterValue}
+        "filter": {filterName: filter_content}
     }
 
     payload = {
