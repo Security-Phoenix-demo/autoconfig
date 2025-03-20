@@ -2053,8 +2053,8 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     # Map filter names to their correct API case-sensitive versions
     filter_name_mapping = {
         'keylike': 'keyLike',
-        'searchname': 'keyLike',  # SearchName is actually keyLike in the API
-        'searchName': 'keyLike',  # Both cases handled
+        'searchname': 'keyLike',
+        'searchName': 'keyLike',
         'osnames': 'osNames',
         'provideraccountid': 'providerAccountId',
         'provideraccountname': 'providerAccountName',
@@ -2065,20 +2065,16 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
 
     # Special handling for tags
     if filterName.lower() == 'tags':
-        # If filterValue is already a list of dicts with 'value' key, use it as is
         if isinstance(filterValue, list) and all(isinstance(tag, dict) and ('value' in tag or ('key' in tag and 'value' in tag)) for tag in filterValue):
             filter_content = filterValue
         else:
-            # Convert single tag or list of tags to proper format
             tags = filterValue if isinstance(filterValue, list) else [filterValue]
             filter_content = [{"value": tag} for tag in tags if tag and len(str(tag).strip()) >= 3]
     else:
         filter_content = filterValue
 
-    # Use the correct case-sensitive filter name
     api_filter_name = filter_name_mapping.get(filterName.lower(), filterName)
 
-    # For SearchName/keyLike, ensure the value is a string
     if api_filter_name == 'keyLike' and isinstance(filter_content, (list, dict)):
         if isinstance(filter_content, list):
             filter_content = filter_content[0] if filter_content else ""
@@ -2102,29 +2098,57 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"Full payload:")
         print(json.dumps(payload, indent=2))
 
-    # Add retry logic for rule creation
-    max_retries = 3
-    for attempt in range(max_retries):
+    # Enhanced retry mechanism with exponential backoff and jitter
+    max_retries = 5  # Increased from 3 to 5
+    base_delay = 3   # Increased from 2 to 3 seconds
+    max_delay = 30   # Maximum delay cap
+    
+    def calculate_delay(attempt):
+        # Exponential backoff with jitter
+        exponential_delay = min(max_delay, base_delay * (2 ** attempt))
+        jitter = random.uniform(0, 0.1 * exponential_delay)  # 10% jitter
+        return exponential_delay + jitter
+
+    # Track 503 errors separately
+    consecutive_503s = 0
+    max_503_retries = 3  # Additional retries for 503s
+
+    for attempt in range(max_retries + max_503_retries):
         try:
             api_url = construct_api_url("/v1/components/rules")
+            
+            # Add rate limiting headers if configured
+            if attempt > 0:
+                headers['X-Rate-Limit-Wait'] = str(int(delay))
+            
             response = requests.post(api_url, headers=headers, json=payload)
             
-            if DEBUG:
-                print(f"Response status code: {response.status_code}")
-                print(f"Response content: {response.content}")
+            if response.status_code == 200:
+                print(f"+ Rule created: {ruleName}")
+                return True
                 
-            response.raise_for_status()
-            print(f"+ Rule created: {ruleName}")
-            return True
-        except requests.exceptions.RequestException as e:
-            if response.status_code == 409:
+            elif response.status_code == 409:
                 print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
                 return True
+                
+            elif response.status_code == 503:
+                consecutive_503s += 1
+                delay = calculate_delay(consecutive_503s + attempt)
+                print(f" ! Service Unavailable (503), possible WAF/throttling. Waiting {delay:.1f}s before retry...")
+                time.sleep(delay)
+                continue
+                
+            elif response.status_code == 429:  # Rate limit exceeded
+                retry_after = int(response.headers.get('Retry-After', calculate_delay(attempt)))
+                print(f" ! Rate limit exceeded, waiting {retry_after}s before retry...")
+                time.sleep(retry_after)
+                continue
+                
             elif response.status_code == 404:
                 if attempt < max_retries - 1:
-                    wait_time = 2 * (attempt + 1)  # Exponential backoff
-                    print(f" ! Service not found, waiting {wait_time}s before retry...")
-                    time.sleep(wait_time)
+                    delay = calculate_delay(attempt)
+                    print(f" ! Service not found, waiting {delay:.1f}s before retry...")
+                    time.sleep(delay)
                     continue
                 log_error(
                     'Rule Creation',
@@ -2133,8 +2157,8 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     f'Service {componentName} not found after {max_retries} attempts',
                     f'Filter: {filterName}={filterValue}'
                 )
-                print(f" ! Service {componentName} not found after {max_retries} attempts")
                 return False
+                
             elif response.status_code == 400:
                 error_msg = f"Bad request error: {response.content}"
                 log_error(
@@ -2144,27 +2168,39 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     error_msg,
                     f'Component: {componentName}, Filter: {filterName}={filterValue}'
                 )
-                print(f" ! {error_msg}")
                 if DEBUG:
                     print(f"Attempted payload: {json.dumps(payload, indent=2)}")
                 return False
+                
             else:
-                if attempt == max_retries - 1:
-                    log_error(
-                        'Rule Creation',
-                        ruleName,
-                        applicationName,
-                        str(e),
-                        f'Component: {componentName}, Filter: {filterName}={filterValue}, Response: {response.content}'
-                    )
-                print(f"Error creating rule for {componentName}: {e}")
-                print(f"Response content: {response.content}")
-                if DEBUG:
-                    print(f"Full error details: {e.__dict__}")
                 if attempt < max_retries - 1:
-                    wait_time = 2 * (attempt + 1)
-                    print(f" ! Error occurred, waiting {wait_time}s before retry...")
-                    time.sleep(wait_time)
+                    delay = calculate_delay(attempt)
+                    print(f" ! Error {response.status_code}, waiting {delay:.1f}s before retry...")
+                    time.sleep(delay)
                     continue
+                log_error(
+                    'Rule Creation',
+                    ruleName,
+                    applicationName,
+                    f"HTTP {response.status_code}: {response.content}",
+                    f'Component: {componentName}, Filter: {filterName}={filterValue}'
+                )
                 return False
+                
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries - 1:
+                delay = calculate_delay(attempt)
+                print(f" ! Network error: {str(e)}, waiting {delay:.1f}s before retry...")
+                time.sleep(delay)
+                continue
+            log_error(
+                'Rule Creation',
+                ruleName,
+                applicationName,
+                str(e),
+                f'Component: {componentName}, Filter: {filterName}={filterValue}'
+            )
+            return False
+
+    print(f" ! Failed to create rule after {max_retries + max_503_retries} attempts")
     return False
