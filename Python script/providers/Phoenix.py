@@ -534,44 +534,6 @@ def create_component_rules(applicationName, component, headers):
     if component.get('MultiConditionRules') and is_valid_value(component.get('MultiConditionRules')):
         create_multicondition_component_rules(applicationName, component['ComponentName'], component.get('MultiConditionRules'), headers)
 
-    repository_names = component.get('RepositoryName', [])
-    if isinstance(repository_names, str):
-        repository_names = [repository_names]
-    for repo_name in repository_names:
-        create_component_rule(applicationName, component['ComponentName'], 'repository', [repo_name], f"Rule for repository for {component['ComponentName']}", headers)
-
-            
-# Handle Repository Rule Creation for Components
-def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
-    rule = {
-        "name": ruleName,
-        "filter": {filterName: filterValue}
-    }
-
-    payload = {
-        "selector": {
-            "applicationSelector": {"name": applicationName, "caseSensitive": False},
-            "componentSelector": {"name": componentName, "caseSensitive": False}
-        },
-        "rules": [rule]
-    }
-
-    if DEBUG:
-        print(f"Payload for {componentName}: {json.dumps(payload, indent=2)}")
-
-    try:
-        api_url = construct_api_url("/v1/components/rules")
-        response = requests.post(api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        print(f"Rule for { filterValue } created.")
-    except requests.exceptions.RequestException as e:
-        if response.status_code == 409:
-            print(f" > Rule for {filterValue} already exists.")
-        else:
-            print(f"Error: {e}")
-            print(f"Response content: {response.content}")
-            exit(1)
-
 def create_multicondition_component_rules(applicationName, componentName, multiconditionRules, headers):
     for multicondition in multiconditionRules:
         rule = {'name': f'MC-R {componentName}'}  # Shortened name format
@@ -1885,3 +1847,34 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                         }
                         create_custom_component(appEnv['name'], component_to_create, headers)
                         print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
+
+# Handle Repository Rule Creation for Components
+def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
+    rule = {
+        "name": ruleName,
+        "filter": {filterName: filterValue}
+    }
+
+    payload = {
+        "selector": {
+            "applicationSelector": {"name": applicationName, "caseSensitive": False},
+            "componentSelector": {"name": componentName, "caseSensitive": False}
+        },
+        "rules": [rule]
+    }
+
+    if DEBUG:
+        print(f"Payload for {componentName}: {json.dumps(payload, indent=2)}")
+
+    try:
+        api_url = construct_api_url("/v1/components/rules")
+        response = requests.post(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        print(f"Rule for {filterValue} created.")
+    except requests.exceptions.RequestException as e:
+        if response.status_code == 409:
+            print(f" > Rule for {filterValue} already exists.")
+        else:
+            print(f"Error: {e}")
+            print(f"Response content: {response.content}")
+            exit(1)
