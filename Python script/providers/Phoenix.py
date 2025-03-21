@@ -245,10 +245,36 @@ def add_service_rule_batch(environment, service, headers):
                                 print(f" + Service {serviceName} found in final verification (ID: {service_id})")
                                 break
                     
+                    # If still not found, try fuzzy matching as last resort
                     if not service_exists:
-                        print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
-                        print(f" ! Available services in {environmentName}: {', '.join(sorted(comp['name'] for comp in components))}")
-                        return False
+                        print(f" * No exact match found, trying fuzzy matching as last resort...")
+                        best_match = None
+                        best_ratio = 0
+                        similar_services = []
+                        
+                        # Try to find similar services using fuzzy matching
+                        for comp in components:
+                            ratio = Levenshtein.ratio(comp['name'].lower(), serviceName.lower())
+                            if ratio > 0.8:  # 80% similarity threshold
+                                similar_services.append(f"{comp['name']} (similarity: {ratio:.2f})")
+                                if ratio > best_ratio:
+                                    best_ratio = ratio
+                                    best_match = comp
+                        
+                        if best_match and best_ratio > 0.9:  # 90% similarity for automatic acceptance
+                            service_exists = True
+                            service_id = best_match.get('id')
+                            print(f" + Found very similar service: {best_match['name']} (similarity: {best_ratio:.2f})")
+                            print(f" + Using this service for rule creation (ID: {service_id})")
+                        else:
+                            if similar_services:
+                                print(f" ! Service {serviceName} not found. Similar services found:")
+                                for similar in sorted(similar_services, reverse=True)[:5]:  # Show top 5 matches
+                                    print(f"   - {similar}")
+                            print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
+                            print(f" ! Available services in {environmentName}: {', '.join(sorted(comp['name'] for comp in components))}")
+                            return False
+                            
                 except Exception as final_e:
                     print(f" ! Final verification attempt failed: {final_e}")
                     return False
@@ -1922,28 +1948,80 @@ def delete_team_member(email, team_id, access_token):
 
 def create_deployments(applications, environments, phoenix_apps_envs, headers):
     application_services = []
+    # Track all available apps and services for validation
+    available_apps = {app['name']: app['id'] for app in phoenix_apps_envs if app.get('type') == "APPLICATION"}
+    available_services = {}
+    
+    # Get all services for each environment
+    for env in phoenix_apps_envs:
+        if env.get('type') == "ENVIRONMENT":
+            try:
+                api_url = construct_api_url("/v1/components")
+                params = {
+                    "applicationSelector": {"name": env['name'], "caseSensitive": False}
+                }
+                response = requests.get(api_url, headers=headers, params=params)
+                response.raise_for_status()
+                services = response.json().get('content', [])
+                available_services[env['name']] = {svc['name']: svc['id'] for svc in services}
+            except requests.exceptions.RequestException as e:
+                print(f"Error fetching services for environment {env['name']}: {e}")
+                continue
 
     for app in applications:
         if not app.get('Deployment_set', None):
             continue
         deployment_set = app.get('Deployment_set')
+        app_name = app.get("AppName")
+        
+        # Validate app exists
+        if app_name not in available_apps:
+            error_msg = f"Application '{app_name}' not found in available applications"
+            log_error(
+                'Deployment Creation',
+                app_name,
+                'N/A',
+                error_msg,
+                f'Available apps: {", ".join(sorted(available_apps.keys()))}'
+            )
+            print(f" ! {error_msg}")
+            continue
+
         for env in environments:
             if not env.get('Services'):
                 continue
+            env_name = env.get('Name')
+            
             for service in env.get('Services'):
+                service_name = service.get('Service')
+                
+                # Check if service exists in this environment
+                if env_name in available_services and service_name not in available_services[env_name]:
+                    error_msg = f"Service '{service_name}' not found in environment '{env_name}'"
+                    log_error(
+                        'Deployment Creation',
+                        f"{app_name} -> {service_name}",
+                        env_name,
+                        error_msg,
+                        f'Available services: {", ".join(sorted(available_services[env_name].keys()))}'
+                    )
+                    print(f" ! {error_msg}")
+                    continue
+
                 if service.get('Deployment_set') and service.get('Deployment_set') == deployment_set:
                     application_services.append({
                         "applicationSelector": {
-                            "name": app.get("AppName"),
+                            "name": app_name,
                         },
                         "serviceSelector": {
-                            "name": service.get("Service"),
-                        }
+                            "name": service_name,
+                        },
+                        "environment": env_name  # Add environment for logging
                     })
                 if service.get('Deployment_tag') and service.get('Deployment_tag') == deployment_set:
                     application_services.append({
                         "applicationSelector": {
-                            "name": app.get("AppName"),
+                            "name": app_name,
                         },
                         "serviceSelector": {
                             "tags": [
@@ -1951,7 +2029,8 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
                                     "value": service.get('Deployment_tag')
                                 }
                             ]
-                        }
+                        },
+                        "environment": env_name  # Add environment for logging
                     })
     
     print(f'Number of deployments to add {len(application_services)}')
@@ -1962,12 +2041,26 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
         batch = application_services[i:i + batch_size]
         for deployment in batch:
             app_name = deployment['applicationSelector']['name']
-            app_id = next((x.get('id') for x in phoenix_apps_envs if x.get('type') == "APPLICATION" and x.get("name").lower() == app_name.lower()), None)
+            app_id = available_apps.get(app_name)
             if not app_id:
-                print(f'App not found for name {app_name}')
+                error_msg = f"Application '{app_name}' not found"
+                log_error(
+                    'Deployment Creation',
+                    app_name,
+                    deployment.get('environment', 'N/A'),
+                    error_msg,
+                    'Application missing during deployment'
+                )
+                print(f" ! {error_msg}")
                 continue
+
             use_service_name = 'name' in deployment['serviceSelector']
+            service_info = deployment['serviceSelector']['name'] if use_service_name else str(deployment['serviceSelector']['tags'])
+            
             retry_attempts = 3  # Number of retry attempts
+            deployment_success = False
+            last_error = None
+            
             for attempt in range(retry_attempts):
                 try:
                     deployment_payload = {"serviceSelector": deployment["serviceSelector"]}
@@ -1975,14 +2068,17 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
                     response = requests.patch(api_url, headers=headers, json=deployment_payload)
                     response.raise_for_status()
                     print(f" + Deployment for application {app_name} and "
-                          f"{'service name: ' + deployment['serviceSelector']['name'] if use_service_name else 'Service deployment tag: ' + str(deployment['serviceSelector']['tags'])} created.")
+                          f"{'service name: ' + service_info if use_service_name else 'Service deployment tag: ' + service_info} created.")
                     consecutive_400_errors = 0  # Reset counter on success
+                    deployment_success = True
                     break  # Exit the retry loop if successful
                 except requests.exceptions.RequestException as e:
+                    last_error = str(e)
                     if response.status_code == 409:
                         print(f" + Deployment for application {app_name} and "
-                              f"{'service name: ' + deployment['serviceSelector']['name'] if use_service_name else 'Service deployment tag: ' + str(deployment['serviceSelector']['tags'])} already exists.")
+                              f"{'service name: ' + service_info if use_service_name else 'Service deployment tag: ' + service_info} already exists.")
                         consecutive_400_errors = 0  # Reset counter on success
+                        deployment_success = True
                         break  # No need to retry if the deployment already exists
                     elif response.status_code == 400:
                         print(f"Error 400: Bad request for deployment {app_name}. Waiting for 2 seconds before retrying...")
@@ -1999,7 +2095,19 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
                             time.sleep(0.5)  # Wait for 0.5 seconds before retrying
                         else:
                             print("Failed after multiple attempts.")
-                            exit(1)
+            
+            # Log failed deployment after all retries
+            if not deployment_success:
+                error_msg = f"Failed to create deployment after {retry_attempts} attempts"
+                log_error(
+                    'Deployment Creation',
+                    f"{app_name} -> {service_info}",
+                    deployment.get('environment', 'N/A'),
+                    error_msg,
+                    f'Last error: {last_error}'
+                )
+                print(f" ! {error_msg}")
+
         time.sleep(1)  # Wait for 1 second after processing each batch
 
 def check_app_name_matches_service_name(app_name, service_name):
