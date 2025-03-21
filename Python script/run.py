@@ -24,7 +24,8 @@ action_create_components_from_assets = True
 import sys
 args = sys.argv[1:]
 
-print("Arguments supplied:", len(args))
+print("\n[Configuration]")
+print(f"Arguments provided: {len(args)}")
 
 if len(args) == 10:
     client_id = args[0]
@@ -51,43 +52,53 @@ if len(args) == 10:
     if args[8].lower() == 'false':
         action_create_components_from_assets = False
 
-    print(f"Teams: {action_teams}, Code: {action_code}, Cloud: {action_cloud}, Deployment: {action_deployment}, Autolink deploymentset: {action_autolink_deploymentset}")
+    print("\n[Actions Enabled]")
+    print(f"✓ Teams: {action_teams}")
+    print(f"✓ Code: {action_code}")
+    print(f"✓ Cloud: {action_cloud}")
+    print(f"✓ Deployment: {action_deployment}")
+    print(f"✓ Autolink deploymentset: {action_autolink_deploymentset}")
+    print(f"✓ Auto-create teams from pteam: {action_autocreate_teams_from_pteam}")
+    print(f"✓ Create components from assets: {action_create_components_from_assets}")
 else:
+    print("\n[Manual Configuration]")
     client_id = input("Please enter clientID: ")
     client_secret = input("Please enter clientSecret: ")
 
 environments = populate_environments_from_env_groups(resource_folder)
 
 # Populate data from various resources
+print("\n[Loading Resources]")
 repos = populate_repositories(resource_folder)
 domains = populate_domains(repos)
 teams = populate_teams(resource_folder)
-hive_staff = populate_hives(resource_folder)  # List of Hive team staff
+hive_staff = populate_hives(resource_folder)
 subdomain_owners = populate_subdomain_owners(repos)
 subdomains = get_subdomains(repos)
 access_token = get_auth_token(client_id, client_secret)
-pteams = populate_phoenix_teams(access_token)  # Pre-existing Phoenix teams
+pteams = populate_phoenix_teams(access_token)
 defaultAllAccessAccounts = populate_all_access_emails(resource_folder)
-all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)  # Populate users with full team access
+all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)
 applications = populate_applications(resource_folder)
 
 # Display teams
-print("[Teams]")
+print("\n[Teams]")
 for team in teams:
     try:
         if "Team" in team['AzureDevopsAreaPath']:
             team['TeamName'] = team['AzureDevopsAreaPath'].split("Team")[1].strip()
-            print(team['TeamName'])
+            print(f"✓ {team['TeamName']}")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"✗ Error processing team: {e}")
 
 # Display domains and repos
 print("\n[Domains]")
-print(domains)
+for domain in domains:
+    print(f"✓ {domain}")
 
-print("\n[Repos]")
+print("\n[Repositories]")
 for repo in repos:
-    print(repo['RepositoryName'])
+    print(f"✓ {repo['RepositoryName']}")
 
 # Get authentication token
 access_token = get_auth_token(client_id, client_secret)
@@ -99,79 +110,79 @@ headers = {
 
 phoenix_components = get_phoenix_components(access_token)
 pteams = populate_phoenix_teams(access_token)
-# pteams created in this run
 new_pteams = []
 
-app_environments = populate_applications_and_environments(headers)  # Should be populated using the equivalent PopulateApplicationsAndEnvironments
+app_environments = populate_applications_and_environments(headers)
 
 # Stopwatch logic
 start_time = time.time()
 
 # Team actions
 if action_teams:
-    print("Performing Teams Actions")
+    print("\n[Teams Actions]")
     all_team_access = populate_users_with_all_team_access(teams, defaultAllAccessAccounts)
     new_pteams = create_teams(teams, pteams, access_token)
     create_team_rules(teams, pteams, access_token)
     assign_users_to_team(pteams, new_pteams, teams, all_team_access, hive_staff, access_token)
 
     elapsed_time = time.time() - start_time
-    print(f"[Diagnostic] [Teams] Time Taken: {elapsed_time}")
+    print(f"✓ Teams processing completed in {elapsed_time:.2f}s")
     start_time = time.time()
 
 # Cloud actions
 if action_cloud:
-    print("Performing Cloud Actions")
+    print("\n[Cloud Actions]")
     for environment in environments:
         if not any(env['name'] == environment['Name'] and env.get('type') == "ENVIRONMENT" for env in app_environments):
-            # Create environments as needed
             print(f"Creating environment: {environment['Name']}")
             create_environment(environment, headers)
 
-    # Perform cloud services
+    print("\n[Cloud Services]")
     add_environment_services(repos, subdomains, environments, app_environments, phoenix_components, subdomain_owners, teams, access_token)
-    print("[Diagnostic] [Cloud] Time Taken:", time.time() - start_time)
-    print("Starting Cloud Asset Rules")
+    print(f"✓ Cloud services completed in {time.time() - start_time:.2f}s")
+    
+    print("\n[Cloud Asset Rules]")
     add_cloud_asset_rules(repos, access_token)
-    print("[Diagnostic] [Cloud] Time Taken:", time.time() - start_time)
-    print("Starting Third Party Rules")
+    print(f"✓ Cloud asset rules completed in {time.time() - start_time:.2f}s")
+    
+    print("\n[Third Party Rules]")
     add_thirdparty_services(phoenix_components, app_environments, subdomain_owners, headers)
     
     elapsed_time = time.time() - start_time
-    print(f"[Diagnostic] [Cloud] Time Taken: {elapsed_time}")
+    print(f"✓ Cloud processing completed in {elapsed_time:.2f}s")
     start_time = time.time()
 
 if action_code:
-    print("Performing Code Actions")
+    print("\n[Code Actions]")
     create_applications(applications, app_environments, phoenix_components, headers)
-        
-    print(f"[Diagnostic] [Code] Time Taken: {time.time() - start_time}")
+    print(f"✓ Code processing completed in {time.time() - start_time:.2f}s")
     start_time = time.time()
 
 if action_deployment:
-    print("Performing deployment action")
+    print("\n[Deployment Actions]")
     create_deployments(applications, environments, app_environments, headers)
-    print(f"[Diagnostic] [Deployment] Time Taken: {time.time() - start_time}")
+    print(f"✓ Deployment processing completed in {time.time() - start_time:.2f}s")
     start_time = time.time()
 
 if action_autolink_deploymentset:
-    print("Performing autolink deployment set action")
+    print("\n[Autolink Deployment Set]")
     create_autolink_deployments(applications, environments, headers)
-    print(f"[Diagnostic] [Autolink deploymentset] Time Taken: {time.time() - start_time}")
+    print(f"✓ Autolink deployment set completed in {time.time() - start_time:.2f}s")
     start_time = time.time()
 
 if action_autocreate_teams_from_pteam:
-    print("Performing autocreate teams from pteam")
+    print("\n[Auto-Create Teams from PTeam]")
     create_teams_from_pteams(applications, environments, pteams, access_token)
-    print(f"[Diagnostic] [Autocreate teams from pteam] Time Taken: {time.time() - start_time}")
+    print(f"✓ Team creation from pteam completed in {time.time() - start_time:.2f}s")
     start_time = time.time()
 
 if action_create_components_from_assets:
-    print("Performing create components/services from assets")
+    print("\n[Create Components from Assets]")
     create_components_from_assets(app_environments, phoenix_components, headers)
-    print(f"[Diagnostic] [Create components/services from assets] Time Taken: {time.time() - start_time}")
+    print(f"✓ Component creation from assets completed in {time.time() - start_time:.2f}s")
 
-
+print("\n[Process Complete]")
+print("✓ All operations finished successfully")
 
 # Code actions
 # if action_code:

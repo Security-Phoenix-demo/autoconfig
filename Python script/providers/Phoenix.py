@@ -18,7 +18,7 @@ logging.basicConfig(
 
 def log_error(operation_type, name, environment, error_msg, details=None):
     """
-    Log error information to errors.log
+    Log error information to errors.log with improved formatting
     
     Args:
         operation_type: Type of operation (e.g., 'Service Creation', 'Rule Creation')
@@ -28,12 +28,14 @@ def log_error(operation_type, name, environment, error_msg, details=None):
         details: Additional details (optional)
     """
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    status_symbol = "✓" if "success" in error_msg.lower() else "✗" if "fail" in error_msg.lower() else "⚠"
+    
     error_entry = f"""
 TIME: {timestamp}
 OPERATION: {operation_type}
 NAME: {name}
 ENVIRONMENT: {environment}
-ERROR: {error_msg}
+STATUS: {status_symbol} {error_msg}
 """
     if details:
         error_entry += f"DETAILS: {details}\n"
@@ -75,7 +77,8 @@ def construct_api_url(endpoint):
     return f"{APIdomain}{endpoint}"
 
 def create_environment(environment, headers):
-    print("[Environment]")
+    print("\n[Environment Creation]")
+    print(f"Name: {environment['Name']}")
 
     payload = {
         "name": environment['Name'],
@@ -96,18 +99,20 @@ def create_environment(environment, headers):
     if environment['TeamName']:
         payload["tags"].append({"key": "pteam", "value": environment['TeamName']})
     else:
-        print(f"Warning: No team_name provided for environment {environment['Name']}. Skipping pteam tag.")
+        print(f"⚠ No team_name provided for environment {environment['Name']}. Skipping pteam tag.")
 
     try:
         api_url = construct_api_url("/v1/applications")
-        print(f"Payload for environment creation: {json.dumps(payload, indent=2)}")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + Environment added: {environment['Name']}")
+        print(f"✓ Environment added: {environment['Name']}")
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        print(f'Response content: {response.content}')
-        raise
+        if response.status_code == 409:
+            print(f"⚠ Environment {environment['Name']} already exists")
+        else:
+            print(f"✗ Error creating environment: {e}")
+            print(f"  Response: {response.content}")
+            raise
 
 # Function to add services and process rules for the environment
 def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token):
@@ -205,7 +210,32 @@ def add_service_rule_batch(environment, service, headers):
                         time.sleep(delay)
                         components = None  # Reset to trigger another fetch
                         continue
-                    return False
+                    # Try to create the service if it doesn't exist
+                    print(f" ! Service {serviceName} not found. Attempting to create it...")
+                    try:
+                        if service.get('TeamName'):
+                            created = add_service(environmentName, serviceName, service.get('Tier', 5), service['TeamName'], headers)
+                        else:
+                            created = add_service(environmentName, serviceName, service.get('Tier', 5), headers)
+                        
+                        if created:
+                            print(f" ✓ Service {serviceName} created successfully")
+                            service_exists = True
+                            # Refresh components list after creation
+                            response = requests.get(api_url, headers=headers, params=params)
+                            response.raise_for_status()
+                            components = response.json().get('content', [])
+                            for comp in components:
+                                if comp['name'].lower() == serviceName.lower():
+                                    service_id = comp.get('id')
+                                    break
+                            break
+                        else:
+                            print(f" ✗ Failed to create service {serviceName}")
+                            return False
+                    except Exception as e:
+                        print(f" ✗ Error creating service: {e}")
+                        return False
 
             # Check for exact case-insensitive match
             for comp in components:
@@ -271,9 +301,31 @@ def add_service_rule_batch(environment, service, headers):
                                 print(f" ! Service {serviceName} not found. Similar services found:")
                                 for similar in sorted(similar_services, reverse=True)[:5]:  # Show top 5 matches
                                     print(f"   - {similar}")
-                            print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
-                            print(f" ! Available services in {environmentName}: {', '.join(sorted(comp['name'] for comp in components))}")
-                            return False
+                            # Try to create the service if no similar services found
+                            print(f" ! Attempting to create service {serviceName}...")
+                            try:
+                                if service.get('TeamName'):
+                                    created = add_service(environmentName, serviceName, service.get('Tier', 5), service['TeamName'], headers)
+                                else:
+                                    created = add_service(environmentName, serviceName, service.get('Tier', 5), headers)
+                                
+                                if created:
+                                    print(f" ✓ Service {serviceName} created successfully")
+                                    service_exists = True
+                                    # Refresh components list after creation
+                                    response = requests.get(api_url, headers=headers, params=params)
+                                    response.raise_for_status()
+                                    components = response.json().get('content', [])
+                                    for comp in components:
+                                        if comp['name'].lower() == serviceName.lower():
+                                            service_id = comp.get('id')
+                                            break
+                                else:
+                                    print(f" ✗ Failed to create service {serviceName}")
+                                    return False
+                            except Exception as e:
+                                print(f" ✗ Error creating service: {e}")
+                                return False
                             
                 except Exception as final_e:
                     print(f" ! Final verification attempt failed: {final_e}")
@@ -496,6 +548,8 @@ def create_applications(applications, application_environments, phoenix_componen
 
 
 def create_application(app, headers):
+    print(f"\n[App] {app['AppName']}")
+    
     payload = {
         "name": app['AppName'],
         "type": "APPLICATION",
@@ -509,7 +563,6 @@ def create_application(app, headers):
                     
     if DEBUG:
         print(f"Payload being sent to /v1rule: {json.dumps(payload, indent=2)}")
-
 
     try:
         api_url = construct_api_url("/v1/applications")
@@ -529,6 +582,10 @@ def create_application(app, headers):
         create_custom_component(app['AppName'], component, headers)
 
 def create_custom_component(applicationName, component, headers):
+    print(f"\n[Component Creation]")
+    print(f"Application: {applicationName}")
+    print(f"Component: {component['ComponentName']}")
+    
     # Ensure valid tag values by filtering out empty or None 
     tags = [
         {"key": "Status", "value": component['Status']},
@@ -555,23 +612,19 @@ def create_custom_component(applicationName, component, headers):
         "tags": tags
     }
 
-    if DEBUG:
-        print(f"Payload being sent to /v1/components: {json.dumps(payload, indent=2)}")
-
-    api_url = construct_api_url("/v1/components")
-
     try:
+        api_url = construct_api_url("/v1/components")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f"Created component with name {component['ComponentName']} in environment: {applicationName}")
+        print(f"✓ Component created: {component['ComponentName']}")
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > Component {component['ComponentName']} already exists")
+            print(f"⚠ Component {component['ComponentName']} already exists")
         else:
-            print(f"Error: {e}")
-            print(f"Response content: {response.content}")
-            exit(1)
+            print(f"✗ Error creating component: {e}")
+            print(f"  Response: {response.content}")
+            return
 
     create_component_rules(applicationName, component, headers)
 
@@ -1119,20 +1172,21 @@ def create_teams(teams, pteams, access_token):
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     new_pteams = []
     
+    print("\n[Teams Creation]")
     # Iterate over the list of teams to be added
     for team in teams:
         found = False
+        print(f"└─ Team: {team['TeamName']}")
 
         # Check if the team already exists in the existing pteams
         for pteam in pteams:
             if pteam['name'] == team['TeamName']:
                 found = True
+                print(f"   └─ Team already exists")
                 break
         
         # If the team is not found and has a valid name, proceed to add it
         if not found and team['TeamName']:
-            print(f"Going to add {team['TeamName']} team.")
-            
             # Prepare the payload for creating the team
             payload = {
                 "name": team['TeamName'],
@@ -1141,7 +1195,7 @@ def create_teams(teams, pteams, access_token):
 
             api_url = construct_api_url("/v1/teams")
             if DEBUG:
-                print(f"Payload being sent to /v1teams: {json.dumps(payload, indent=2)}")
+                print(f"   └─ Payload being sent to /v1teams: {json.dumps(payload, indent=2)}")
 
             try:
                 # Make the POST request to add the team
@@ -1149,13 +1203,13 @@ def create_teams(teams, pteams, access_token):
                 response.raise_for_status()
                 team['id'] = response.json()['id']
                 new_pteams.append(response.json())
-                print(f"+ Team {team['TeamName']} added.")
+                print(f"   └─ Team created successfully")
             
             except requests.exceptions.RequestException as e:
-                if response.status_code == 400:
-                    print(f" > Team {team['TeamName']} already exists")
+                if response.status_code == 400 or response.status_code == 409:
+                    print(f"   └─ ⚠ Team already exists")
                 else:
-                    print(f"Error: {e}")
+                    print(f"   └─ ✗ Error: {e}")
                     exit(1)
     return new_pteams
 
@@ -1218,48 +1272,30 @@ def populate_phoenix_teams(access_token):
 
 # CreateTeamRules Function
 def create_team_rules(teams, pteams, access_token):
-    """
-    This function iterates through a list of teams and creates team rules for teams
-    that do not already exist in `pteams`.
-
-    Args:
-    - teams: List of team objects.
-    - pteams: List of pre-existing teams to check if a team already exists.
-    - access_token: Access token for API authentication.
-    """
+    print("\n[Team Rules Creation]")
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     for team in teams:
         found = False
+        print(f"Processing team: {team['TeamName']}")
 
         # Check if the team already exists in pteams
         for pteam in pteams:
             if pteam['name'] == team['TeamName']:
-                # override logic for creating team associations
                 if team.get('RecreateTeamAssociations'):
-                    print(f" > recreating pteam association for {team['TeamName']}")
+                    print(f"⚠ Recreating team association for {team['TeamName']}")
                     create_team_rule("pteam", team['TeamName'], pteam['id'], access_token)
                 found = True
                 break
         
-        # If the team does not exist and has a valid name, create the team rule
         if not found and team['TeamName']:
-            print(f"Team: {team['TeamName']}")
             create_team_rule("pteam", team['TeamName'], team['id'], access_token)
 
 def create_team_rule(tag_name, tag_value, team_id, access_token):
-    """
-    This function creates a team rule by adding tags to a team.
-
-    Args:
-    - tag_name: Name of the tag (e.g., "pteam").
-    - tag_value: Value of the tag (e.g., the team name).
-    - team_id: ID of the team.
-    - access_token: API authentication token.
-    """
+    print(f"\n[Team Rule Creation]")
+    print(f"└─ Team: {tag_value}")
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
-    # Create the payload with the tags
     payload = {
         "match": "ANY",
         "tags": [
@@ -1270,35 +1306,31 @@ def create_team_rule(tag_name, tag_value, team_id, access_token):
         ]
     }
 
+    # Create component rule
     api_url = construct_api_url(f"/v1/teams/{team_id}/components/auto-link/tags")
-    
     try:
-        # Make the POST request to create the team rule
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + {tag_name} Component rule added for: {tag_value}")
-    
+        print(f"   └─ Component rule created")
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > {tag_name} Component Rule {tag_value} already exists")
+            print(f"   └─ ⚠ Component rule already exists")
         else:
-            print(f"Error: {e}")
-            exit(1)
+            print(f"   └─ ✗ Error creating component rule: {e}")
+            return
 
+    # Create application rule
     api_url = construct_api_url(f"/v1/teams/{team_id}/applications/auto-link/tags")
-    
     try:
-        # Make the POST request to create the team rule
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + {tag_name} App/Env rule added for: {tag_value}")
-    
+        print(f"   └─ Application rule created")
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > {tag_name} App/Env Rule {tag_value} already exists")
+            print(f"   └─ ⚠ Application rule already exists")
         else:
-            print(f"Error: {e}")
-            exit(1)
+            print(f"   └─ ✗ Error creating application rule: {e}")
+            return
 
 
 @dispatch(list,list,list,list,list,str)
@@ -1722,8 +1754,12 @@ def populate_applications_and_environments(headers):
 # Add the default function to handle NoneType for team (when team is missing)
 @dispatch(str, str, int, dict)
 def add_service(applicationSelectorName, service, tier, headers):
+    print(f"\n[Service Creation]")
+    print(f"Application: {applicationSelectorName}")
+    print(f"Service: {service}")
+    
     criticality = calculate_criticality(tier)
-    print(f" > Attempting to add {service} without specific team")
+    print(f" > Creating service without specific team")
     
     payload = {
         "name": service,
@@ -1738,39 +1774,38 @@ def add_service(applicationSelectorName, service, tier, headers):
         api_url = construct_api_url("/v1/components")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + Added Service: {service}")
+        print(f"✓ Service added: {service}")
         
         # Verify service was created with retries
         max_retries = 3
         for attempt in range(max_retries):
-            time.sleep(2 * (attempt + 1))  # Exponential backoff: 2s, 4s, 6s
+            time.sleep(2 * (attempt + 1))
             try:
                 verify_url = construct_api_url("/v1/components")
                 verify_response = requests.get(verify_url, headers=headers)
                 verify_response.raise_for_status()
                 components = verify_response.json().get('content', [])
                 if any(comp['name'] == service for comp in components):
-                    if DEBUG:
-                        print(f" + Service {service} verified successfully")
+                    print(f"✓ Service {service} verified successfully")
                     return True
                 else:
-                    print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+                    print(f"⚠ Service {service} not found in verification attempt {attempt + 1}/{max_retries}")
             except requests.exceptions.RequestException as e:
-                print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
+                print(f"✗ Error verifying service on attempt {attempt + 1}/{max_retries}: {e}")
                 if attempt == max_retries - 1:
                     return False
                 continue
         
-        print(f" ! Service {service} could not be verified after {max_retries} attempts")
+        print(f"✗ Service {service} could not be verified after {max_retries} attempts")
         return False
         
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > Service {service} already exists")
+            print(f"⚠ Service {service} already exists")
             return True
         else:
-            print(f"Error: {e}")
-            print(f"Response content: {response.content}")
+            print(f"✗ Error: {e}")
+            print(f"  Response: {response.content}")
             return False
 
 @dispatch(str, str, int, str, dict)
@@ -2315,11 +2350,13 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     print(f"\n[Rule Operation] Application: {applicationName}")
     print(f"Component: {componentName}")
     print(f"Filter Type: {filterName}")
-    print("Filter Value:", end=" ")
-    if isinstance(filterValue, list):
-        print(json.dumps(filterValue, indent=2))
-    else:
-        print(filterValue)
+    
+    if DEBUG:
+        print("Filter Value:", end=" ")
+        if isinstance(filterValue, list):
+            print(json.dumps(filterValue, indent=2))
+        else:
+            print(filterValue)
 
     # Map filter names to their correct API case-sensitive versions
     filter_name_mapping = {
@@ -2369,9 +2406,10 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         "rules": [rule]
     }
 
-    print("\nPayload:")
-    print(json.dumps(payload, indent=2))
-    print("-" * 80)
+    if DEBUG:
+        print("\nPayload:")
+        print(json.dumps(payload, indent=2))
+        print("-" * 80)
 
     # Enhanced retry configuration with smarter throttling
     max_retries = 5
@@ -2414,14 +2452,15 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 print(f"✓ Rule created: {descriptive_rule_name}")
                 print(f"  Application: {applicationName}")
                 print(f"  Component: {componentName}")
-                print(f"  Filter: {json.dumps(rule['filter'], indent=2)}")
+                if DEBUG:
+                    print(f"  Filter: {json.dumps(rule['filter'], indent=2)}")
                 # Log successful rule creation
                 log_error(
                     'Rule Creation',
                     f"{componentName} -> {descriptive_rule_name}",
                     applicationName,
                     'Rule created successfully',
-                    f'Filter: {json.dumps(rule["filter"])}'
+                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
                 )
                 return True
                 
@@ -2430,14 +2469,15 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 print(f"  Application: {applicationName}")
                 print(f"  Component: {componentName}")
                 print(f"  Rule: {descriptive_rule_name}")
-                print(f"  Filter: {json.dumps(rule['filter'], indent=2)}")
+                if DEBUG:
+                    print(f"  Filter: {json.dumps(rule['filter'], indent=2)}")
                 # Log existing rule
                 log_error(
                     'Rule Update',
                     f"{componentName} -> {descriptive_rule_name}",
                     applicationName,
                     'Rule already exists',
-                    f'Filter: {json.dumps(rule["filter"])}'
+                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
                 )
                 return True
                 
@@ -2464,13 +2504,14 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 print(f"  Application: {applicationName}")
                 print(f"  Component: {componentName}")
                 print(f"  Rule: {descriptive_rule_name}")
-                print(f"  Error: {error_msg}")
+                if DEBUG:
+                    print(f"  Error: {error_msg}")
                 log_error(
                     'Rule Creation Failed',
                     f"{componentName} -> {descriptive_rule_name}",
                     applicationName,
                     error_msg,
-                    f'Filter: {json.dumps(rule["filter"])}'
+                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
                 )
                 return False
                 
@@ -2510,12 +2551,14 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     print(f"  Application: {applicationName}")
     print(f"  Component: {componentName}")
     print(f"  Rule: {descriptive_rule_name}")
+    if DEBUG:
+        print(f"  Last error: {last_error}")
     log_error(
         'Rule Creation Failed',
         f"{componentName} -> {ruleName}",
         applicationName,
         f"Failed after {max_retries} attempts. Last error: {last_error}",
-        f'Filter: {json.dumps(rule["filter"])}'
+        f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
     )
-    print(f" ! Failed to create rule after {max_retries} attempts. Last error: {last_error}")
+    print(f" ! Failed to create rule after {max_retries} attempts.")
     return False
