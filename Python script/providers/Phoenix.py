@@ -159,30 +159,78 @@ def add_service_rule_batch(environment, service, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
 
-    # First, verify that the service exists with retries
+    # Throttling configuration
     max_retries = 3
+    base_delay = 2
+    max_delay = 30
+    consecutive_failures = 0
+
+    # First, verify that the service exists with retries
     for attempt in range(max_retries):
         try:
+            # Add specific service query parameters
+            params = {
+                "applicationSelector": {"name": environmentName, "caseSensitive": False},
+                "componentSelector": {"name": serviceName, "caseSensitive": False}
+            }
+            
             api_url = construct_api_url("/v1/components")
-            response = requests.get(api_url, headers=headers)
+            response = requests.get(api_url, headers=headers, params=params)
             response.raise_for_status()
             components = response.json().get('content', [])
-            if any(comp['name'] == serviceName for comp in components):
+            
+            # Case insensitive comparison
+            service_exists = any(
+                comp['name'].lower() == serviceName.lower() 
+                for comp in components
+            )
+            
+            if service_exists:
+                print(f" + Service {serviceName} verified successfully")
+                consecutive_failures = 0
                 break
             else:
                 if attempt < max_retries - 1:
-                    print(f" ! Service {serviceName} not found, retrying in {(attempt + 1) * 2} seconds...")
-                    time.sleep((attempt + 1) * 2)  # Exponential backoff
+                    # Try a broader search on the last attempt
+                    if attempt == max_retries - 2:
+                        print(f" ! Service not found with exact match, trying broader search...")
+                        # Try to get all components
+                        all_response = requests.get(api_url, headers=headers)
+                        all_response.raise_for_status()
+                        all_components = all_response.json().get('content', [])
+                        
+                        # Case insensitive partial match
+                        service_exists = any(
+                            serviceName.lower() in comp['name'].lower() or 
+                            comp['name'].lower() in serviceName.lower()
+                            for comp in all_components
+                        )
+                        
+                        if service_exists:
+                            print(f" + Service {serviceName} found with partial match")
+                            consecutive_failures = 0
+                            break
+                    
+                    consecutive_failures += 1
+                    delay = base_delay * (2 ** attempt)
+                    print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
+                    time.sleep(delay)
                     continue
                 else:
                     print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
                     return False
+                    
         except requests.exceptions.RequestException as e:
             print(f"Error verifying service existence: {e}")
             if attempt < max_retries - 1:
-                time.sleep((attempt + 1) * 2)
+                consecutive_failures += 1
+                delay = base_delay * (2 ** attempt)
+                time.sleep(delay)
                 continue
             return False
+
+    # Reset consecutive failures if we successfully found the service
+    consecutive_failures = 0
 
     # First, delete existing rules for this service
     try:
@@ -204,6 +252,7 @@ def add_service_rule_batch(environment, service, headers):
                         print(f" - Deleted existing rule for {serviceName}")
     except requests.exceptions.RequestException as e:
         print(f"Warning: Could not clean up existing rules: {e}")
+        consecutive_failures += 1
 
     # Now proceed with creating new rules
     success = True
@@ -219,6 +268,12 @@ def add_service_rule_batch(environment, service, headers):
             return False
         
         for index, cidr in enumerate(cidrs, start=1):
+            # Apply throttling if needed
+            if consecutive_failures > 2:
+                throttle_delay = min(max_delay, base_delay * (2 ** (consecutive_failures - 2)))
+                print(f" ! Throttling active. Waiting {throttle_delay}s before CIDR rule creation...")
+                time.sleep(throttle_delay)
+
             # Ensure proper CIDR formatting
             if '/' not in cidr:
                 finalCidr = f"{cidr}/32"  # Default to /32 if no CIDR mask provided
@@ -247,56 +302,21 @@ def add_service_rule_batch(environment, service, headers):
                 ]
             }
 
-            if DEBUG:
-                print(f"Payload being sent for CIDR {finalCidr}: {json.dumps(payload, indent=2)}")
-
             try:
                 api_url = construct_api_url("/v1/components/rules")
                 response = requests.post(api_url, headers=headers, json=payload)
                 response.raise_for_status()
                 print(f"+ CIDR Rule {index} for {finalCidr} added to {serviceName}.")
+                consecutive_failures = 0  # Reset on success
             except requests.exceptions.RequestException as e:
                 print(f"Error creating CIDR rule: {e}")
                 print(f"Response content: {response.content}")
+                consecutive_failures += 1
                 success = False
 
-    # Handle Tag rules first
-    if service.get('Tag'):
-        tag_value = service.get('Tag')
-        try:
-            if isinstance(tag_value, list):
-                for tag_item in tag_value:
-                    if ':' in tag_item:
-                        tag_parts = tag_item.split(':')
-                        if len(tag_parts) >= 2:
-                            rule_result = create_component_rule(
-                                environmentName, 
-                                serviceName, 
-                                'tags', 
-                                [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
-                                f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
-                                headers
-                            )
-                            success = success and (rule_result if rule_result is not None else False)
-            else:
-                if ':' in tag_value:
-                    tag_parts = tag_value.split(':')
-                    if len(tag_parts) >= 2:
-                        rule_result = create_component_rule(
-                            environmentName, 
-                            serviceName, 
-                            'tags', 
-                            [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
-                            f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
-                            headers
-                        )
-                        success = success and (rule_result if rule_result is not None else False)
-        except Exception as e:
-            print(f"Error creating Tag rule: {e}")
-            success = False
-
-    # Handle other rules
+    # Handle other rules with throttling
     for rule_type, rule_value in [
+        ('Tag', service.get('Tag')),
         ('SearchName', service.get('SearchName')),
         ('Fqdn', service.get('Fqdn')),
         ('Netbios', service.get('Netbios')),
@@ -308,27 +328,73 @@ def add_service_rule_batch(environment, service, headers):
         ('AssetType', service.get('AssetType'))
     ]:
         if rule_value:
+            # Apply throttling if needed
+            if consecutive_failures > 2:
+                throttle_delay = min(max_delay, base_delay * (2 ** (consecutive_failures - 2)))
+                print(f" ! Throttling active. Waiting {throttle_delay}s before {rule_type} rule creation...")
+                time.sleep(throttle_delay)
+
             try:
-                rule_result = create_component_rule(
-                    environmentName, 
-                    serviceName, 
-                    rule_type, 
-                    rule_value, 
-                    f"Rule for {rule_type} for {serviceName}", 
-                    headers
-                )
-                success = success and (rule_result if rule_result is not None else False)
+                if rule_type == 'Tag':
+                    tag_value = rule_value
+                    if isinstance(tag_value, list):
+                        for tag_item in tag_value:
+                            if ':' in tag_item:
+                                tag_parts = tag_item.split(':')
+                                if len(tag_parts) >= 2:
+                                    rule_result = create_component_rule(
+                                        environmentName, 
+                                        serviceName, 
+                                        'tags', 
+                                        [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
+                                        f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
+                                        headers
+                                    )
+                                    success = success and (rule_result if rule_result is not None else False)
+                    else:
+                        if ':' in tag_value:
+                            tag_parts = tag_value.split(':')
+                            if len(tag_parts) >= 2:
+                                rule_result = create_component_rule(
+                                    environmentName, 
+                                    serviceName, 
+                                    'tags', 
+                                    [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
+                                    f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
+                                    headers
+                                )
+                                success = success and (rule_result if rule_result is not None else False)
+                else:
+                    rule_result = create_component_rule(
+                        environmentName, 
+                        serviceName, 
+                        rule_type, 
+                        rule_value, 
+                        f"Rule for {rule_type} for {serviceName}", 
+                        headers
+                    )
+                    success = success and (rule_result if rule_result is not None else False)
+                consecutive_failures = 0  # Reset on success
             except Exception as e:
                 print(f"Error creating {rule_type} rule: {e}")
+                consecutive_failures += 1
                 success = False
 
-    # Handle MultiCondition rules
+    # Handle MultiCondition rules with throttling
     for rule_type in ['MultiConditionRule', 'MultiConditionRules', 'MULTI_MultiConditionRules', 'MultiMultiConditionRules']:
         if service.get(rule_type):
+            # Apply throttling if needed
+            if consecutive_failures > 2:
+                throttle_delay = min(max_delay, base_delay * (2 ** (consecutive_failures - 2)))
+                print(f" ! Throttling active. Waiting {throttle_delay}s before multicondition rule creation...")
+                time.sleep(throttle_delay)
+
             try:
                 create_multicondition_service_rules(environmentName, serviceName, service.get(rule_type), headers)
+                consecutive_failures = 0  # Reset on success
             except Exception as e:
                 print(f"Error creating multicondition rule: {e}")
+                consecutive_failures += 1
                 success = False
 
     return success
@@ -2098,54 +2164,51 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         print(f"Full payload:")
         print(json.dumps(payload, indent=2))
 
-    # Enhanced retry configuration
-    max_retries = 5  # Reduced from 7
-    base_delay = 1   # Reduced initial delay from 5
-    max_delay = 30   # Reduced from 60
-    jitter_factor = 0.1  # Reduced jitter
+    # Enhanced retry configuration with smarter throttling
+    max_retries = 5
+    base_delay = 0   # Start with no delay
+    max_delay = 30
+    jitter_factor = 0.1
     
-    def calculate_delay(attempt, consecutive_errors=0):
-        # No delay on first attempt or if no consecutive errors
-        if attempt == 0 or consecutive_errors == 0:
+    def calculate_delay(consecutive_timeouts):
+        # No delay if no consecutive timeouts
+        if consecutive_timeouts == 0:
             return 0
             
-        # Only apply exponential backoff when we have consecutive errors
-        if consecutive_errors > 0:
-            exponential_delay = min(max_delay, base_delay * (2 ** (consecutive_errors - 1)))
-            # Add minimal jitter
-            jitter = random.uniform(0, jitter_factor * exponential_delay)
-            return exponential_delay + jitter
-            
-        # Default small delay for non-consecutive errors
-        return base_delay
+        # Exponential backoff only after consecutive timeouts
+        exponential_delay = min(max_delay, 2 ** (consecutive_timeouts - 1))
+        jitter = random.uniform(0, jitter_factor * exponential_delay)
+        return exponential_delay + jitter
 
-    # Track different types of errors
-    consecutive_errors = 0
+    # Track timeouts and errors separately
+    consecutive_timeouts = 0  # Track service issues (503, 429, timeouts)
     total_attempts = 0
     last_error = None
-    current_delay = 0  # Start with no delay
+    current_delay = 0
 
     while total_attempts < max_retries:
         try:
-            # Only add delay if we've had errors
+            # Only apply delay if we've had consecutive timeouts
             if current_delay > 0:
-                print(f" * Waiting {current_delay:.1f}s before retry {total_attempts + 1}/{max_retries}...")
+                print(f" * Rate limiting active - waiting {current_delay:.1f}s before retry {total_attempts + 1}/{max_retries}...")
                 time.sleep(current_delay)
 
             api_url = construct_api_url("/v1/components/rules")
             
-            # Add custom headers only if we're experiencing issues
+            # Only add rate limiting headers if we're experiencing consecutive timeouts
             request_headers = headers.copy()
-            if consecutive_errors > 1:
+            if consecutive_timeouts > 1:
                 request_headers['X-Rate-Limit-Wait'] = str(int(current_delay))
-                request_headers['X-Client-Timeout'] = str(int(current_delay * 2))
+                request_headers['X-Client-Timeout'] = str(max(30, current_delay * 2))
             
             # Dynamic timeout based on error pattern
-            timeout = 30 if consecutive_errors == 0 else current_delay * 2
+            timeout = max(30, current_delay * 2) if consecutive_timeouts > 0 else 30
             
             response = requests.post(api_url, headers=request_headers, json=payload, timeout=timeout)
             
             if response.status_code == 200:
+                if consecutive_timeouts > 0:
+                    print(f" + Success after {consecutive_timeouts} retries")
                 print(f"+ Rule created: {ruleName}")
                 return True
                 
@@ -2153,22 +2216,23 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
                 return True
                 
-            elif response.status_code in [503, 429]:
-                consecutive_errors += 1
+            elif response.status_code in [503, 429]:  # Service unavailable or rate limit
+                consecutive_timeouts += 1
                 last_error = f"{response.status_code} {'Service Unavailable' if response.status_code == 503 else 'Rate Limit'}"
-                print(f" ! {last_error}. (Attempt {total_attempts + 1}/{max_retries})")
                 
-                # Use server's retry-after if available
+                # Use server's retry-after if available, otherwise calculate delay
                 if response.status_code == 429 and 'Retry-After' in response.headers:
                     current_delay = int(response.headers['Retry-After'])
                 else:
-                    current_delay = calculate_delay(total_attempts, consecutive_errors)
+                    current_delay = calculate_delay(consecutive_timeouts)
+                
+                print(f" ! {last_error}. Throttling activated. (Attempt {total_attempts + 1}/{max_retries})")
                 
             elif response.status_code == 404:
                 last_error = "404 Not Found"
                 print(f" ! Service not found. (Attempt {total_attempts + 1}/{max_retries})")
-                consecutive_errors = 0  # Reset as this is a different type of error
-                current_delay = base_delay
+                consecutive_timeouts = 0  # Reset throttling for different error type
+                current_delay = 0
                 
             elif response.status_code == 400:
                 error_msg = f"Bad request error: {response.content}"
@@ -2184,24 +2248,34 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             else:
                 last_error = f"HTTP {response.status_code}"
                 print(f" ! Unexpected error {response.status_code}. (Attempt {total_attempts + 1}/{max_retries})")
-                consecutive_errors = 0  # Reset for different error types
-                current_delay = base_delay
+                consecutive_timeouts = 0  # Reset throttling for different error types
+                current_delay = 0
+            
+        except requests.exceptions.Timeout:
+            last_error = "Request timeout"
+            print(f" ! Request timeout. (Attempt {total_attempts + 1}/{max_retries})")
+            consecutive_timeouts += 1
+            current_delay = calculate_delay(consecutive_timeouts)
             
         except requests.exceptions.RequestException as e:
             last_error = str(e)
             print(f" ! Network error: {str(e)}. (Attempt {total_attempts + 1}/{max_retries})")
-            consecutive_errors += 1
-            current_delay = calculate_delay(total_attempts, consecutive_errors)
+            if "timeout" in str(e).lower():
+                consecutive_timeouts += 1
+                current_delay = calculate_delay(consecutive_timeouts)
+            else:
+                consecutive_timeouts = 0  # Reset throttling for non-timeout errors
+                current_delay = 0
             
         total_attempts += 1
         
-        # Take a longer break only if we have many consecutive errors
-        if consecutive_errors >= 3:
-            long_break = min(max_delay, base_delay * 4)
-            print(f" ! Multiple consecutive errors. Taking a {long_break}s break...")
+        # Take a longer break only if we have many consecutive timeouts
+        if consecutive_timeouts >= 3:
+            long_break = min(max_delay, 4 * calculate_delay(consecutive_timeouts))
+            print(f" ! Multiple consecutive timeouts detected. Taking a {long_break:.1f}s break...")
             time.sleep(long_break)
-            consecutive_errors = 1  # Reduce but don't reset completely
-            current_delay = base_delay
+            consecutive_timeouts = 1  # Reduce but don't reset completely
+            current_delay = calculate_delay(consecutive_timeouts)
 
     # Log final error after all retries exhausted
     log_error(
