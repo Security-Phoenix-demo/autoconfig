@@ -159,7 +159,7 @@ def add_service_rule_batch(environment, service, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
 
-    # Improved service verification configuration
+    # Service verification configuration
     max_retries = 5
     base_delay = 1
     max_delay = 30
@@ -177,7 +177,7 @@ def add_service_rule_batch(environment, service, headers):
         try:
             # Only fetch components if we haven't already or if we got an empty list
             if components is None:
-                # Use more specific query parameters to find the exact service
+                # First try with specific service name
                 params = {
                     "applicationSelector": {"name": environmentName, "caseSensitive": False},
                     "componentSelector": {"name": serviceName, "caseSensitive": False}
@@ -187,8 +187,9 @@ def add_service_rule_batch(environment, service, headers):
                 response.raise_for_status()
                 components = response.json().get('content', [])
                 
+                # If no components found with specific query, try getting all components
                 if not components:
-                    # If specific query fails, try broader search
+                    print(f" * No exact match found, querying all components...")
                     params = {
                         "applicationSelector": {"name": environmentName, "caseSensitive": False}
                     }
@@ -206,7 +207,7 @@ def add_service_rule_batch(environment, service, headers):
                         continue
                     return False
 
-            # First try exact case-insensitive match
+            # Check for exact case-insensitive match
             for comp in components:
                 if comp['name'].lower() == serviceName.lower():
                     service_exists = True
@@ -214,30 +215,43 @@ def add_service_rule_batch(environment, service, headers):
                     print(f" + Service {serviceName} verified successfully (ID: {service_id})")
                     break
             
-            # If exact match found, proceed
+            # If service found, break the retry loop
             if service_exists:
                 break
             
-            # If no exact match on last attempt, try fuzzy matching
-            if attempt == max_retries - 1:
-                # Try to find similar service names for better error reporting
-                similar_services = []
-                for comp in components:
-                    ratio = Levenshtein.ratio(comp['name'].lower(), serviceName.lower())
-                    if ratio > 0.8:  # 80% similarity threshold
-                        similar_services.append(f"{comp['name']} (ID: {comp.get('id')})")
-                
-                if similar_services:
-                    print(f" ! Service {serviceName} not found. Did you mean one of these? {', '.join(similar_services)}")
-                print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
-                print(f" ! Available services in {environmentName}: {', '.join(comp['name'] for comp in components)}")
-                return False
-            
-            # If not found and not last attempt, retry
-            delay = min(max_delay, base_delay * (2 ** attempt))
-            print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
-            time.sleep(delay)
-            components = None  # Reset to trigger a fresh fetch on next attempt
+            # If not found and not last attempt, retry with delay
+            if attempt < max_retries - 1:
+                delay = min(max_delay, base_delay * (2 ** attempt))
+                print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
+                time.sleep(delay)
+                components = None  # Reset to trigger a fresh fetch
+            else:
+                # On last attempt, try one final time with a direct component lookup
+                try:
+                    print(f" * Making final attempt with direct component lookup...")
+                    final_params = {
+                        "name": serviceName,
+                        "applicationName": environmentName
+                    }
+                    final_response = requests.get(api_url, headers=headers, params=final_params)
+                    final_response.raise_for_status()
+                    final_components = final_response.json().get('content', [])
+                    
+                    if final_components:
+                        for comp in final_components:
+                            if comp['name'].lower() == serviceName.lower():
+                                service_exists = True
+                                service_id = comp.get('id')
+                                print(f" + Service {serviceName} found in final verification (ID: {service_id})")
+                                break
+                    
+                    if not service_exists:
+                        print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
+                        print(f" ! Available services in {environmentName}: {', '.join(sorted(comp['name'] for comp in components))}")
+                        return False
+                except Exception as final_e:
+                    print(f" ! Final verification attempt failed: {final_e}")
+                    return False
                     
         except requests.exceptions.RequestException as e:
             print(f"Error verifying service existence: {e}")
