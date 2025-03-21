@@ -2283,14 +2283,17 @@ def generate_descriptive_rule_name(component_name, filter_name, filter_value):
     return f"R-{method} for {component_name} ({value_str})"
 
 def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
-    print(f"\n[Rule Operation] Application: {applicationName}")
-    print(f"Component: {componentName}")
-    print(f"Filter Type: {filterName}")
-    print("Filter Value:", end=" ")
-    if isinstance(filterValue, list):
-        print(json.dumps(filterValue, indent=2))
-    else:
-        print(filterValue)
+    print(f"\n[Rule Operation]")
+    print(f"└─ Application: {applicationName}")
+    print(f"└─ Component: {componentName}")
+    print(f"└─ Filter Type: {filterName}")
+    
+    if DEBUG:
+        print("└─ Filter Value:", end=" ")
+        if isinstance(filterValue, list):
+            print(json.dumps(filterValue, indent=2))
+        else:
+            print(filterValue)
 
     # Map filter names to their correct API case-sensitive versions
     filter_name_mapping = {
@@ -2325,7 +2328,7 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
 
     # Generate descriptive rule name
     descriptive_rule_name = generate_descriptive_rule_name(componentName, api_filter_name, filter_content)
-    print(f"Generated Rule Name: {descriptive_rule_name}")
+    print(f"└─ Generated Rule Name: {descriptive_rule_name}")
 
     rule = {
         "name": descriptive_rule_name,
@@ -2340,9 +2343,10 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         "rules": [rule]
     }
 
-    print("\nPayload:")
-    print(json.dumps(payload, indent=2))
-    print("-" * 80)
+    if DEBUG:
+        print("\nPayload:")
+        print(json.dumps(payload, indent=2))
+        print("-" * 80)
 
     # Enhanced retry configuration with smarter throttling
     max_retries = 5
@@ -2382,33 +2386,34 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             if response.status_code == 200:
                 if consecutive_timeouts > 0:
                     print(f" + Success after {consecutive_timeouts} retries")
-                print(f"✓ Rule created: {descriptive_rule_name}")
-                print(f"  Application: {applicationName}")
-                print(f"  Component: {componentName}")
-                print(f"  Filter: {json.dumps(rule['filter'], indent=2)}")
+                print(f"└─ Rule created: {descriptive_rule_name}")
+                if DEBUG:
+                    print(f"   └─ Application: {applicationName}")
+                    print(f"   └─ Component: {componentName}")
+                    print(f"   └─ Filter: {json.dumps(rule['filter'], indent=2)}")
                 # Log successful rule creation
                 log_error(
                     'Rule Creation',
                     f"{componentName} -> {descriptive_rule_name}",
                     applicationName,
                     'Rule created successfully',
-                    f'Filter: {json.dumps(rule["filter"])}'
+                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
                 )
                 return True
                 
             elif response.status_code == 409:
-                print(f"⚠ Rule already exists:")
-                print(f"  Application: {applicationName}")
-                print(f"  Component: {componentName}")
-                print(f"  Rule: {descriptive_rule_name}")
-                print(f"  Filter: {json.dumps(rule['filter'], indent=2)}")
+                print(f"└─ Rule already exists: {descriptive_rule_name}")
+                if DEBUG:
+                    print(f"   └─ Application: {applicationName}")
+                    print(f"   └─ Component: {componentName}")
+                    print(f"   └─ Filter: {json.dumps(rule['filter'], indent=2)}")
                 # Log existing rule
                 log_error(
                     'Rule Update',
                     f"{componentName} -> {descriptive_rule_name}",
                     applicationName,
                     'Rule already exists',
-                    f'Filter: {json.dumps(rule["filter"])}'
+                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
                 )
                 return True
                 
@@ -2431,17 +2436,17 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 
             elif response.status_code == 400:
                 error_msg = f"Bad request error: {response.content}"
-                print(f"✗ Rule creation failed:")
-                print(f"  Application: {applicationName}")
-                print(f"  Component: {componentName}")
-                print(f"  Rule: {descriptive_rule_name}")
-                print(f"  Error: {error_msg}")
+                print(f"└─ Rule creation failed: {descriptive_rule_name}")
+                if DEBUG:
+                    print(f"   └─ Application: {applicationName}")
+                    print(f"   └─ Component: {componentName}")
+                    print(f"   └─ Error: {error_msg}")
                 log_error(
                     'Rule Creation Failed',
                     f"{componentName} -> {descriptive_rule_name}",
                     applicationName,
                     error_msg,
-                    f'Filter: {json.dumps(rule["filter"])}'
+                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
                 )
                 return False
                 
@@ -2477,18 +2482,18 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             current_delay = calculate_delay(consecutive_timeouts)
 
     # Log final error after all retries exhausted
-    print(f"✗ Rule creation failed after {max_retries} attempts:")
-    print(f"  Application: {applicationName}")
-    print(f"  Component: {componentName}")
-    print(f"  Rule: {descriptive_rule_name}")
+    print(f"└─ Rule creation failed after {max_retries} attempts: {descriptive_rule_name}")
+    if DEBUG:
+        print(f"   └─ Application: {applicationName}")
+        print(f"   └─ Component: {componentName}")
+        print(f"   └─ Last error: {last_error}")
     log_error(
         'Rule Creation Failed',
         f"{componentName} -> {ruleName}",
         applicationName,
         f"Failed after {max_retries} attempts. Last error: {last_error}",
-        f'Filter: {json.dumps(rule["filter"])}'
+        f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
     )
-    print(f" ! Failed to create rule after {max_retries} attempts. Last error: {last_error}")
     return False
 
 def create_user_for_application(existing_users_emails, newly_created_users_emails, email, headers, verify_only=False):
