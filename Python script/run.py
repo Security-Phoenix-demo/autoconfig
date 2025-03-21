@@ -23,7 +23,7 @@ action_create_components_from_assets = True
 # Handle command-line arguments or prompt for input
 import sys
 args = sys.argv[1:]
-
+print("LEGACY MODE YOU ARE CURRENTLY RUNNING IS NOT LONGER MAINTAINED. PLEASE MIGRATE TO run-phx.py")
 print("Arguments supplied:", len(args))
 
 if len(args) == 10:

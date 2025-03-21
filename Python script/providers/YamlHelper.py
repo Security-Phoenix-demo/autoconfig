@@ -347,3 +347,11 @@ def load_multi_condition_rules(component):
     
     return rules if rules else None
     
+def load_flag_for_create_users(resource_folder):
+    core_structure = os.path.join(resource_folder, "core-structure.yaml")
+    with open(core_structure, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    if True == repos_yaml.get('CreateUsersForApplications', "False"):
+        return True
+    return False
