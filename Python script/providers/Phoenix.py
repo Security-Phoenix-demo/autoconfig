@@ -159,19 +159,18 @@ def add_service_rule_batch(environment, service, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
 
-    # Throttling configuration
-    max_retries = 3
-    base_delay = 2
+    # Improved service verification configuration
+    max_retries = 5
+    base_delay = 1
     max_delay = 30
     consecutive_failures = 0
 
     # First, verify that the service exists with retries
+    api_url = construct_api_url("/v1/components")
+    
     for attempt in range(max_retries):
         try:
             # Use consistent query parameters for all attempts
-            api_url = construct_api_url("/v1/components")
-            
-            # Get all components for the environment
             params = {
                 "applicationSelector": {"name": environmentName, "caseSensitive": False}
             }
@@ -183,39 +182,25 @@ def add_service_rule_batch(environment, service, headers):
             if not components:
                 print(f" ! No components found for environment {environmentName}")
                 if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)
+                    delay = min(max_delay, base_delay * (2 ** attempt))
                     print(f" ! Retrying in {delay} seconds...")
                     time.sleep(delay)
                     continue
                 return False
             
-            # Try exact match first (case insensitive)
-            service_exists = any(
-                comp['name'].lower() == serviceName.lower() 
-                for comp in components
-            )
+            # Case-insensitive exact match check
+            service_exists = False
+            for comp in components:
+                if comp['name'].lower() == serviceName.lower():
+                    service_exists = True
+                    print(f" + Service {serviceName} verified successfully")
+                    break
             
             if service_exists:
-                print(f" + Service {serviceName} verified successfully")
-                consecutive_failures = 0
                 break
                 
-            # If exact match fails, try partial match
-            partial_match = any(
-                serviceName.lower() in comp['name'].lower() or 
-                comp['name'].lower() in serviceName.lower()
-                for comp in components
-            )
-            
-            if partial_match:
-                print(f" + Service {serviceName} found with partial name match")
-                consecutive_failures = 0
-                break
-                
-            # No match found
             if attempt < max_retries - 1:
-                consecutive_failures += 1
-                delay = base_delay * (2 ** attempt)
+                delay = min(max_delay, base_delay * (2 ** attempt))
                 print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
                 time.sleep(delay)
                 continue
@@ -227,8 +212,7 @@ def add_service_rule_batch(environment, service, headers):
         except requests.exceptions.RequestException as e:
             print(f"Error verifying service existence: {e}")
             if attempt < max_retries - 1:
-                consecutive_failures += 1
-                delay = base_delay * (2 ** attempt)
+                delay = min(max_delay, base_delay * (2 ** attempt))
                 time.sleep(delay)
                 continue
             return False
