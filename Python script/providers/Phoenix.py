@@ -1431,7 +1431,13 @@ def delete_team_member(email, team_id, access_token):
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
 
+@dispatch(str)
 def get_phoenix_components(access_token):
+    headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
+    return get_phoenix_components(headers)
+
+@dispatch(dict)
+def get_phoenix_components(headers):
     """
     Fetches the list of Phoenix components by making GET requests to the /v1/components endpoint.
     Handles pagination to retrieve all components.
@@ -1442,7 +1448,6 @@ def get_phoenix_components(access_token):
     Returns:
     - A list of components.
     """
-    headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     components = []
 
     print("Getting list of Phoenix Components")
@@ -1733,10 +1738,7 @@ def add_service(applicationSelectorName, service, tier, headers):
         for attempt in range(max_retries):
             time.sleep(2 * (attempt + 1))  # Exponential backoff: 2s, 4s, 6s
             try:
-                verify_url = construct_api_url("/v1/components")
-                verify_response = requests.get(verify_url, headers=headers)
-                verify_response.raise_for_status()
-                components = verify_response.json().get('content', [])
+                components = get_phoenix_components(headers)
                 if any(comp['name'] == service for comp in components):
                     if DEBUG:
                         print(f" + Service {service} verified successfully")
@@ -1811,10 +1813,7 @@ def add_service(applicationSelectorName, service, tier, team, headers):
                     print(f" ! Service {service} not found in verification attempt {attempt + 1}")
                     
                     if attempt == max_retries - 1:
-                        all_components_url = construct_api_url("/v1/components")
-                        all_response = requests.get(all_components_url, headers=headers)
-                        all_response.raise_for_status()
-                        all_components = all_response.json().get('content', [])
+                        all_components = get_phoenix_components(headers)
                         if any(comp['name'].lower() == service.lower() for comp in all_components):
                             print(f" + Service {service} found in full component list")
                             return True
