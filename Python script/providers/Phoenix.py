@@ -2253,12 +2253,69 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                         print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
 
 # Handle Repository Rule Creation for Components
+def generate_descriptive_rule_name(component_name, filter_name, filter_value):
+    """
+    Generate a descriptive rule name based on the filter type and value.
+    
+    Args:
+        component_name (str): Name of the component
+        filter_name (str): Type of filter (e.g., 'keyLike', 'tags', etc.)
+        filter_value: The value being filtered for
+        
+    Returns:
+        str: A descriptive rule name
+    """
+    # Map filter names to more readable versions
+    filter_name_map = {
+        'keyLike': 'SEARCH',
+        'tags': 'TAG',
+        'repository': 'REPO',
+        'cidr': 'CIDR',
+        'fqdn': 'FQDN',
+        'netbios': 'NETBIOS',
+        'osNames': 'OS',
+        'hostnames': 'HOST',
+        'providerAccountId': 'ACCOUNT-ID',
+        'providerAccountName': 'ACCOUNT-NAME',
+        'resourceGroup': 'RESOURCE-GROUP',
+        'assetType': 'ASSET-TYPE'
+    }
+    
+    method = filter_name_map.get(filter_name, filter_name.upper())
+    
+    # Handle different types of filter values
+    if isinstance(filter_value, list):
+        if filter_name == 'tags':
+            # Handle tag lists
+            tag_values = []
+            for tag in filter_value:
+                if isinstance(tag, dict):
+                    if 'key' in tag and 'value' in tag:
+                        tag_values.append(f"{tag['key']}:{tag['value']}")
+                    elif 'value' in tag:
+                        tag_values.append(tag['value'])
+            value_str = ', '.join(tag_values[:2])  # Limit to first 2 tags
+            if len(tag_values) > 2:
+                value_str += f" +{len(tag_values)-2}"
+        else:
+            # Handle other list types
+            value_str = ', '.join(str(v) for v in filter_value[:2])
+            if len(filter_value) > 2:
+                value_str += f" +{len(filter_value)-2}"
+    else:
+        value_str = str(filter_value)
+    
+    # Truncate value_str if too long
+    if len(value_str) > 50:
+        value_str = value_str[:47] + "..."
+    
+    return f"R-{method} for {component_name} ({value_str})"
+
 def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
     if DEBUG:
         print(f"\nCreating rule for {componentName}:")
         print(f"- Filter type: {filterName}")
         print(f"- Filter value: {filterValue}")
-        print(f"- Rule name: {ruleName}")
 
     # Map filter names to their correct API case-sensitive versions
     filter_name_mapping = {
@@ -2291,8 +2348,11 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
         elif isinstance(filter_content, dict):
             filter_content = str(filter_content.get('value', ''))
 
+    # Generate descriptive rule name
+    descriptive_rule_name = generate_descriptive_rule_name(componentName, api_filter_name, filter_content)
+
     rule = {
-        "name": ruleName,
+        "name": descriptive_rule_name,
         "filter": {api_filter_name: filter_content}
     }
 
