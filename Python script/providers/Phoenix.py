@@ -171,18 +171,30 @@ def add_service_rule_batch(environment, service, headers):
     # Cache components list to avoid repeated API calls
     components = None
     service_exists = False
+    service_id = None
     
     for attempt in range(max_retries):
         try:
             # Only fetch components if we haven't already or if we got an empty list
             if components is None:
+                # Use more specific query parameters to find the exact service
                 params = {
-                    "applicationSelector": {"name": environmentName, "caseSensitive": False}
+                    "applicationSelector": {"name": environmentName, "caseSensitive": False},
+                    "componentSelector": {"name": serviceName, "caseSensitive": False}
                 }
                 
                 response = requests.get(api_url, headers=headers, params=params)
                 response.raise_for_status()
                 components = response.json().get('content', [])
+                
+                if not components:
+                    # If specific query fails, try broader search
+                    params = {
+                        "applicationSelector": {"name": environmentName, "caseSensitive": False}
+                    }
+                    response = requests.get(api_url, headers=headers, params=params)
+                    response.raise_for_status()
+                    components = response.json().get('content', [])
                 
                 if not components:
                     print(f" ! No components found for environment {environmentName}")
@@ -198,7 +210,8 @@ def add_service_rule_batch(environment, service, headers):
             for comp in components:
                 if comp['name'].lower() == serviceName.lower():
                     service_exists = True
-                    print(f" + Service {serviceName} verified successfully")
+                    service_id = comp.get('id')
+                    print(f" + Service {serviceName} verified successfully (ID: {service_id})")
                     break
             
             # If exact match found, proceed
@@ -212,7 +225,7 @@ def add_service_rule_batch(environment, service, headers):
                 for comp in components:
                     ratio = Levenshtein.ratio(comp['name'].lower(), serviceName.lower())
                     if ratio > 0.8:  # 80% similarity threshold
-                        similar_services.append(comp['name'])
+                        similar_services.append(f"{comp['name']} (ID: {comp.get('id')})")
                 
                 if similar_services:
                     print(f" ! Service {serviceName} not found. Did you mean one of these? {', '.join(similar_services)}")
@@ -241,11 +254,14 @@ def add_service_rule_batch(environment, service, headers):
     # First, delete existing rules for this service
     try:
         api_url = construct_api_url(f"/v1/components/rules")
-        # Get existing rules for this service
+        # Get existing rules for this service using the service ID if available
         params = {
             "applicationSelector": {"name": environmentName, "caseSensitive": False},
             "componentSelector": {"name": serviceName, "caseSensitive": False}
         }
+        if service_id:
+            params["componentSelector"]["id"] = service_id
+            
         response = requests.get(api_url, headers=headers, params=params)
         if response.status_code == 200:
             existing_rules = response.json()
