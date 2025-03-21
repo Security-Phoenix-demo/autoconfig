@@ -168,52 +168,70 @@ def add_service_rule_batch(environment, service, headers):
     # First, verify that the service exists with retries
     api_url = construct_api_url("/v1/components")
     
+    # Cache components list to avoid repeated API calls
+    components = None
+    service_exists = False
+    
     for attempt in range(max_retries):
         try:
-            # Use consistent query parameters for all attempts
-            params = {
-                "applicationSelector": {"name": environmentName, "caseSensitive": False}
-            }
-            
-            response = requests.get(api_url, headers=headers, params=params)
-            response.raise_for_status()
-            components = response.json().get('content', [])
-            
-            if not components:
-                print(f" ! No components found for environment {environmentName}")
-                if attempt < max_retries - 1:
-                    delay = min(max_delay, base_delay * (2 ** attempt))
-                    print(f" ! Retrying in {delay} seconds...")
-                    time.sleep(delay)
-                    continue
-                return False
-            
-            # Case-insensitive exact match check
-            service_exists = False
+            # Only fetch components if we haven't already or if we got an empty list
+            if components is None:
+                params = {
+                    "applicationSelector": {"name": environmentName, "caseSensitive": False}
+                }
+                
+                response = requests.get(api_url, headers=headers, params=params)
+                response.raise_for_status()
+                components = response.json().get('content', [])
+                
+                if not components:
+                    print(f" ! No components found for environment {environmentName}")
+                    if attempt < max_retries - 1:
+                        delay = min(max_delay, base_delay * (2 ** attempt))
+                        print(f" ! Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                        components = None  # Reset to trigger another fetch
+                        continue
+                    return False
+
+            # First try exact case-insensitive match
             for comp in components:
                 if comp['name'].lower() == serviceName.lower():
                     service_exists = True
                     print(f" + Service {serviceName} verified successfully")
                     break
             
+            # If exact match found, proceed
             if service_exists:
                 break
+            
+            # If no exact match on last attempt, try fuzzy matching
+            if attempt == max_retries - 1:
+                # Try to find similar service names for better error reporting
+                similar_services = []
+                for comp in components:
+                    ratio = Levenshtein.ratio(comp['name'].lower(), serviceName.lower())
+                    if ratio > 0.8:  # 80% similarity threshold
+                        similar_services.append(comp['name'])
                 
-            if attempt < max_retries - 1:
-                delay = min(max_delay, base_delay * (2 ** attempt))
-                print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
-                time.sleep(delay)
-                continue
-            else:
+                if similar_services:
+                    print(f" ! Service {serviceName} not found. Did you mean one of these? {', '.join(similar_services)}")
                 print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
                 print(f" ! Available services in {environmentName}: {', '.join(comp['name'] for comp in components)}")
                 return False
+            
+            # If not found and not last attempt, retry
+            delay = min(max_delay, base_delay * (2 ** attempt))
+            print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
+            time.sleep(delay)
+            components = None  # Reset to trigger a fresh fetch on next attempt
                     
         except requests.exceptions.RequestException as e:
             print(f"Error verifying service existence: {e}")
             if attempt < max_retries - 1:
                 delay = min(max_delay, base_delay * (2 ** attempt))
                 time.sleep(delay)
+                components = None  # Reset to trigger a fresh fetch
                 continue
             return False
 
