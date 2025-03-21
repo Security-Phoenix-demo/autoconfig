@@ -168,18 +168,28 @@ def add_service_rule_batch(environment, service, headers):
     # First, verify that the service exists with retries
     for attempt in range(max_retries):
         try:
-            # Add specific service query parameters
+            # Use consistent query parameters for all attempts
+            api_url = construct_api_url("/v1/components")
+            
+            # Get all components for the environment
             params = {
-                "applicationSelector": {"name": environmentName, "caseSensitive": False},
-                "componentSelector": {"name": serviceName, "caseSensitive": False}
+                "applicationSelector": {"name": environmentName, "caseSensitive": False}
             }
             
-            api_url = construct_api_url("/v1/components")
             response = requests.get(api_url, headers=headers, params=params)
             response.raise_for_status()
             components = response.json().get('content', [])
             
-            # Case insensitive comparison
+            if not components:
+                print(f" ! No components found for environment {environmentName}")
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    print(f" ! Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                    continue
+                return False
+            
+            # Try exact match first (case insensitive)
             service_exists = any(
                 comp['name'].lower() == serviceName.lower() 
                 for comp in components
@@ -189,36 +199,30 @@ def add_service_rule_batch(environment, service, headers):
                 print(f" + Service {serviceName} verified successfully")
                 consecutive_failures = 0
                 break
+                
+            # If exact match fails, try partial match
+            partial_match = any(
+                serviceName.lower() in comp['name'].lower() or 
+                comp['name'].lower() in serviceName.lower()
+                for comp in components
+            )
+            
+            if partial_match:
+                print(f" + Service {serviceName} found with partial name match")
+                consecutive_failures = 0
+                break
+                
+            # No match found
+            if attempt < max_retries - 1:
+                consecutive_failures += 1
+                delay = base_delay * (2 ** attempt)
+                print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
+                time.sleep(delay)
+                continue
             else:
-                if attempt < max_retries - 1:
-                    # Try a broader search on the last attempt
-                    if attempt == max_retries - 2:
-                        print(f" ! Service not found with exact match, trying broader search...")
-                        # Try to get all components
-                        all_response = requests.get(api_url, headers=headers)
-                        all_response.raise_for_status()
-                        all_components = all_response.json().get('content', [])
-                        
-                        # Case insensitive partial match
-                        service_exists = any(
-                            serviceName.lower() in comp['name'].lower() or 
-                            comp['name'].lower() in serviceName.lower()
-                            for comp in all_components
-                        )
-                        
-                        if service_exists:
-                            print(f" + Service {serviceName} found with partial match")
-                            consecutive_failures = 0
-                            break
-                    
-                    consecutive_failures += 1
-                    delay = base_delay * (2 ** attempt)
-                    print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
-                    time.sleep(delay)
-                    continue
-                else:
-                    print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
-                    return False
+                print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
+                print(f" ! Available services in {environmentName}: {', '.join(comp['name'] for comp in components)}")
+                return False
                     
         except requests.exceptions.RequestException as e:
             print(f"Error verifying service existence: {e}")
