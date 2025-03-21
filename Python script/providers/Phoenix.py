@@ -2315,37 +2315,30 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     jitter_factor = 0.1
     
     def calculate_delay(consecutive_timeouts):
-        # No delay if no consecutive timeouts
         if consecutive_timeouts == 0:
             return 0
-            
-        # Exponential backoff only after consecutive timeouts
         exponential_delay = min(max_delay, 2 ** (consecutive_timeouts - 1))
         jitter = random.uniform(0, jitter_factor * exponential_delay)
         return exponential_delay + jitter
 
-    # Track timeouts and errors separately
-    consecutive_timeouts = 0  # Track service issues (503, 429, timeouts)
+    consecutive_timeouts = 0
     total_attempts = 0
     last_error = None
     current_delay = 0
 
     while total_attempts < max_retries:
         try:
-            # Only apply delay if we've had consecutive timeouts
             if current_delay > 0:
                 print(f" * Rate limiting active - waiting {current_delay:.1f}s before retry {total_attempts + 1}/{max_retries}...")
                 time.sleep(current_delay)
 
             api_url = construct_api_url("/v1/components/rules")
             
-            # Only add rate limiting headers if we're experiencing consecutive timeouts
             request_headers = headers.copy()
             if consecutive_timeouts > 1:
                 request_headers['X-Rate-Limit-Wait'] = str(int(current_delay))
                 request_headers['X-Client-Timeout'] = str(max(30, current_delay * 2))
             
-            # Dynamic timeout based on error pattern
             timeout = max(30, current_delay * 2) if consecutive_timeouts > 0 else 30
             
             response = requests.post(api_url, headers=request_headers, json=payload, timeout=timeout)
@@ -2354,17 +2347,32 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 if consecutive_timeouts > 0:
                     print(f" + Success after {consecutive_timeouts} retries")
                 print(f"+ Rule created: {ruleName}")
+                # Log successful rule creation
+                log_error(
+                    'Rule Creation',
+                    f"{componentName} -> {ruleName}",
+                    applicationName,
+                    'Rule created successfully',
+                    f'Filter: {json.dumps(rule["filter"])}'
+                )
                 return True
                 
             elif response.status_code == 409:
                 print(f" > Rule for {componentName} with filter {json.dumps(rule['filter'])} already exists.")
+                # Log existing rule
+                log_error(
+                    'Rule Update',
+                    f"{componentName} -> {ruleName}",
+                    applicationName,
+                    'Rule already exists',
+                    f'Filter: {json.dumps(rule["filter"])}'
+                )
                 return True
                 
-            elif response.status_code in [503, 429]:  # Service unavailable or rate limit
+            elif response.status_code in [503, 429]:
                 consecutive_timeouts += 1
                 last_error = f"{response.status_code} {'Service Unavailable' if response.status_code == 503 else 'Rate Limit'}"
                 
-                # Use server's retry-after if available, otherwise calculate delay
                 if response.status_code == 429 and 'Retry-After' in response.headers:
                     current_delay = int(response.headers['Retry-After'])
                 else:
@@ -2375,24 +2383,24 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             elif response.status_code == 404:
                 last_error = "404 Not Found"
                 print(f" ! Service not found. (Attempt {total_attempts + 1}/{max_retries})")
-                consecutive_timeouts = 0  # Reset throttling for different error type
+                consecutive_timeouts = 0
                 current_delay = 0
                 
             elif response.status_code == 400:
                 error_msg = f"Bad request error: {response.content}"
                 log_error(
-                    'Rule Creation',
-                    ruleName,
+                    'Rule Creation Failed',
+                    f"{componentName} -> {ruleName}",
                     applicationName,
                     error_msg,
-                    f'Component: {componentName}, Filter: {filterName}={filterValue}'
+                    f'Filter: {json.dumps(rule["filter"])}'
                 )
                 return False
                 
             else:
                 last_error = f"HTTP {response.status_code}"
                 print(f" ! Unexpected error {response.status_code}. (Attempt {total_attempts + 1}/{max_retries})")
-                consecutive_timeouts = 0  # Reset throttling for different error types
+                consecutive_timeouts = 0
                 current_delay = 0
             
         except requests.exceptions.Timeout:
@@ -2408,26 +2416,25 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                 consecutive_timeouts += 1
                 current_delay = calculate_delay(consecutive_timeouts)
             else:
-                consecutive_timeouts = 0  # Reset throttling for non-timeout errors
+                consecutive_timeouts = 0
                 current_delay = 0
             
         total_attempts += 1
         
-        # Take a longer break only if we have many consecutive timeouts
         if consecutive_timeouts >= 3:
             long_break = min(max_delay, 4 * calculate_delay(consecutive_timeouts))
             print(f" ! Multiple consecutive timeouts detected. Taking a {long_break:.1f}s break...")
             time.sleep(long_break)
-            consecutive_timeouts = 1  # Reduce but don't reset completely
+            consecutive_timeouts = 1
             current_delay = calculate_delay(consecutive_timeouts)
 
     # Log final error after all retries exhausted
     log_error(
-        'Rule Creation',
-        ruleName,
+        'Rule Creation Failed',
+        f"{componentName} -> {ruleName}",
         applicationName,
         f"Failed after {max_retries} attempts. Last error: {last_error}",
-        f'Component: {componentName}, Filter: {filterName}={filterValue}'
+        f'Filter: {json.dumps(rule["filter"])}'
     )
     print(f" ! Failed to create rule after {max_retries} attempts. Last error: {last_error}")
     return False
