@@ -475,6 +475,30 @@ The currently defined environments are:
 
 The function that create the environments is [CreateEnvironments] Phoenix.ps1
 
+If you want to create users from Environment Group.Responsable field, set the variable in core-structure.yaml file
+
+``
+CreateUsersForApplications: True 
+``
+
+Example core-structure.yaml file
+
+```
+CreateUsersForApplications: True
+Environment Groups:
+  - Name: TST_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ciso6.ttt@company.com
+```
+
+In the example above, user `ciso6.ttt@company.com` will be
+created if not present in Phoenix. User first and last name are deduced from the first part of the email 
+
+(`ciso6.ttt`) -> first name = ciso6; last name = ttt
+
+If `Responsable` value is not valid email, user won't be created.
+
 ## Services
 
 Services are the cloud resources that are used by different applications. These are typically grouped by the `subdomain` or a similar data grouping function  that uses the services.
@@ -670,6 +694,29 @@ Applications are groupings of code that provide functionality for a service. As 
 For python the application and component are created: in `core-structure.yaml`.
 
 The function is called [CreateApplications](Phoenix.ps1)
+
+If you want to create users from DeploymentGroups.Responsable field, set the variable in core-structure.yaml file
+
+``
+CreateUsersForApplications: True 
+``
+
+Example core-structure.yaml file
+
+```
+DeploymentGroups:
+  - AppName: TST_TestApp10915 #name of the application
+    Domain: Security
+    SubDomain: Simplified Access Management
+    Responsable: ciso4.test@company.com
+```
+
+In the example above, user `ciso4.test@company.com` will be
+created if not present in Phoenix. User first and last name are deduced from the first part of the email 
+
+(`ciso4.test`) -> first name = ciso4; last name = test
+
+If `Responsable` value is not valid email, user won't be created.
 
 ## Components
 
@@ -1009,6 +1056,8 @@ This action will iterate over all environments, and then for each environment:
 
 ## Overview of commands to run autoconfig, with examples
 
+### LEGACY MODE - NOT MAINTAINED ANYMORE
+
 | Command to run                                                                    | Example command                                                                                                                    | action_teams | action_code | action_cloud | action_deployment | action_autolink_deploymentset | action_autocreate_teams_from_pteams | action_create_components_from_assets |
 |-----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|--------------|-------------|--------------|-------------------|-------------------------------|-------------------------------------|--------------------------------------|
 | create teams                                                                      | <span style="white-space:nowrap;">python run.py client_id client_secret True false false false false false false api_domain</span> | True         | false       | false        | false             | false                         | false                               | false                                |
@@ -1018,6 +1067,46 @@ This action will iterate over all environments, and then for each environment:
 | Auto create deployments based on application name <br>and service name similarity | <nobr>python run.py client_id client_secret false false false false True false false api_domain</nobr>                             | false        | false       | false        | false             | True                          | false                               | false                                |
 | Auto create teams from pteam tags in config                                       | <nobr>python run.py client_id client_secret false false false false false True false api_domain</nobr>                             | false        | false       | false        | false             | false                         | True                                | false                                |
 | Create assets from components/services<br> with similar name                      | <nobr>python run.py client_id client_secret false false false false false false True api_domain</nobr>                             | false        | false       | false        | false             | false                         | false                               | True                                 |
+
+### NEW MODE
+
+Command to run was updated to use different format:
+
+python run-phx.py < clientId > < clientSecret > --api_domain=https://api.demo.appsecphx.io --verify=True --action_autocreate_teams_from_pteam=True
+
+It takes two positional arguments (clientId and clientSecret) right after the run.py
+After that, you may specify any of these items listed:
+
+| Option                                 | Description                                                                | Example                                     |
+|----------------------------------------|----------------------------------------------------------------------------|---------------------------------------------|
+| --api_domain                           | to override the value in Phoenix.py file                                   | --api_domain=https://api.demo.appsecphx.io  |
+| --verify                               | Flag to run the simulated mode, without committing the changes to platform | --verify=True                               |
+| --action_teams                         | Trigger teams action                                                       | --action_teams=True                         |
+| --action_code                          | Trigger code action                                                        | --action_code=True                          |
+| --action_cloud                         | Trigger cloud action                                                       | --action_cloud=True                         |
+| --action_deployment                    | Trigger deployment action                                                  | --action_deployment=True                    |
+| --action_autolink_deploymentset        | Trigger autolink deploymentset action                                      | --action_autolink_deploymentset=True        |
+| --action_autocreate_teams_from_pteam   | Trigger autocreate teams from pteam action                                 | --action_autocreate_teams_from_pteam=True   |
+| --action_create_components_from_assets | Trigger create components from assets action                               | --action_create_components_from_assets=True |
+
+#### Examples of common usecases
+
+Running actions (code + cloud + deployment)
+
+``
+python run-phx.py < clientId > < clientSecret > --action_code=true --action_cloud==true --action_deployment=true
+``
+
+Running actions (teams + code + cloud + deployment)
+
+``
+python run-phx.py < clientId > < clientSecret > --action_teams=true --action_code=true --action_cloud==true --action_deployment=true
+``
+
+If you want to override the API domain from Phoenix.py file, use this option:
+``
+--api_domain=https://newapi.appsecphx.io (or whatever is the domain)
+``
 
 ## Error Handling and Logging
 

@@ -1233,13 +1233,13 @@ def assign_users_to_team(p_teams, new_pteams, teams, all_team_access, hive_staff
                 for user_email in all_team_access:
                     found = any(member['email'].lower() == user_email.lower() for member in team_members)
                     if not found:
-                        api_call_assign_users_to_team(pteam['id'], user_email, headers)
+                        api_call_assign_users_to_team(pteam['id'], user_email, access_token)
 
                 # Assign team members from the team if they are not part of the current team members
                 for team_member in team['TeamMembers']:
                     found = any(member['email'].lower() == team_member['EmailAddress'].lower() for member in team_members)
                     if not found:
-                        api_call_assign_users_to_team(pteam['id'], team_member['EmailAddress'], headers)
+                        api_call_assign_users_to_team(pteam['id'], team_member['EmailAddress'], access_token)
 
                 # Remove users who no longer exist in the team members
                 for member in team_members:
@@ -1252,11 +1252,11 @@ def assign_users_to_team(p_teams, new_pteams, teams, all_team_access, hive_staff
 
         if hive_team:
             print(f"> Adding team lead {hive_team['Lead']} to team {pteam['name']}")
-            api_call_assign_users_to_team(pteam['id'], hive_team['Lead'], headers)
+            api_call_assign_users_to_team(pteam['id'], hive_team['Lead'], access_token)
 
             for product_owner in hive_team['Product']:
                 print(f"> Adding Product Owner {product_owner} to team {pteam['name']}")
-                api_call_assign_users_to_team(pteam['id'], product_owner, headers)
+                api_call_assign_users_to_team(pteam['id'], product_owner, access_token)
 
 
 # ConstructAPIUrl Function
@@ -1290,7 +1290,8 @@ def api_call_assign_users_to_team(team_id, email, access_token):
     payload = {
         "users": [
             {"email": email}
-        ]
+        ],
+        "autoCreateUsers": True
     }
     
     # Construct the full API URL
@@ -1566,19 +1567,6 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers):
     except requests.exceptions.RequestException as e:
         print(f"Error adding tag: {e}")
 
-# Helper function to assign users to a team
-def api_call_assign_users_to_team(team_id, email, access_token):
-    headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
-    payload = {
-        "users": [{"email": email}], "autoCreateUsers": True
-    }
-
-    api_url = construct_api_url(f"/v1/teams/{team_id}/users")
-    
-    response = requests.put(api_url, headers=headers, json=payload)
-    response.raise_for_status()
-    print(f" + User {email} added to team {team_id}")
-
 # Helper function to delete team members
 def delete_team_member(user_email, team_id, access_token):
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
@@ -1825,23 +1813,6 @@ def get_phoenix_team_members(team_id, headers):
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
         return []
-
-def api_call_assign_users_to_team(team_id, email, access_token):
-    payload = {"users": [{"email": email}], "autoCreateUsers": True}
-
-    try:
-        api_url = construct_api_url(f"/v1/teams/{team_id}/users")
-        response = requests.put(api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        print(f" + User {email} added to team")
-    except requests.exceptions.RequestException as e:
-        if response.status_code == 400:
-            print(f" ? Team Member assignment {email} user hasn't logged in yet")
-        elif response.status_code == 409:
-            print(f" - Team Member already assigned {email}")
-        else:
-            print(f"Error: {e}")
-            exit(1)
 
 def delete_team_member(email, team_id, access_token):
     try:
@@ -2247,3 +2218,84 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     )
     print(f" ! Failed to create rule after {max_retries} attempts. Last error: {last_error}")
     return False
+
+def create_user_for_application(existing_users_emails, newly_created_users_emails, email, headers, verify_only=False):
+    # try to get first and last name from email
+    if email in existing_users_emails:
+        print(f"User with email already registered: {email}")
+        return
+    
+    if email in newly_created_users_emails:
+        if DEBUG:
+            print(f"User with email already created: {email}")
+        return
+
+    try:
+        email_parts = email.split("@")
+    except Exception as e:
+        print(f'Failed creating user for application with email {email}, error {e}')
+        return
+    
+    if len(email_parts) < 2:
+        print(f'Failed creating user for application with email {email}, @ sign not found in email')
+        return
+    
+    user_full_name = email_parts[0]
+    user_first_name = user_full_name
+    user_last_name = user_full_name
+    try:
+        user_full_name_parts = user_full_name.split(".")
+        if len(user_full_name_parts) > 1:
+            user_first_name = user_full_name_parts[0]
+            user_last_name = user_full_name_parts[1]
+    except Exception as e:
+        print(f"Unable to detect user's first and last name in {email}, using {user_full_name} as both first and last name")
+
+    payload = {
+        "email": email, 
+        "firstName": user_first_name, 
+        "lastName": user_last_name, 
+        "role": "ORG_USER" 
+    }
+
+    if verify_only:
+        return payload
+
+    if DEBUG:
+        print(f'Payload sent to create user {json.dumps(payload, indent=2)}')
+
+    try:
+        api_url = construct_api_url(f"/v1/users")
+        response = requests.post(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        print(f" + User {email} added")
+        return payload
+    except requests.exceptions.RequestException as e:
+        if response.status_code == 400:
+            print(f" ? Bad request when creating user for application, email {email}")
+        elif response.status_code == 409:
+            print(f" - User already exists in platfrom with email: {email}, please choose another email")
+        else:
+            print(f"Error: {e}")
+            exit(1)
+
+def load_users_from_phoenix(headers):
+    try:
+        print("Getting list of Phoenix Users")
+        api_url = construct_api_url("/v1/users")
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+
+        data = response.json()
+        users = data.get('content', [])
+        total_pages = data.get('totalPages', 1)
+
+        for i in range(1, total_pages):
+            api_url = construct_api_url(f"/v1/users?pageNumber={i}")
+            response = requests.get(api_url, headers=headers)
+            users += response.json().get('content', [])
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+        exit(1)
+
+    return users

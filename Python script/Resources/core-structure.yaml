@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=BankingCore.schema.json
 AllAccessAccounts: # Not mandatory - list of all access account emails
- - ciso@company.com
+ - ciso+test2@company.com
+CreateUsersForApplications: True # (True / False) Not mandatory - flag that will trigger checks to create users defined in applications 'Responsable' field 
 DeploymentGroups:
   - AppName: TST_TestApp10910 #name of the application
     AppID: 123444
@@ -11,7 +12,7 @@ DeploymentGroups:
     Domain: Security  #domain = component or application can be used to group by bysiness unit
     SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Responsable: frankadm+test2@admin.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
     Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
     Deployment_set: Service1
     Components:
@@ -138,7 +139,7 @@ DeploymentGroups:
     TeamNames: 
       - SP_lima20
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com
+    Responsable: frankadm+test2@admin.com
     Tier: 7 #importance TST_limaom 1-10
     Components:
       - ComponentName: coreapp205_rule1-repo
@@ -165,7 +166,7 @@ DeploymentGroups:
   - AppName: Stefan_NOTEAM_APP
     Status: NotStarted
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com
+    Responsable: frankadm+test2@admin.com
     Tier: 7 #importance TST_limaom 1-10
     Components:
       - ComponentName: Stefan_NOTEAM_COMP
@@ -181,7 +182,7 @@ DeploymentGroups:
     TeamNames: 
       - SP_lima20
     ReleaseDefinitions: []
-    Responsable: frankadm@admin.com
+    Responsable: frankadm+test2@admin.com
     Tier: 2 #importance TST_limaom 1-10
     Components:
       - ComponentName: product305-prod #name of the component 
@@ -216,7 +217,7 @@ Environment Groups:
   - Name: TST_Production
     Type: CLOUD
     Status: Production
-    Responsable: frankadm@admin.com
+    Responsable: frankadm+test2@admin.com
     Tier: 2 #importance from 1-10
     TeamName: SP_lima20 #name of the team as it appears in hives and teams 
     Status: Production
@@ -321,7 +322,7 @@ Environment Groups:
   - Name: FR_Dev
     Type: CLOUD
     Status: Production
-    Responsable: frankadm@admin.com
+    Responsable: frankadm+test2@admin.com
     Tier: 5
     Tag: dev
     Services:
