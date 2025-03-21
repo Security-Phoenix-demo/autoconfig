@@ -97,7 +97,7 @@ def perform_actions(args):
             print(f"Users in Phoenix {current_users_emails}")
             created_users_emails = []
             for env in environments:
-                created_user = create_user_for_application(current_users_emails, created_users_emails, env.get('Responsable'), headers, should_verify_only)
+                created_user = create_user_for_application(current_users_emails, created_users_emails, env.get('Responsable'), headers)
                 if created_user:
                     created_users_emails.append(created_user.get("email"))
         

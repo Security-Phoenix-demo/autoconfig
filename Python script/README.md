@@ -1094,13 +1094,13 @@ After that, you may specify any of these items listed:
 Running actions (code + cloud + deployment)
 
 ``
-python run-phx.py < clientId > < clientSecret > --action_code=true --action_cloud==true --action_deployment=true
+python run-phx.py < clientId > < clientSecret > --action_code=true --action_cloud=true --action_deployment=true
 ``
 
 Running actions (teams + code + cloud + deployment)
 
 ``
-python run-phx.py < clientId > < clientSecret > --action_teams=true --action_code=true --action_cloud==true --action_deployment=true
+python run-phx.py < clientId > < clientSecret > --action_teams=true --action_code=true --action_cloud=true --action_deployment=true
 ``
 
 If you want to override the API domain from Phoenix.py file, use this option:
