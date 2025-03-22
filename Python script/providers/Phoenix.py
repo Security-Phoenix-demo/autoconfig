@@ -730,7 +730,8 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         
         # Add each condition to the filter and collect details for logging
         if multicondition.get('SearchName') and is_valid_value(multicondition.get('SearchName')):
-            rule['filter']['keyLike'] = multicondition.get('SearchName')
+            # Preserve exact search pattern
+            rule['filter']['keyLike'] = str(multicondition.get('SearchName'))
             filter_details.append(f"SearchName: {multicondition.get('SearchName')}")
             
         if multicondition.get('RepositoryName'):
@@ -743,13 +744,22 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
                 filter_details.append(f"Repository: {', '.join(valid_repos)}")
             
         if multicondition.get('Tag') and is_valid_value(multicondition.get('Tag')):
-            tag_parts = multicondition.get('Tag').split(':')
-            if len(tag_parts) == 2 and is_valid_value(tag_parts[0]) and is_valid_value(tag_parts[1]):
-                rule['filter']['tags'] = [{"key": tag_parts[0], "value": tag_parts[1]}]
-                filter_details.append(f"Tag: {tag_parts[0]}:{tag_parts[1]}")
+            # Preserve exact tag pattern
+            tag_value = str(multicondition.get('Tag'))
+            if ':' in tag_value:
+                tag_parts = tag_value.split(':')
+                if len(tag_parts) >= 2:
+                    key = tag_parts[0].strip()
+                    value = ':'.join(tag_parts[1:]).strip()  # Join remaining parts in case value contains colons
+                    rule['filter']['tags'] = [{"key": key, "value": value}]
+                    filter_details.append(f"Tag: {key}:{value}")
+            else:
+                # Handle tag without key:value format, preserving exact pattern including wildcards
+                rule['filter']['tags'] = [{"value": tag_value}]
+                filter_details.append(f"Tag: {tag_value}")
                 
         if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
-            rule['filter']['assetType'] = multicondition.get('AssetType')
+            rule['filter']['assetType'] = str(multicondition.get('AssetType'))
             filter_details.append(f"AssetType: {multicondition.get('AssetType')}")
 
         if not rule['filter']:
@@ -1426,7 +1436,6 @@ def verify_service_exists(env_name, service_name, headers, max_retries=5):
     service_name_lower = service_name.lower()
     api_url = construct_api_url("/v1/components")
     
-    # First try direct lookup with service ID if available
     try:
         # Get all services in one go with a larger page size
         params = {
@@ -1901,16 +1910,39 @@ def add_service(applicationSelectorName, service, tier, team, headers):
                     print(f" + Service {created_service_name} verified successfully")
                     return True
                 
-                # If not found with direct lookup, try getting all components
+                # If not found with direct lookup, try getting all components with proper pagination
                 print(f" * Service not found in direct lookup, checking all components...")
                 params = {
-                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False}
+                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
+                    "pageSize": 1000,
+                    "sort": "name,asc"
                 }
-                verify_response = requests.get(verify_url, headers=headers, params=params)
-                verify_response.raise_for_status()
-                all_components = verify_response.json().get('content', [])
                 
-                print(f" * Found {len(all_components)} total components")
+                all_components = []
+                page = 0
+                while True:
+                    params['pageNumber'] = page
+                    verify_response = requests.get(verify_url, headers=headers, params=params)
+                    verify_response.raise_for_status()
+                    data = verify_response.json()
+                    
+                    page_components = data.get('content', [])
+                    all_components.extend(page_components)
+                    
+                    if page == 0:
+                        total_pages = data.get('totalPages', 1)
+                        total_elements = data.get('totalElements', 0)
+                        print(f" * Found {total_elements} total components across {total_pages} pages")
+                    
+                    print(f" * Fetched page {page + 1}/{total_pages} ({len(page_components)} components)")
+                    
+                    if page + 1 >= total_pages:
+                        break
+                        
+                    page += 1
+                    time.sleep(0.5)  # Small delay between pages
+                
+                print(f" * Total components fetched: {len(all_components)}")
                 print(" * Available components:")
                 for comp in sorted(all_components, key=lambda x: x['name']):
                     print(f"   └─ {comp['name']}")
