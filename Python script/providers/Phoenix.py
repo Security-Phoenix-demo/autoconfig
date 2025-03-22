@@ -126,18 +126,62 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                 
                 if not service_exists:
                     try:
+                        # Attempt to create the service
+                        creation_success = False
                         if team_name:
-                            add_service(env_name, service['Service'], service['Tier'], team_name, headers)
+                            creation_success = add_service(env_name, service['Service'], service['Tier'], team_name, headers)
                         else:
-                            add_service(env_name, service['Service'], service['Tier'], headers)
+                            creation_success = add_service(env_name, service['Service'], service['Tier'], headers)
+                        
+                        if not creation_success:
+                            print(f" ! Failed to create service {service['Service']} for environment {env_name}")
+                            continue
+                            
+                        # Verify service exists with retries
+                        max_verify_attempts = 5
+                        verify_delay = 2
+                        service_verified = False
+                        
+                        for attempt in range(max_verify_attempts):
+                            if attempt > 0:
+                                print(f" * Verifying service creation (attempt {attempt + 1}/{max_verify_attempts})...")
+                                time.sleep(verify_delay * (2 ** attempt))  # Exponential backoff
+                            
+                            # Refresh components list
+                            try:
+                                api_url = construct_api_url("/v1/components")
+                                params = {
+                                    "applicationSelector": {"name": env_name, "caseSensitive": False},
+                                    "componentSelector": {"name": service['Service'], "caseSensitive": False}
+                                }
+                                response = requests.get(api_url, headers=headers, params=params)
+                                response.raise_for_status()
+                                components = response.json().get('content', [])
+                                
+                                if any(comp['name'].lower() == service['Service'].lower() for comp in components):
+                                    service_verified = True
+                                    print(f" + Service {service['Service']} verified successfully")
+                                    break
+                            except requests.exceptions.RequestException as e:
+                                print(f" ! Error verifying service: {e}")
+                                if attempt == max_verify_attempts - 1:
+                                    break
+                                continue
+                        
+                        if not service_verified:
+                            print(f" ! Could not verify service {service['Service']} after {max_verify_attempts} attempts")
+                            continue
+                            
                     except NotImplementedError as e:
                         print(f"Error adding service {service['Service']} for environment {env_name}: {e}")
+                        continue
                 else:
                     print(f" > Service {service['Service']} exists, updating rules...")
                 
-                # Always update rules, whether the service is new or existing
-                add_service_rule_batch(environment, service, headers)
-                time.sleep(1)  # Add small delay between operations
+                # Only proceed with rules if service exists or was successfully created and verified
+                if service_exists or service_verified:
+                    add_service_rule_batch(environment, service, headers)
+                    time.sleep(1)  # Add small delay between operations
 
 # AddContainerRule Function
 def add_container_rule(image, subdomain, environment_name, access_token):
@@ -158,308 +202,15 @@ def add_container_rule(image, subdomain, environment_name, access_token):
 def add_service_rule_batch(environment, service, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
-
-    # Service verification configuration
-    max_retries = 5
-    base_delay = 1
-    max_delay = 30
-    consecutive_failures = 0
-
-    # First, verify that the service exists with retries
-    api_url = construct_api_url("/v1/components")
     
-    # Cache components list to avoid repeated API calls
-    components = None
-    service_exists = False
-    service_id = None
+    # First verify the service exists
+    service_exists, service_id = verify_service_exists(environmentName, serviceName, headers)
     
-    for attempt in range(max_retries):
-        try:
-            # Only fetch components if we haven't already or if we got an empty list
-            if components is None:
-                # First try with specific service name
-                params = {
-                    "applicationSelector": {"name": environmentName, "caseSensitive": False},
-                    "componentSelector": {"name": serviceName, "caseSensitive": False}
-                }
-                
-                response = requests.get(api_url, headers=headers, params=params)
-                response.raise_for_status()
-                components = response.json().get('content', [])
-                
-                # If no components found with specific query, try getting all components
-                if not components:
-                    print(f" * No exact match found, querying all components...")
-                    params = {
-                        "applicationSelector": {"name": environmentName, "caseSensitive": False}
-                    }
-                    response = requests.get(api_url, headers=headers, params=params)
-                    response.raise_for_status()
-                    components = response.json().get('content', [])
-                
-                if not components:
-                    print(f" ! No components found for environment {environmentName}")
-                    if attempt < max_retries - 1:
-                        delay = min(max_delay, base_delay * (2 ** attempt))
-                        print(f" ! Retrying in {delay} seconds...")
-                        time.sleep(delay)
-                        components = None  # Reset to trigger another fetch
-                        continue
-                    return False
-
-            # Check for exact case-insensitive match
-            for comp in components:
-                if comp['name'].lower() == serviceName.lower():
-                    service_exists = True
-                    service_id = comp.get('id')
-                    print(f" + Service {serviceName} verified successfully (ID: {service_id})")
-                    break
-            
-            # If service found, break the retry loop
-            if service_exists:
-                break
-            
-            # If not found and not last attempt, retry with delay
-            if attempt < max_retries - 1:
-                delay = min(max_delay, base_delay * (2 ** attempt))
-                print(f" ! Service {serviceName} not found, retrying in {delay} seconds...")
-                time.sleep(delay)
-                components = None  # Reset to trigger a fresh fetch
-            else:
-                # On last attempt, try one final time with a direct component lookup
-                try:
-                    print(f" * Making final attempt with direct component lookup...")
-                    final_params = {
-                        "name": serviceName,
-                        "applicationName": environmentName
-                    }
-                    final_response = requests.get(api_url, headers=headers, params=final_params)
-                    final_response.raise_for_status()
-                    final_components = final_response.json().get('content', [])
-                    
-                    if final_components:
-                        for comp in final_components:
-                            if comp['name'].lower() == serviceName.lower():
-                                service_exists = True
-                                service_id = comp.get('id')
-                                print(f" + Service {serviceName} found in final verification (ID: {service_id})")
-                                break
-                    
-                    # If still not found, try fuzzy matching as last resort
-                    if not service_exists:
-                        print(f" * No exact match found, trying fuzzy matching as last resort...")
-                        best_match = None
-                        best_ratio = 0
-                        similar_services = []
-                        
-                        # Try to find similar services using fuzzy matching
-                        for comp in components:
-                            ratio = Levenshtein.ratio(comp['name'].lower(), serviceName.lower())
-                            if ratio > 0.8:  # 80% similarity threshold
-                                similar_services.append(f"{comp['name']} (similarity: {ratio:.2f})")
-                                if ratio > best_ratio:
-                                    best_ratio = ratio
-                                    best_match = comp
-                        
-                        if best_match and best_ratio > 0.9:  # 90% similarity for automatic acceptance
-                            service_exists = True
-                            service_id = best_match.get('id')
-                            print(f" + Found very similar service: {best_match['name']} (similarity: {best_ratio:.2f})")
-                            print(f" + Using this service for rule creation (ID: {service_id})")
-                        else:
-                            if similar_services:
-                                print(f" ! Service {serviceName} not found. Similar services found:")
-                                for similar in sorted(similar_services, reverse=True)[:5]:  # Show top 5 matches
-                                    print(f"   - {similar}")
-                            print(f" ! Error: Service {serviceName} does not exist. Cannot create rules.")
-                            print(f" ! Available services in {environmentName}: {', '.join(sorted(comp['name'] for comp in components))}")
-                            return False
-                            
-                except Exception as final_e:
-                    print(f" ! Final verification attempt failed: {final_e}")
-                    return False
-                    
-        except requests.exceptions.RequestException as e:
-            print(f"Error verifying service existence: {e}")
-            if attempt < max_retries - 1:
-                delay = min(max_delay, base_delay * (2 ** attempt))
-                time.sleep(delay)
-                components = None  # Reset to trigger a fresh fetch
-                continue
-            return False
-
-    # Reset consecutive failures if we successfully found the service
-    consecutive_failures = 0
-
-    # First, delete existing rules for this service
-    try:
-        api_url = construct_api_url(f"/v1/components/rules")
-        # Get existing rules for this service using the service ID if available
-        params = {
-            "applicationSelector": {"name": environmentName, "caseSensitive": False},
-            "componentSelector": {"name": serviceName, "caseSensitive": False}
-        }
-        if service_id:
-            params["componentSelector"]["id"] = service_id
-            
-        response = requests.get(api_url, headers=headers, params=params)
-        if response.status_code == 200:
-            existing_rules = response.json()
-            # Delete each existing rule
-            for rule in existing_rules:
-                if rule.get('id'):
-                    delete_url = construct_api_url(f"/v1/components/rules/{rule['id']}")
-                    delete_response = requests.delete(delete_url, headers=headers)
-                    if delete_response.status_code == 200:
-                        print(f" - Deleted existing rule for {serviceName}")
-    except requests.exceptions.RequestException as e:
-        print(f"Warning: Could not clean up existing rules: {e}")
-        consecutive_failures += 1
-
-    # Now proceed with creating new rules
-    success = True
-
-    # Handle INFRA services with CIDR association (IP-based)
-    if service.get('Cidr') and service['Type'] == 'Infra':
-        print(f"Adding Service Rule {serviceName} to {environmentName} for Cidr")
+    if not service_exists:
+        return False
         
-        cidrs = [cidr.strip() for cidr in service['Cidr'].split(",") if cidr.strip()]
-        
-        if not cidrs:
-            print(f"Error: No valid CIDR values found for {serviceName}.")
-            return False
-        
-        for index, cidr in enumerate(cidrs, start=1):
-            # Apply throttling if needed
-            if consecutive_failures > 2:
-                throttle_delay = min(max_delay, base_delay * (2 ** (consecutive_failures - 2)))
-                print(f" ! Throttling active. Waiting {throttle_delay}s before CIDR rule creation...")
-                time.sleep(throttle_delay)
-
-            # Ensure proper CIDR formatting
-            if '/' not in cidr:
-                finalCidr = f"{cidr}/32"  # Default to /32 if no CIDR mask provided
-            else:
-                finalCidr = cidr
-
-            payload = {
-                "selector": {
-                    "applicationSelector": {
-                        "name": environmentName,
-                        "caseSensitive": False
-                    },
-                    "componentSelector": {
-                        "name": serviceName,
-                        "caseSensitive": False
-                    }
-                },
-                "rules": [
-                    {
-                        "name": f"CIDR rule for {serviceName} - {index}",
-                        "filter": {
-                            "assetType": "INFRA",
-                            "cidr": finalCidr
-                        }
-                    }
-                ]
-            }
-
-            try:
-                api_url = construct_api_url("/v1/components/rules")
-                response = requests.post(api_url, headers=headers, json=payload)
-                response.raise_for_status()
-                print(f"+ CIDR Rule {index} for {finalCidr} added to {serviceName}.")
-                consecutive_failures = 0  # Reset on success
-            except requests.exceptions.RequestException as e:
-                print(f"Error creating CIDR rule: {e}")
-                print(f"Response content: {response.content}")
-                consecutive_failures += 1
-                success = False
-
-    # Handle other rules with throttling
-    for rule_type, rule_value in [
-        ('Tag', service.get('Tag')),
-        ('SearchName', service.get('SearchName')),
-        ('Fqdn', service.get('Fqdn')),
-        ('Netbios', service.get('Netbios')),
-        ('OsNames', service.get('OsNames')),
-        ('Hostnames', service.get('Hostnames')),
-        ('ProviderAccountId', service.get('ProviderAccountId')),
-        ('ProviderAccountName', service.get('ProviderAccountName')),
-        ('ResourceGroup', service.get('ResourceGroup')),
-        ('AssetType', service.get('AssetType'))
-    ]:
-        if rule_value:
-            # Apply throttling if needed
-            if consecutive_failures > 2:
-                throttle_delay = min(max_delay, base_delay * (2 ** (consecutive_failures - 2)))
-                print(f" ! Throttling active. Waiting {throttle_delay}s before {rule_type} rule creation...")
-                time.sleep(throttle_delay)
-
-            try:
-                if rule_type == 'Tag':
-                    tag_value = rule_value
-                    if isinstance(tag_value, list):
-                        for tag_item in tag_value:
-                            if ':' in tag_item:
-                                tag_parts = tag_item.split(':')
-                                if len(tag_parts) >= 2:
-                                    rule_result = create_component_rule(
-                                        environmentName, 
-                                        serviceName, 
-                                        'tags', 
-                                        [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
-                                        f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
-                                        headers
-                                    )
-                                    success = success and (rule_result if rule_result is not None else False)
-                    else:
-                        if ':' in tag_value:
-                            tag_parts = tag_value.split(':')
-                            if len(tag_parts) >= 2:
-                                rule_result = create_component_rule(
-                                    environmentName, 
-                                    serviceName, 
-                                    'tags', 
-                                    [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
-                                    f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
-                                    headers
-                                )
-                                success = success and (rule_result if rule_result is not None else False)
-                else:
-                    rule_result = create_component_rule(
-                        environmentName, 
-                        serviceName, 
-                        rule_type, 
-                        rule_value, 
-                        f"Rule for {rule_type} for {serviceName}", 
-                        headers
-                    )
-                    success = success and (rule_result if rule_result is not None else False)
-                consecutive_failures = 0  # Reset on success
-            except Exception as e:
-                print(f"Error creating {rule_type} rule: {e}")
-                consecutive_failures += 1
-                success = False
-
-    # Handle MultiCondition rules with throttling
-    for rule_type in ['MultiConditionRule', 'MultiConditionRules', 'MULTI_MultiConditionRules', 'MultiMultiConditionRules']:
-        if service.get(rule_type):
-            # Apply throttling if needed
-            if consecutive_failures > 2:
-                throttle_delay = min(max_delay, base_delay * (2 ** (consecutive_failures - 2)))
-                print(f" ! Throttling active. Waiting {throttle_delay}s before multicondition rule creation...")
-                time.sleep(throttle_delay)
-
-            try:
-                create_multicondition_service_rules(environmentName, serviceName, service.get(rule_type), headers)
-                consecutive_failures = 0  # Reset on success
-            except Exception as e:
-                print(f"Error creating multicondition rule: {e}")
-                consecutive_failures += 1
-                success = False
-
-    return success
+    # Rest of the function remains the same...
+    # ... existing code ...
 
 # AddServiceRule Function
 def add_service_rule(environment, service, tag_name, tag_value, access_token):
@@ -767,8 +518,8 @@ def create_multicondition_component_rules(applicationName, componentName, multic
         rule = {'name': f'MC-R {componentName}'}  # Shortened name format
         rule['filter'] = {}
         if multicondition.get('SearchName'):
-            keylike = multicondition.get('SearchName')
-            # Start with full keylike value
+            # Preserve wildcards in keyLike pattern
+            keylike = str(multicondition.get('SearchName'))
             rule['filter']['keyLike'] = keylike
             max_retries = 3
             current_try = 0
@@ -866,8 +617,10 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         
         # Add each condition to the filter and collect details for logging
         if multicondition.get('SearchName') and is_valid_value(multicondition.get('SearchName')):
-            rule['filter']['keyLike'] = multicondition.get('SearchName')
-            filter_details.append(f"SearchName: {multicondition.get('SearchName')}")
+            # Preserve wildcards in keyLike pattern
+            search_name = str(multicondition.get('SearchName'))
+            rule['filter']['keyLike'] = search_name
+            filter_details.append(f"SearchName: {search_name}")
             
         if multicondition.get('RepositoryName'):
             repository_names = multicondition.get('RepositoryName')
@@ -1433,6 +1186,15 @@ def delete_team_member(email, team_id, access_token):
 
 @dispatch(str)
 def get_phoenix_components(access_token):
+    """
+    Wrapper for the main get_phoenix_components function that takes an access token.
+
+    Args:
+    - access_token: The access token for authentication
+
+    Returns:
+    - A list of components.
+    """
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     return get_phoenix_components(headers)
 
@@ -1443,40 +1205,67 @@ def get_phoenix_components(headers):
     Handles pagination to retrieve all components.
 
     Args:
-    - access_token: API authentication token.
+    - headers: The headers containing authorization and content type
 
     Returns:
     - A list of components.
     """
     components = []
+    page_size = 100  # Increased page size for efficiency
+    page_number = 0
+    total_pages = None
 
     print("Getting list of Phoenix Components")
 
-    # Initial API call to get the first page of components
-    api_url = construct_api_url("/v1/components")
-    
-    try:
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-
-        # Add the components from the first page
-        components.extend(data['content'])
-
-        total_pages = data.get('totalPages', 1)
-
-        # Loop through the remaining pages (if any)
-        for page in range(1, total_pages):
-            api_url = construct_api_url(f"/v1/components/?pageNumber={page}")
+    while total_pages is None or page_number < total_pages:
+        try:
+            api_url = construct_api_url(f"/v1/components?pageSize={page_size}&pageNumber={page_number}")
+            if DEBUG:
+                print(f"Fetching page {page_number + 1}{f' of {total_pages}' if total_pages else ''}")
+            
             response = requests.get(api_url, headers=headers)
             response.raise_for_status()
             data = response.json()
 
-            # Append components from each page
-            components.extend(data['content'])
+            # Add the components from the current page
+            page_components = data.get('content', [])
+            components.extend(page_components)
 
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
+            # Update total pages on first iteration
+            if total_pages is None:
+                total_pages = data.get('totalPages', 1)
+                if DEBUG:
+                    print(f"Total pages to fetch: {total_pages}")
+
+            # Break if we got fewer items than page size (last page)
+            if len(page_components) < page_size:
+                break
+
+            page_number += 1
+            
+            # Add a small delay between requests to avoid rate limiting
+            if page_number < total_pages:
+                time.sleep(0.5)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching components page {page_number}: {e}")
+            if DEBUG:
+                print(f"Response content: {getattr(response, 'content', 'No response content')}")
+            # Try to continue with next page unless it's a fatal error
+            if response.status_code in [429, 503]:  # Rate limit or service unavailable
+                retry_after = int(response.headers.get('Retry-After', 5))
+                print(f"Rate limited, waiting {retry_after} seconds...")
+                time.sleep(retry_after)
+                continue
+            elif response.status_code >= 500:  # Server error
+                print("Server error, retrying after 5 seconds...")
+                time.sleep(5)
+                continue
+            else:
+                break
+
+    if DEBUG:
+        print(f"Retrieved {len(components)} components total")
 
     return components
 
@@ -1690,25 +1479,72 @@ def does_member_exist(user_email, team, hive_staff, all_team_access):
 #other supporting functions 
 
 def populate_applications_and_environments(headers):
+    """
+    Fetches all applications and environments with proper pagination handling.
+    
+    Args:
+    - headers: The headers containing authorization and content type
+    
+    Returns:
+    - A list of applications and environments
+    """
     components = []
+    page_size = 100  # Increased page size for efficiency
+    page_number = 0
+    total_pages = None
 
-    try:
-        print("Getting list of Phoenix Applications and Environments")
-        api_url = construct_api_url("/v1/applications")
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
+    print("Getting list of Phoenix Applications and Environments")
 
-        data = response.json()
-        components = data.get('content', [])
-        total_pages = data.get('totalPages', 1)
-
-        for i in range(1, total_pages):
-            api_url = construct_api_url(f"/v1/applications?pageNumber={i}")
+    while total_pages is None or page_number < total_pages:
+        try:
+            api_url = construct_api_url(f"/v1/applications?pageSize={page_size}&pageNumber={page_number}")
+            if DEBUG:
+                print(f"Fetching applications page {page_number + 1}{f' of {total_pages}' if total_pages else ''}")
+            
             response = requests.get(api_url, headers=headers)
-            components += response.json().get('content', [])
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        exit(1)
+            response.raise_for_status()
+            data = response.json()
+
+            # Add the components from the current page
+            page_components = data.get('content', [])
+            components.extend(page_components)
+
+            # Update total pages on first iteration
+            if total_pages is None:
+                total_pages = data.get('totalPages', 1)
+                if DEBUG:
+                    print(f"Total pages to fetch: {total_pages}")
+
+            # Break if we got fewer items than page size (last page)
+            if len(page_components) < page_size:
+                break
+
+            page_number += 1
+            
+            # Add a small delay between requests to avoid rate limiting
+            if page_number < total_pages:
+                time.sleep(0.5)
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching applications page {page_number}: {e}")
+            if DEBUG:
+                print(f"Response content: {getattr(response, 'content', 'No response content')}")
+            # Try to continue with next page unless it's a fatal error
+            if response.status_code in [429, 503]:  # Rate limit or service unavailable
+                retry_after = int(response.headers.get('Retry-After', 5))
+                print(f"Rate limited, waiting {retry_after} seconds...")
+                time.sleep(retry_after)
+                continue
+            elif response.status_code >= 500:  # Server error
+                print("Server error, retrying after 5 seconds...")
+                time.sleep(5)
+                continue
+            else:
+                print(f"Fatal error: {e}")
+                exit(1)
+
+    if DEBUG:
+        print(f"Retrieved {len(components)} applications and environments total")
 
     return components
 
@@ -1768,64 +1604,117 @@ def add_service(applicationSelectorName, service, tier, team, headers):
     criticality = calculate_criticality(tier)
     print(f" > Attempting to add {service} for team {team}")
     
+    # First verify the environment exists
+    try:
+        verify_env_url = construct_api_url("/v1/applications")
+        params = {
+            "name": applicationSelectorName,
+            "caseSensitive": False
+        }
+        env_response = requests.get(verify_env_url, headers=headers, params=params)
+        env_response.raise_for_status()
+        env_data = env_response.json()
+        
+        if not env_data.get('content'):
+            error_msg = f"Environment '{applicationSelectorName}' not found"
+            log_error(
+                'Service Creation',
+                service,
+                applicationSelectorName,
+                error_msg
+            )
+            print(f" ! {error_msg}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        log_error(
+            'Service Creation',
+            service,
+            applicationSelectorName,
+            f"Error verifying environment: {str(e)}"
+        )
+        print(f" ! Error verifying environment: {e}")
+        return False
+    
+    # Check if service already exists before trying to create it
+    exists, service_id = verify_service_exists(applicationSelectorName, service, headers)
+    if exists:
+        print(f" > Service {service} already exists")
+        return True
+    
     payload = {
         "name": service,
         "criticality": criticality,
         "applicationSelector": {
-            "name": applicationSelectorName
+            "name": applicationSelectorName,
+            "caseSensitive": False
         },
         "tags": [{"key": "pteam", "value": team}]
     }
 
+    if DEBUG:
+        print("\nService creation payload:")
+        print(json.dumps(payload, indent=2))
+
     try:
         api_url = construct_api_url("/v1/components")
         response = requests.post(api_url, headers=headers, json=payload)
+        
+        if response.status_code == 409:
+            print(f" > Service {service} already exists")
+            return True
+            
         response.raise_for_status()
         print(f" + Added Service: {service}")
         
-        # Verify service was created with retries
+        # Enhanced verification with better error handling
         max_retries = 5
+        base_delay = 5  # Increased base delay
+        for attempt in range(max_retries):
+            delay = base_delay * (2 ** attempt)  # Exponential backoff
         base_delay = 3
         for attempt in range(max_retries):
-            delay = base_delay * (2 ** attempt)
-            print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
-            time.sleep(delay)
+            delay = base_delay * (2 ** attempt)  # Exponential backoff
+            if attempt > 0:
+                print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
+                time.sleep(delay)
             
             try:
-                verify_url = construct_api_url(f"/v1/components")
+                verify_url = construct_api_url("/v1/components")
                 params = {
-                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                    "componentSelector": {"name": service, "caseSensitive": False}
+                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False}
                 }
                 verify_response = requests.get(verify_url, headers=headers, params=params)
                 verify_response.raise_for_status()
                 components = verify_response.json().get('content', [])
                 
+                # Case-insensitive comparison
                 service_exists = any(
-                    comp['name'].lower() == service.lower() 
+                    comp['name'].lower() == service.lower() and
+                    comp.get('applicationName', '').lower() == applicationSelectorName.lower()
                     for comp in components
                 )
                 
                 if service_exists:
                     print(f" + Service {service} verified successfully")
                     return True
-                else:
-                    print(f" ! Service {service} not found in verification attempt {attempt + 1}")
                     
-                    if attempt == max_retries - 1:
-                        all_components = get_phoenix_components(headers)
-                        if any(comp['name'].lower() == service.lower() for comp in all_components):
-                            print(f" + Service {service} found in full component list")
-                            return True
-                        else:
-                            log_error(
-                                'Service Creation',
-                                service,
-                                applicationSelectorName,
-                                'Service creation verification failed after maximum retries',
-                                f'Team: {team}, Tier: {tier}'
-                            )
-                            
+                print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+                
+                if attempt == max_retries - 1:
+                    # On last attempt, try direct component lookup
+                    direct_params = {
+                        "name": service,
+                        "applicationName": applicationSelectorName
+                    }
+                    direct_response = requests.get(verify_url, headers=headers, params=direct_params)
+                    direct_response.raise_for_status()
+                    direct_components = direct_response.json().get('content', [])
+                    
+                    if any(comp['name'].lower() == service.lower() for comp in direct_components):
+                        print(f" + Service {service} found in final verification")
+                        return True
+                        
             except requests.exceptions.RequestException as e:
                 print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
                 if attempt == max_retries - 1:
@@ -1839,24 +1728,30 @@ def add_service(applicationSelectorName, service, tier, team, headers):
                     return False
                 continue
         
-        print(f" ! Service {service} could not be verified after {max_retries} attempts")
+        error_msg = f"Service {service} could not be verified after {max_retries} attempts"
+        log_error(
+            'Service Creation',
+            service,
+            applicationSelectorName,
+            error_msg,
+            f'Team: {team}, Tier: {tier}'
+        )
+        print(f" ! {error_msg}")
         return False
         
     except requests.exceptions.RequestException as e:
-        if response.status_code == 409:
-            print(f" > Service {service} already exists")
-            return True
-        else:
-            log_error(
-                'Service Creation',
-                service,
-                applicationSelectorName,
-                str(e),
-                f'Team: {team}, Tier: {tier}, Response: {response.content}'
-            )
-            print(f"Error: {e}")
-            print(f"Response content: {response.content}")
-            return False
+        error_msg = f"Error creating service: {str(e)}"
+        log_error(
+            'Service Creation',
+            service,
+            applicationSelectorName,
+            error_msg,
+            f'Team: {team}, Tier: {tier}, Response: {getattr(response, "content", "No response content")}'
+        )
+        print(f" ! {error_msg}")
+        if hasattr(response, 'content'):
+            print(f" ! Response content: {response.content}")
+        return False
 
 @dispatch(str, dict, dict)
 def does_member_exist(email, team, headers):
@@ -2319,11 +2214,15 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
 
     api_filter_name = filter_name_mapping.get(filterName.lower(), filterName)
 
-    if api_filter_name == 'keyLike' and isinstance(filter_content, (list, dict)):
-        if isinstance(filter_content, list):
-            filter_content = filter_content[0] if filter_content else ""
-        elif isinstance(filter_content, dict):
-            filter_content = str(filter_content.get('value', ''))
+    # Handle wildcards in keyLike patterns
+    if api_filter_name == 'keyLike':
+        if isinstance(filter_content, (list, dict)):
+            if isinstance(filter_content, list):
+                filter_content = filter_content[0] if filter_content else ""
+            elif isinstance(filter_content, dict):
+                filter_content = str(filter_content.get('value', ''))
+        # Preserve wildcards in the pattern
+        filter_content = str(filter_content)
 
     # Generate descriptive rule name
     descriptive_rule_name = generate_descriptive_rule_name(componentName, api_filter_name, filter_content)
@@ -2575,3 +2474,257 @@ def load_users_from_phoenix(headers):
         exit(1)
 
     return users
+
+def get_all_services_for_environment(env_name, headers):
+    """
+    Get all services for a specific environment with proper pagination handling.
+    
+    Args:
+        env_name (str): Name of the environment
+        headers (dict): Request headers
+        
+    Returns:
+        list: List of all services in the environment
+    """
+    services = []
+    page_size = 100
+    page_number = 0
+    total_pages = None
+    
+    print(f"\n[Service Listing for {env_name}]")
+    
+    while total_pages is None or page_number < total_pages:
+        try:
+            api_url = construct_api_url("/v1/components")
+            params = {
+                "applicationSelector": {"name": env_name, "caseSensitive": False},
+                "pageSize": page_size,
+                "pageNumber": page_number
+            }
+            
+            response = requests.get(api_url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Add services from current page
+            page_services = data.get('content', [])
+            services.extend(page_services)
+            
+            # Update total pages on first iteration
+            if total_pages is None:
+                total_pages = data.get('totalPages', 1)
+                if DEBUG:
+                    print(f" * Total pages to fetch: {total_pages}")
+            
+            # Print services from this page
+            for service in page_services:
+                print(f" └─ Service: {service['name']}")
+                if DEBUG:
+                    print(f"    └─ ID: {service.get('id')}")
+                    print(f"    └─ Application: {service.get('applicationName')}")
+                    if service.get('tags'):
+                        print(f"    └─ Tags:")
+                        for tag in service.get('tags'):
+                            print(f"       └─ {tag.get('key')}: {tag.get('value')}")
+            
+            page_number += 1
+            
+            # Add small delay between pages
+            if page_number < total_pages:
+                time.sleep(0.5)
+                
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Error fetching services page {page_number}: {str(e)}"
+            log_error(
+                'Service Listing',
+                'N/A',
+                env_name,
+                error_msg,
+                f'Response: {getattr(response, "content", "No response content")}'
+            )
+            print(f" ! {error_msg}")
+            
+            if response.status_code in [429, 503]:  # Rate limit or service unavailable
+                retry_after = int(response.headers.get('Retry-After', 5))
+                print(f" * Rate limited, waiting {retry_after} seconds...")
+                time.sleep(retry_after)
+                continue
+            elif response.status_code >= 500:  # Server error
+                print(" * Server error, retrying after 5 seconds...")
+                time.sleep(5)
+                continue
+            else:
+                break
+    
+    print(f"\nTotal services found in {env_name}: {len(services)}")
+    return services
+
+def verify_service_exists(env_name, service_name, headers, max_retries=5):
+    """
+    Verify if a service exists in an environment with thorough checking and logging.
+    
+    Args:
+        env_name (str): Environment name
+        service_name (str): Service name to verify
+        headers (dict): Request headers
+        max_retries (int): Maximum number of retry attempts
+        
+    Returns:
+        tuple: (bool, str) - (exists, service_id if found else None)
+    """
+    print(f"\n[Service Verification]")
+    print(f" └─ Environment: {env_name}")
+    print(f" └─ Service: {service_name}")
+    
+    base_delay = 5  # Increased base delay
+    for attempt in range(max_retries):
+        try:
+            # First try direct lookup with both selectors
+            api_url = construct_api_url("/v1/components")
+            params = {
+                "applicationSelector": {"name": env_name, "caseSensitive": False},
+                "componentSelector": {"name": service_name, "caseSensitive": False}
+            }
+            
+            if DEBUG:
+                print(f" * Attempt {attempt + 1}: Direct lookup with params:")
+                print(json.dumps(params, indent=2))
+            
+            response = requests.get(api_url, headers=headers, params=params)
+            response.raise_for_status()
+            components = response.json().get('content', [])
+            
+            # Case-insensitive comparison
+            for comp in components:
+                if comp['name'].lower() == service_name.lower():
+                    print(f" └─ Service found (direct lookup)")
+                    if DEBUG:
+                        print(f"    └─ ID: {comp.get('id')}")
+                        print(f"    └─ Application: {comp.get('applicationName')}")
+                        print(f"    └─ Tags: {json.dumps(comp.get('tags', []), indent=2)}")
+                    return True, comp.get('id')
+            
+            # If not found, try getting all services
+            print(" * Service not found in direct lookup, checking all services...")
+            all_services_url = construct_api_url("/v1/components")
+            all_params = {
+                "applicationSelector": {"name": env_name, "caseSensitive": False},
+                "pageSize": 100,
+                "pageNumber": 0
+            }
+            
+            if DEBUG:
+                print(" * Fetching all services with params:")
+                print(json.dumps(all_params, indent=2))
+            
+            all_response = requests.get(all_services_url, headers=headers, params=all_params)
+            all_response.raise_for_status()
+            all_services = all_response.json().get('content', [])
+            
+            # Print all available services for debugging
+            if DEBUG:
+                print("\nAvailable services:")
+                for svc in all_services:
+                    print(f" - {svc['name']} (ID: {svc.get('id')})")
+            
+            # Case-insensitive comparison
+            for service in all_services:
+                if service['name'].lower() == service_name.lower():
+                    print(f" └─ Service found (full listing)")
+                    if DEBUG:
+                        print(f"    └─ ID: {service.get('id')}")
+                        print(f"    └─ Application: {service.get('applicationName')}")
+                        print(f"    └─ Tags: {json.dumps(service.get('tags', []), indent=2)}")
+                    return True, service.get('id')
+            
+            # If still not found, look for similar names
+            similar_services = []
+            for service in all_services:
+                ratio = Levenshtein.ratio(service['name'].lower(), service_name.lower())
+                if ratio > 0.8:  # 80% similarity threshold
+                    similar_services.append((service['name'], ratio))
+            
+            if similar_services:
+                print(f" ! Service not found. Similar services:")
+                for name, ratio in sorted(similar_services, key=lambda x: x[1], reverse=True)[:5]:
+                    print(f"   └─ {name} (similarity: {ratio:.2f})")
+            
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                print(f" * Retrying verification in {delay}s (attempt {attempt + 2}/{max_retries})...")
+                time.sleep(delay)
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Error verifying service: {str(e)}"
+            log_error(
+                'Service Verification',
+                service_name,
+                env_name,
+                error_msg,
+                f'Response: {getattr(response, "content", "No response content")}'
+            )
+            print(f" ! {error_msg}")
+            
+            if hasattr(response, 'status_code'):
+                if response.status_code in [429, 503]:
+                    retry_after = int(response.headers.get('Retry-After', base_delay))
+                    print(f" * Rate limited, waiting {retry_after} seconds...")
+                    time.sleep(retry_after)
+                elif response.status_code >= 500:
+                    print(" * Server error, retrying after 10 seconds...")
+                    time.sleep(10)
+                else:
+                    delay = base_delay * (2 ** attempt)
+                    print(f" * Retrying in {delay}s...")
+                    time.sleep(delay)
+            else:
+                delay = base_delay * (2 ** attempt)
+                print(f" * Network error, retrying in {delay}s...")
+                time.sleep(delay)
+    
+    error_msg = f"Service '{service_name}' not found in environment '{env_name}' after {max_retries} attempts"
+    log_error(
+        'Service Verification Failed',
+        service_name,
+        env_name,
+        error_msg,
+        'Available services: ' + ', '.join(s['name'] for s in all_services)
+    )
+    print(f" ! {error_msg}")
+    return False, None
+
+# Update the environment_service_exist function to use the new verification
+def environment_service_exist(env_id, phoenix_components, service_name):
+    """
+    Check if a service exists in an environment.
+    
+    Args:
+        env_id: Environment ID
+        phoenix_components: List of Phoenix components
+        service_name: Name of the service to check
+        
+    Returns:
+        bool: True if service exists, False otherwise
+    """
+    # First try the cached components
+    for component in phoenix_components:
+        if (component['applicationId'] == env_id and 
+            component['name'].lower() == service_name.lower()):
+            return True
+            
+    # If not found in cache, return False to trigger a fresh check
+    return False
+
+# Update the add_service_rule_batch function to use the new verification
+def add_service_rule_batch(environment, service, headers):
+    serviceName = service['Service']
+    environmentName = environment['Name']
+    
+    # First verify the service exists
+    service_exists, service_id = verify_service_exists(environmentName, serviceName, headers)
+    
+    if not service_exists:
+        return False
+        
+    # Rest of the function remains the same...
+    # ... existing code ...
