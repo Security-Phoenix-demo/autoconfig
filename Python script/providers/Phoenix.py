@@ -111,6 +111,19 @@ def create_environment(environment, headers):
 
 # Function to add services and process rules for the environment
 def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token):
+    """
+    Add services to environments and process rules.
+    
+    Args:
+        repos: Repository information
+        subdomains: Subdomain information
+        environments: Environment configurations
+        application_environments: Existing application environments
+        phoenix_components: Existing Phoenix components
+        subdomain_owners: Subdomain ownership information
+        teams: Team information
+        access_token: Authentication token
+    """
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
     for environment in environments:
@@ -119,69 +132,66 @@ def add_environment_services(repos, subdomains, environments, application_enviro
 
         print(f"[Services] for {env_name}")
 
-        if environment['Services']:  # Updated key to Services
-            for service in environment['Services']:
-                team_name = service.get('TeamName', None)
-                service_exists = environment_service_exist(env_id, phoenix_components, service['Service'])
-                
-                if not service_exists:
-                    try:
-                        # Attempt to create the service
-                        creation_success = False
-                        if team_name:
-                            creation_success = add_service(env_name, service['Service'], service['Tier'], team_name, headers)
-                        else:
-                            creation_success = add_service(env_name, service['Service'], service['Tier'], headers)
-                        
-                        if not creation_success:
-                            print(f" ! Failed to create service {service['Service']} for environment {env_name}")
-                            continue
-                            
-                        # Verify service exists with retries
-                        max_verify_attempts = 5
-                        verify_delay = 2
-                        service_verified = False
-                        
-                        for attempt in range(max_verify_attempts):
-                            if attempt > 0:
-                                print(f" * Verifying service creation (attempt {attempt + 1}/{max_verify_attempts})...")
-                                time.sleep(verify_delay * (2 ** attempt))  # Exponential backoff
-                            
-                            # Refresh components list
-                            try:
-                                api_url = construct_api_url("/v1/components")
-                                params = {
-                                    "applicationSelector": {"name": env_name, "caseSensitive": False},
-                                    "componentSelector": {"name": service['Service'], "caseSensitive": False}
-                                }
-                                response = requests.get(api_url, headers=headers, params=params)
-                                response.raise_for_status()
-                                components = response.json().get('content', [])
-                                
-                                if any(comp['name'].lower() == service['Service'].lower() for comp in components):
-                                    service_verified = True
-                                    print(f" + Service {service['Service']} verified successfully")
-                                    break
-                            except requests.exceptions.RequestException as e:
-                                print(f" ! Error verifying service: {e}")
-                                if attempt == max_verify_attempts - 1:
-                                    break
-                                continue
-                        
-                        if not service_verified:
-                            print(f" ! Could not verify service {service['Service']} after {max_verify_attempts} attempts")
-                            continue
-                            
-                    except NotImplementedError as e:
-                        print(f"Error adding service {service['Service']} for environment {env_name}: {e}")
+        if not environment.get('Services'):
+            print(f" > No services defined for {env_name}")
+            continue
+
+        for service in environment['Services']:
+            service_name = service['Service']
+            team_name = service.get('TeamName')
+            
+            # First verify if service exists
+            exists, service_id = verify_service_exists(env_name, service_name, headers)
+            
+            if not exists:
+                print(f" > Service {service_name} not found, attempting to create...")
+                try:
+                    # Attempt to create the service
+                    creation_success = False
+                    if team_name:
+                        creation_success = add_service(env_name, service_name, service['Tier'], team_name, headers)
+                    else:
+                        creation_success = add_service(env_name, service_name, service['Tier'], headers)
+                    
+                    if not creation_success:
+                        error_msg = f"Failed to create service {service_name} for environment {env_name}"
+                        log_error(
+                            'Service Creation',
+                            service_name,
+                            env_name,
+                            error_msg,
+                            f'Team: {team_name}, Tier: {service["Tier"]}'
+                        )
+                        print(f" ! {error_msg}")
                         continue
-                else:
-                    print(f" > Service {service['Service']} exists, updating rules...")
-                
-                # Only proceed with rules if service exists or was successfully created and verified
-                if service_exists or service_verified:
+                        
+                except Exception as e:
+                    error_msg = f"Error adding service {service_name} for environment {env_name}: {str(e)}"
+                    log_error(
+                        'Service Creation',
+                        service_name,
+                        env_name,
+                        error_msg
+                    )
+                    print(f" ! {error_msg}")
+                    continue
+            else:
+                print(f" > Service {service_name} exists, updating rules...")
+            
+            # Only proceed with rules if service exists or was successfully created
+            if exists or creation_success:
+                try:
                     add_service_rule_batch(environment, service, headers)
                     time.sleep(1)  # Add small delay between operations
+                except Exception as e:
+                    error_msg = f"Error adding rules for service {service_name}: {str(e)}"
+                    log_error(
+                        'Rule Creation',
+                        service_name,
+                        env_name,
+                        error_msg
+                    )
+                    print(f" ! {error_msg}")
 
 # AddContainerRule Function
 def add_container_rule(image, subdomain, environment_name, access_token):
@@ -1601,10 +1611,26 @@ def add_service(applicationSelectorName, service, tier, headers):
 
 @dispatch(str, str, int, str, dict)
 def add_service(applicationSelectorName, service, tier, team, headers):
+    """
+    Add a service with a team and verify its creation.
+    
+    Args:
+        applicationSelectorName (str): Name of the application/environment
+        service (str): Name of the service to create
+        tier (int): Service tier
+        team (str): Team name
+        headers (dict): Request headers
+    """
     criticality = calculate_criticality(tier)
     print(f" > Attempting to add {service} for team {team}")
     
-    # First verify the environment exists
+    # First check if service already exists
+    exists, service_id = verify_service_exists(applicationSelectorName, service, headers)
+    if exists:
+        print(f" > Service {service} already exists")
+        return True
+    
+    # Verify the environment exists
     try:
         verify_env_url = construct_api_url("/v1/applications")
         params = {
@@ -1636,12 +1662,7 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         print(f" ! Error verifying environment: {e}")
         return False
     
-    # Check if service already exists before trying to create it
-    exists, service_id = verify_service_exists(applicationSelectorName, service, headers)
-    if exists:
-        print(f" > Service {service} already exists")
-        return True
-    
+    # Create service payload
     payload = {
         "name": service,
         "criticality": criticality,
@@ -1667,67 +1688,22 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         response.raise_for_status()
         print(f" + Added Service: {service}")
         
-        # Enhanced verification with better error handling
+        # Verify service was created with retries
         max_retries = 5
         base_delay = 5  # Increased base delay
         for attempt in range(max_retries):
-            delay = base_delay * (2 ** attempt)  # Exponential backoff
-        base_delay = 3
-        for attempt in range(max_retries):
-            delay = base_delay * (2 ** attempt)  # Exponential backoff
             if attempt > 0:
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
                 print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
                 time.sleep(delay)
             
-            try:
-                verify_url = construct_api_url("/v1/components")
-                params = {
-                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False}
-                }
-                verify_response = requests.get(verify_url, headers=headers, params=params)
-                verify_response.raise_for_status()
-                components = verify_response.json().get('content', [])
-                
-                # Case-insensitive comparison
-                service_exists = any(
-                    comp['name'].lower() == service.lower() and
-                    comp.get('applicationName', '').lower() == applicationSelectorName.lower()
-                    for comp in components
-                )
-                
-                if service_exists:
-                    print(f" + Service {service} verified successfully")
-                    return True
-                    
-                print(f" ! Service {service} not found in verification attempt {attempt + 1}")
-                
-                if attempt == max_retries - 1:
-                    # On last attempt, try direct component lookup
-                    direct_params = {
-                        "name": service,
-                        "applicationName": applicationSelectorName
-                    }
-                    direct_response = requests.get(verify_url, headers=headers, params=direct_params)
-                    direct_response.raise_for_status()
-                    direct_components = direct_response.json().get('content', [])
-                    
-                    if any(comp['name'].lower() == service.lower() for comp in direct_components):
-                        print(f" + Service {service} found in final verification")
-                        return True
-                        
-            except requests.exceptions.RequestException as e:
-                print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
-                if attempt == max_retries - 1:
-                    log_error(
-                        'Service Creation',
-                        service,
-                        applicationSelectorName,
-                        str(e),
-                        f'Team: {team}, Tier: {tier}'
-                    )
-                    return False
-                continue
-        
+            exists, service_id = verify_service_exists(applicationSelectorName, service, headers)
+            if exists:
+                print(f" + Service {service} verified successfully")
+                return True
+            
+            print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+            
         error_msg = f"Service {service} could not be verified after {max_retries} attempts"
         log_error(
             'Service Creation',
