@@ -1489,11 +1489,14 @@ def verify_service_exists(env_name, service_name, headers, max_retries=5):
                 print(f" + Using similar service: {best_match[0]} (similarity: {best_match[1]:.2f})")
                 return True, best_match[2]
         
-        # If still not found, print available services
+        # Print available services only in debug mode
         print(f" ! Service '{service_name}' not found in environment '{env_name}'")
-        print(f" ! Available services:")
-        for service in sorted(all_services, key=lambda x: x['name']):
-            print(f"   └─ {service['name']}")
+        if DEBUG:
+            print(f" ! Available services:")
+            for service in sorted(all_services, key=lambda x: x['name']):
+                print(f"   └─ {service['name']}")
+        else:
+            print(f" ! Use DEBUG=True to see list of available services")
         
         return False, None
         
