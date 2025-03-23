@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=BankingCore.schema.json
+AllAccessAccounts: # Not mandatory list of all access account emails
+  - ciso@company.com
+DeploymentGroups:
+  - AppName: FR_TestApp1
+    Status: NotStarted
+    TeamName: FC_lima
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    Components:
+      - ComponentName: product1-repo1
+        Status: Production
+        Type: Release
+        TeamName: FC_axelot #name of the team as it appears in hives and teams 
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code  #name of the repo as appears in phoenix
+        Tier: 3 #importance from 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false
+      - ComponentName: product1repo2
+        Status: Production
+        Type: Release
+        TeamName: FC_lima
+        RepositoryName: Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+  - AppName: FR_CoreApp2
+    Status: NotStarted
+    TeamName: FC_lima
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 7 #importance from 1-10
+    Components:
+      - ComponentName: coreapp2_rule1-repo
+        Status: Production
+        Type: Release
+        TeamName: FC_axelot #name of the team as it appears in hives and teams 
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code  #name of the repo as appears in phoenix
+        Tier: 3 #importance from 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false
+      - ComponentName: coreapp2_rule2-repo
+        Status: Production
+        Type: Release
+        TeamName: FC_lima
+        RepositoryName: Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+  #name of the repo as appears in phoenix
+        Tier: 2 #importance from 1-10
+        Domain: Client Servicing
+        SubDomain: Customer Relationship Management
+        AutomaticSecurityReview: false
+  - AppName: FR_App3
+    Status: NotStarted
+    TeamName: FC_lima
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    Components:
+      - ComponentName: product3-prod
+        Status: Production
+        Type: Release
+        TeamName: FC_lima
+        RepositoryName:
+          - Phoenix-ent-demo/Damn-Vulnerable-Source-Code
+          - Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+          - Phoenix-ent-demo/vulnado
+  #name of the repo as appears in phoenix
+        Tier: 2 #importance from 1-10
+        Domain: App13
+        SubDomain: Prod
+        AutomaticSecurityReview: false
+
+      - ComponentName: product23-dev
+        Status: Production
+        Type: Release
+        TeamName: FC_lima
+        RepositoryName:
+          - Security-Phoenix-demo/WebGoat-Legacy
+          - Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+  #name of the repo as appears in phoenix
+        Tier: 5 #importance from 1-10
+        Domain: App123456
+        SubDomain: Dev
+Environment Groups:
+  - Name: FR_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    TeamName: FC_lima #name of the team as it appears in hives and teams 
+    Status: Production
+    Tag: 
+    Team:
+    Services:
+      - Service: ProdGRP1
+        Type: Cloud
+        Association: Tag
+        Association_value: issue-test-asset3
+        Tier: 2 #importance from 1-10
+        TeamName: FC_lima #name of the team as it appears in hives and teams 
+      - Service: ProdGRP2
+        Type: Container
+        Association: Tag
+        Association_value: asset.type:workload
+        Tier: 2 #importance from 1-10
+        TeamName: FC_lima #name of the team as it appears in hives and teams  
+  - Name: FR_Dev
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 5
+    Tag: dev
+    Services:
+      - Service: DevGRP1
+        Type: Cloud
+        Association: Tag
+        Association_value: issue-test-asset3
+        TeamName: FC_lima #name of the team as it appears in hives and teams 
+      - Service: DevGRP2
+        Type: Cloud
+        Association: Tag
+        Association_value: asset.type:workload 
+        TeamName: FC_axelot #name of the team as it appears in hives and teams 
+  - Name: FR_Infra
+    Type: INFRA
+    Tier: 2 #importance from 1-10
+    Responsable: frankadm@admin.com
+    TeamName: FC_axelot #name of the team as it appears in hives and teams 
+    Status: Production
+    Tag: infra
+    Services:
+    - Service: InfraGRP1
+      Type: Infra
+      Association: IP
+      Association_value: 10.1.1.0/24
+      Tier: 2 #importance from 1-10
+      TeamName: FC_axelot #name of the team as it appears in hives and teams 
+    - Service: External Services
+      Type: Infra
+      Association: IP
+      Association_value: 109.113.0.0/16
+      Tier: 2 #importance from 1-10
+      TeamName: FC_axelot #name of the team as it appears in hives and teams 
+    - Service: External Services2
+      Type: Infra
+      Association: IP
+      Association_value: 31.157.0.0/16
+      Tier: 2 #importance from 1-10
+      TeamName: FC_lima #name of the team as it appears in hives and teams 
+    - Service: Printers
+      Type: Infra
+      Association: IP
+      Association_value: 100.83.190.226, 169.254.250.250
+      Tier: 2 #importance from 1-10
+      TeamName: FC_lima #name of the team as it appears in hives and teams 
+    - Service: InfraGRP2
+      Type: Infra
+      Association: IP
+      Association_value: 10.2.2.0/24
+      Tier: 2 #importance from 1-10
+      TeamName: FC_lima #name of the team as it appears in hives and teams 

@@ -1,0 +1,31 @@
+CustomEmail: False # If True, CompanyEmailDomain is ignored, and it's considered that all emails listed below in properties: Lead, Product are valid email address
+CompanyEmailDomain: company.com  # Email domain that will be used if CustomEmail is False, it will alter the entries in Lead and Product, to generate email addresses. (e.g. company.com)
+Hives:
+  - Name: Payments
+    Lead: Joe Brady
+    Staff: Brenda 
+    Teams:
+      - Name: FC_axelot10
+        Lead: tom collins
+        Scrum: ''
+        Product: richard gampe
+        QA: ''
+        SecurityChampions:
+          - Name: John hammond
+            Stage: Trainee
+      - Name: FClima
+        Lead: tom collins
+        Scrum: Bob Button
+        Product: richard gampe
+        QA: Daniel brendy
+        SecurityChampions:
+          - Name: Elvis asd
+            Stage: Reviewer
+          - Name: Joe asd
+            Stage: Reviewer
+          - Name: David asd
+            Stage: Reviewer
+          - Name: Darren asd
+            Stage: Reviewer
+          - Name: Chris asd
+            Stage: Reviewer

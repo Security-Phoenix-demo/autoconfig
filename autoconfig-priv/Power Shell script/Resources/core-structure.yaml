@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=BankingCore.schema.json
+DeploymentGroups:
+  - Name: Releases
+    Status: NotStarted
+    ReleaseDefinitions: []
+  - Name: Builds
+    Status: NotStarted
+    BuildDefinitions:
+      - BuildDefinitionName: product1
+        Status: Production
+        Type: Release
+        TeamName: axalot #name of the team as it appears in hyves and teams 
+        RepositoryName: reponame  #name of the repo as appears in phoenix
+        Tier: 3 #importance from 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false
+      - BuildDefinitionName: product1-repo2
+        Status: Production
+        Type: Release
+        TeamName: lima
+        RepositoryName: repo2  #name of the repo as appears in phoenix
+        Tier: 2 #importance from 1-10
+        Domain: Client Servicing
+        SubDomain: Customer Relationship Management
+        AutomaticSecurityReview: false
