@@ -1,0 +1,371 @@
+# yaml-language-server: $schema=BankingCore.schema.json
+AllAccessAccounts: # Not mandatory - list of all access account emails
+ - ciso@company.com
+DeploymentGroups:
+  - AppName: TST_TestApp10910 #name of the application
+    AppID: 123444
+    #Status: NotStarted #Status tags optionals (get added as tags)
+    TeamNames: #names of the team responsble, can be a team responsible for the whole app or a specific component , this creates pteam tags
+      - SP_lima20
+      - SP_axelot20
+    Domain: Security  #domain = component or application can be used to group by bysiness unit
+    SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
+    Deployment_set: Service1
+    Components:
+      - ComponentName: product106-repo101 #name of the component 
+        Status: Production #Tag Optional
+        AppID: 123444 #auto created
+        Type: Release #Tag Optional
+        # Deployment_tag: tag_123 #alternative tag to match the assets that are associated with this id 
+        TeamNames:  #names of the team as it appears in hives and teams
+          - SP_axelot20
+          - SP_lima20
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code  #name of the repo as appears in phoenix ,can be more than one
+        SearchName: search_item
+        AssetType: REPOSITORY #Look up possible values in the documentation
+        Tags:
+          - "123"
+          - "1235"
+          - "Service1"
+        Cidr: 10.1.1.0/24
+        Fqdn: 
+          - testfqdn
+        Netbios: 
+          - testbios
+        OsNames: 
+          - testosnames
+        Hostnames: 
+          - testhostnames
+        ProviderAccountId: 
+          - testaccountid
+        ProviderAccountName: 
+          - testaccountname
+        ResourceGroup: 
+          - testresourcegroup
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo5
+          SearchName: testsearch25
+          Tags:
+            - "1235"
+            - "12355"
+          Cidr: 10.1.5.0/24
+          Fqdn: 
+            - testfqdn5
+          Netbios: 
+            - testbios5
+          OsNames: 
+            - testosnames5
+          Hostnames: 
+            - testhostnames5
+          ProviderAccountId: 
+            - testaccountid5
+          ProviderAccountName: 
+            - testaccountname5
+          ResourceGroup: 
+            - testresourcegroup5
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo60
+            SearchName: testsearch26
+            Tags:
+              - "1236"
+              - "12356"
+            Cidr: 10.1.6.0/24
+            Fqdn: 
+              - testfqdn6
+            Netbios: 
+              - testbios6
+            OsNames: 
+              - testosnames6
+            Hostnames: 
+              - testhostnames6
+            ProviderAccountId: 
+              - testaccountid6
+            ProviderAccountName: 
+              - testaccountname6
+            ResourceGroup: 
+              - testresourcegroup6
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tags:
+              - "1234"
+              - "12356"
+            Cidr: 10.1.2.0/24
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
+        Tier: 3 #importance from 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false #optional
+      - ComponentName: product106-repo1-upsert #name of the component 
+        #Status: Production #Tag Optional
+        #Type: Release #Tag Optional
+        TeamNames:  #names of the team as it appears in hives and teams
+          - SP_axelot20
+          #- SP_lima20
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code222  #name of the repo as appears in phoenix ,can be more than one
+        Tier: 3 #importance from 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false #optional
+      - ComponentName: product105repo2
+        Status: Production
+        Type: Release
+        TeamNames: 
+          - SP_lima20
+        RepositoryName: 
+          - Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+          - Phoenix-ent-demo/gha-sample-workflows-WebGoat2.NET
+  - AppName: FR_CoreApp205
+    Status: NotStarted
+    TeamNames: 
+      - SP_lima20
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 7 #importance TST_limaom 1-10
+    Components:
+      - ComponentName: coreapp205_rule1-repo
+        Status: Production
+        Type: Release
+        TeamNames: #names of the teams as it appears in hives and teams 
+          - SP_axelot20 
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code  #name of the repo as appears in phoenix
+        Tier: 3 #importance TST_limaom 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false
+      - ComponentName: coreapp205_rule2-repo
+        Status: Production
+        Type: Release
+        TeamNames: 
+          - SP_lima20
+        RepositoryName: Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+  #name of the repo as appears in phoenix
+        Tier: 2 #importance TST_limaom 1-10
+        Domain: Client Servicing
+        SubDomain: Customer Relationship Management
+        AutomaticSecurityReview: false
+  - AppName: Stefan_NOTEAM_APP
+    Status: NotStarted
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 7 #importance TST_limaom 1-10
+    Components:
+      - ComponentName: Stefan_NOTEAM_COMP
+        Status: Production
+        Type: Release
+        RepositoryName: Phoenix-ent-demo/Damn-Vulnerable-Source-Code  #name of the repo as appears in phoenix
+        Tier: 3 #importance TST_limaom 1-10
+        Domain: Security  #domain = component or application can be used to group by bysiness unit
+        SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+        AutomaticSecurityReview: false
+  - AppName: TST_lima_App305
+    Status: NotStarted
+    TeamNames: 
+      - SP_lima20
+    ReleaseDefinitions: []
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance TST_limaom 1-10
+    Components:
+      - ComponentName: product305-prod #name of the component 
+        Status: Production #optional tag
+        Type: Release #optional tag
+        #can be one or more than one rules to associate an application to a repo
+        TeamNames: 
+          - SP_lima20 
+        RepositoryName:
+          - Phoenix-ent-demo/Damn-Vulnerable-Source-Code 
+          - Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+          - Phoenix-ent-demo/vulnado
+  #name of the repo as appears in phoenix
+        Tier: 2 #importance from 1-10
+        Domain: App13
+        SubDomain: Prod
+        AutomaticSecurityReview: false
+      - ComponentName: product2305-dev
+        Status: Production
+        Type: Release
+        TeamNames: 
+          - SP_lima20
+        RepositoryName:
+          - Security-Phoenix-demo/WebGoat-Legacy
+          - Phoenix-ent-demo/gha-sample-workflows-WebGoat.NET
+  #name of the repo as appears in phoenix
+        Tier: 5 #importance from 1-10
+        Domain: App123456
+        SubDomain: Dev
+        
+Environment Groups:
+  - Name: TST_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 2 #importance from 1-10
+    TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+    Status: Production
+    Tag: 
+    Team:
+    Services:
+      - Service: Damn-Vulnerable-Source-Code_service
+        Type: Cloud
+        SearchName: Damn-Vulnerable-Source-Code
+        Tag: issue:issue-test-asset3
+        Tier: 2 #importance from 1-10
+        #Deployment_set: Service1
+        # Deployment_tag: tag_123 #alternative tag to match the assets that are associated with this id 
+        TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+      - Service: ProdGRP2
+        Type: Container
+        Tag: asset:Service1
+        Tier: 2 #importance from 1-10
+        TeamName: SP_lima20 #name of the team as it appears in hives and teams  
+        #Deployment_tag: Service1
+      - Service: TST_TestApp1091
+        Type: Infra
+        Tier: 8
+        TeamName: SP_lima20
+        SearchName: search_item
+        AssetType: REPOSITORY #Look up possible values in the documentation
+        Tag: tag1:tagv1
+        Cidr: 10.1.1.0/24
+        Fqdn: 
+          - testfqdn
+        Netbios: 
+          - testbios
+        OsNames: 
+          - testosnames
+        Hostnames: 
+          - testhostnames
+        ProviderAccountId: 
+          - testaccountid
+        ProviderAccountName: 
+          - testaccountname
+        ResourceGroup: 
+          - testresourcegroup
+        MultiConditionRule:
+          AssetType: REPOSITORY #Look up possible values in the documentation
+          RepositoryName: testrepo20
+          SearchName: testsearch40
+          Tag: key10:value100
+          Cidr: 10.1.6.0/24 # multiple cidrs are not supported in MultiConditionRule
+          Fqdn: 
+            - testfqdn30
+          Netbios: 
+            - testbios30
+          OsNames: 
+            - testosnames30
+          Hostnames: 
+            - testhostnames30
+          ProviderAccountId: 
+            - testaccountid30
+          ProviderAccountName: 
+            - testaccountname30
+          ResourceGroup: 
+            - testresourcegroup30
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo50
+            SearchName: testsearch25
+            Tag: key1:value15
+            Cidr: 10.1.5.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn5
+            Netbios: 
+              - testbios5
+            OsNames: 
+              - testosnames5
+            Hostnames: 
+              - testhostnames5
+            ProviderAccountId: 
+              - testaccountid5
+            ProviderAccountName: 
+              - testaccountname5
+            ResourceGroup: 
+              - testresourcegroup5
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tag: key2:value2
+            Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
+  - Name: FR_Dev
+    Type: CLOUD
+    Status: Production
+    Responsable: frankadm@admin.com
+    Tier: 5
+    Tag: dev
+    Services:
+      - Service: DevGRP1
+        Type: Cloud #Type of asset
+        Tag: issue:issue-test-asset3 #Value
+        TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+      - Service: DevGRP2
+        Type: Cloud
+        Tag: asset.type:workload
+        TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
+
+  - Name: TST_Infra
+    Type: INFRA
+    Tier: 2 #importance from 1-10
+    Responsable: admin@admin.com
+    TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
+    Status: Production
+    Tag: infra
+    Services:
+    - Service: InfraGRP1
+      Type: Infra
+      Cidr: 10.1.1.0/24 #can be a /xx cidr
+      Tier: 2 #importance from 1-10
+      TeamName: SP_axelot20 #name of the team as it appears in hives and teams
+      Tag: asset:Service1 
+      Deployment_tag: Service1
+    - Service: External Services
+      Type: Infra
+      Cidr: 109.113.0.0/16
+      Tier: 2 #importance from 1-10
+      TeamName: SP_axelot20 #name of the team as it appears in hives and teams 
+    - Service: External Services2
+      Type: Infra
+      Cidr: 31.157.0.0/16, 31.158.0.0/16 #can be more than one network per rule
+      Tier: 2 #importance from 1-10
+      TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+    - Service: Printers
+      Type: Infra
+      Cidr: 100.83.190.226, 169.254.250.250 #if not spefified is a /32
+      Tier: 2 #importance from 1-10
+      TeamName: SP_lima20 #name of the team as it appears in hives and teams 
+    - Service: InfraGRP2
+      Type: Infra
+      Cidr: 10.2.2.0/24
+      Tier: 2 #importance from 1-10
+      TeamName: SP_lima20 #name of the team as it appears in hives and teams 
