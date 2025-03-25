@@ -2,7 +2,7 @@ import time
 import os
 import argparse
 from itertools import chain
-from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments, create_autolink_deployments, create_teams_from_pteams, create_components_from_assets, create_user_for_application, load_users_from_phoenix
+from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments, create_autolink_deployments, create_teams_from_pteams, create_components_from_assets, create_user_for_application, load_users_from_phoenix, update_environment
 import providers.Phoenix as phoenix_module
 from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access
 from providers.YamlHelper import populate_repositories, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups, populate_all_access_emails, populate_applications, load_flag_for_create_users
@@ -101,13 +101,24 @@ def perform_actions(args):
                 if created_user:
                     created_users_emails.append(created_user.get("email"))
         
+        # First handle environment updates
+        print("\n[Environment Updates]")
         for environment in environments:
-            if not any(env['name'] == environment['Name'] and env.get('type') == "ENVIRONMENT" for env in app_environments):
+            existing_env = next((env for env in app_environments if env.get('type') == 'ENVIRONMENT' and env['name'] == environment['Name']), None)
+            if not existing_env:
                 # Create environments as needed
                 print(f"Creating environment: {environment['Name']}")
                 create_environment(environment, headers)
+            else:
+                print(f"Updating environment: {environment['Name']}")
+                try:
+                    update_environment(environment, existing_env, headers)
+                except Exception as e:
+                    print(f"Warning: Failed to update environment {environment['Name']}: {str(e)}")
+                    continue
 
-        # Perform cloud services
+        # Then handle services
+        print("\n[Service Updates]")
         add_environment_services(repos, subdomains, environments, app_environments, phoenix_components, subdomain_owners, teams, access_token)
         print("[Diagnostic] [Cloud] Time Taken:", time.time() - start_time)
         print("Starting Cloud Asset Rules")

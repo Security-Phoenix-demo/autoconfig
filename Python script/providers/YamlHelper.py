@@ -12,6 +12,8 @@ except ImportError:
     print("Module does not exist. Installing...")
     os.system('pip install pyyaml')
 
+# Debug setting
+DEBUG = True
 
 # Function to populate repositories
 def populate_repositories(resource_folder):
@@ -80,6 +82,8 @@ def populate_environments_from_env_groups(resource_folder):
             'Status': row['Status'],
             'Responsable': row['Responsable'],
             'TeamName': row.get('TeamName', None),  # Add TeamName from the environment or set as None
+            'Ticketing': load_ticketing(row),
+            'Messaging': load_messaging(row),
             'Services': []  # To populate services later
         }
 
@@ -95,6 +99,8 @@ def populate_environments_from_env_groups(resource_folder):
                     'Type': service['Type'],
                     'Tier': service.get('Tier', 5),  # Default tier to 5 if not specified
                     'TeamName': service.get('TeamName', item['TeamName']),  # Default to environment's TeamName if missing
+                    'Ticketing': load_ticketing(service),
+                    'Messaging': load_messaging(service),
                     'Deployment_set': service.get('Deployment_set', None),
                     'Deployment_tag': service.get('Deployment_tag', None),
                     'MultiConditionRule': load_multi_condition_rule(service.get('MultiConditionRule', None)),
@@ -258,8 +264,10 @@ def populate_applications(resource_folder):
             'TeamNames': row.get('TeamNames', []),
             'ReleaseDefinitions': row['ReleaseDefinitions'],
             'Responsable': row['Responsable'],
-            'Criticality': calculate_criticality(row.get('Tier', 5)),  # Use .get() to handle missing 'Tier'
+            'Criticality': calculate_criticality(row.get('Tier', 5)),
             'Deployment_set': row.get('Deployment_set', None),
+            'Ticketing': load_ticketing(row),
+            'Messaging': load_messaging(row),
             'Components': []
         }
 
@@ -272,30 +280,50 @@ def populate_applications(resource_folder):
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
 
+            # Get ticketing and messaging configurations
+            ticketing = load_ticketing(component) or app.get('Ticketing')  # Inherit from app if not specified
+            messaging = load_messaging(component) or app.get('Messaging')  # Inherit from app if not specified
+
             comp = {
                 'ComponentName': component['ComponentName'],
                 'Status': component.get('Status', None),
                 'Type': component.get('Type', None),
-                'TeamNames': component.get('TeamNames', app['TeamNames']),  # Fallback to app's TeamNames if missing
-                'RepositoryName': repository_names,  # Properly handle missing 'RepositoryName'
+                'Ticketing': ticketing,
+                'Messaging': messaging,
+                'TeamNames': component.get('TeamNames', app['TeamNames']),
+                'RepositoryName': repository_names,
                 'SearchName': component.get('SearchName', None),
-                "Tags": component.get("Tags", None),
-                "Cidr": component.get("Cidr", None),
-                "Fqdn": component.get("Fqdn", None),
-                "Netbios": component.get("Netbios", None),
-                "OsNames": component.get("OsNames", None),
-                "Hostnames": component.get("Hostnames", None),
-                "ProviderAccountId": component.get("ProviderAccountId", None),
-                "ProviderAccountName": component.get("ProviderAccountName", None),
-                "ResourceGroup": component.get("ResourceGroup", None),
-                "AssetType": component.get("AssetType", None),
+                'Tags': component.get('Tags', None),
+                'Cidr': component.get('Cidr', None),
+                'Fqdn': component.get('Fqdn', None),
+                'Netbios': component.get('Netbios', None),
+                'OsNames': component.get('OsNames', None),
+                'Hostnames': component.get('Hostnames', None),
+                'ProviderAccountId': component.get('ProviderAccountId', None),
+                'ProviderAccountName': component.get('ProviderAccountName', None),
+                'ResourceGroup': component.get('ResourceGroup', None),
+                'AssetType': component.get('AssetType', None),
                 'MultiConditionRule': load_multi_condition_rule(component.get('MultiConditionRule', None)),
                 'MultiConditionRules': load_multi_condition_rules(component),
-                'Criticality': calculate_criticality(component.get('Tier', 5)),  # Handle missing 'Tier'
-                'Domain': component.get('Domain', None),  # Handle missing 'Domain'
-                'SubDomain': component.get('SubDomain', None),  # Handle missing 'SubDomain'
-                'AutomaticSecurityReview': component.get('AutomaticSecurityReview', None)  # Handle missing 'AutomaticSecurityReview'
+                'Criticality': calculate_criticality(component.get('Tier', 5)),
+                'Domain': component.get('Domain', None),
+                'SubDomain': component.get('SubDomain', None),
+                'AutomaticSecurityReview': component.get('AutomaticSecurityReview', None)
             }
+
+            if DEBUG:
+                print(f"\nProcessing component {comp['ComponentName']}:")
+                if ticketing:
+                    print(f"└─ Ticketing configuration:")
+                    for ticket_config in ticketing:
+                        print(f"   └─ TIntegrationName: {ticket_config.get('TIntegrationName')}")
+                        print(f"   └─ Backlog: {ticket_config.get('Backlog')}")
+                if messaging:
+                    print(f"└─ Messaging configuration:")
+                    for message_config in messaging:
+                        print(f"   └─ MIntegrationName: {message_config.get('MIntegrationName')}")
+                        print(f"   └─ Channel: {message_config.get('Channel')}")
+
             app['Components'].append(comp)
         apps.append(app)
 
@@ -355,3 +383,95 @@ def load_flag_for_create_users(resource_folder):
     if True == repos_yaml.get('CreateUsersForApplications', "False"):
         return True
     return False
+
+def load_ticketing(element):
+    """
+    Load ticketing configuration from element.
+    Only accepts list format:
+    Ticketing:
+      - TIntegrationName: Jira-testphx
+        Backlog: demoteam2
+    """
+    if 'Ticketing' not in element:
+        return None
+    
+    ticketing = element.get('Ticketing')
+    
+    # Only accept list format
+    if not isinstance(ticketing, list):
+        print(f'Ticketing must be in list format. Current format: {type(ticketing)}')
+        print('Example format:\nTicketing:\n  - TIntegrationName: Jira-testphx\n    Backlog: demoteam2')
+        return None
+    
+    if not ticketing:  # Empty list
+        return None
+    
+    # Get the first item from the list
+    ticketing_config = ticketing[0]
+    if not isinstance(ticketing_config, dict):
+        print(f'Invalid ticketing configuration format: {ticketing_config}')
+        return None
+    
+    # Support both old and new integration name fields
+    integration_name = ticketing_config.get('TIntegrationName') or ticketing_config.get('IntegrationName')
+    backlog = ticketing_config.get('Backlog')
+    
+    # Check for required fields
+    if not backlog:
+        print(f'Ticketing missing mandatory Backlog field: {ticketing_config}')
+        return None
+    
+    if not integration_name:
+        print(f'Ticketing missing integration name (TIntegrationName or IntegrationName): {ticketing_config}')
+        return None
+    
+    if ticketing_config.get('IntegrationName') and not ticketing_config.get('TIntegrationName'):
+        print(f'Warning: Using deprecated "IntegrationName" field in Ticketing. Please update to "TIntegrationName"')
+    
+    return ticketing
+
+def load_messaging(element):
+    """
+    Load messaging configuration from element.
+    Only accepts list format:
+    Messaging:
+      - MIntegrationName: Slack-phx
+        Channel: int-tests
+    """
+    if 'Messaging' not in element:
+        return None
+    
+    messaging = element.get('Messaging')
+    
+    # Only accept list format
+    if not isinstance(messaging, list):
+        print(f'Messaging must be in list format. Current format: {type(messaging)}')
+        print('Example format:\nMessaging:\n  - MIntegrationName: Slack-phx\n    Channel: int-tests')
+        return None
+    
+    if not messaging:  # Empty list
+        return None
+    
+    # Get the first item from the list
+    messaging_config = messaging[0]
+    if not isinstance(messaging_config, dict):
+        print(f'Invalid messaging configuration format: {messaging_config}')
+        return None
+    
+    # Support both old and new integration name fields
+    integration_name = messaging_config.get('MIntegrationName') or messaging_config.get('IntegrationName')
+    channel = messaging_config.get('Channel')
+    
+    # Check for required fields
+    if not channel:
+        print(f'Messaging missing mandatory Channel field: {messaging_config}')
+        return None
+    
+    if not integration_name:
+        print(f'Messaging missing integration name (MIntegrationName or IntegrationName): {messaging_config}')
+        return None
+    
+    if messaging_config.get('IntegrationName') and not messaging_config.get('MIntegrationName'):
+        print(f'Warning: Using deprecated "IntegrationName" field in Messaging. Please update to "MIntegrationName"')
+    
+    return messaging

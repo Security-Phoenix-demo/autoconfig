@@ -32,6 +32,455 @@ python run.py <client_id> <client_secret> <teams> <code> <cloud> <deployment> <a
 python run.py your_client_id your_client_secret True False False False False False False api.yourdomain.securityphoenix.cloud
 ```
 
+## Using run-phx.py (New Version)
+
+The new version of the script (`run-phx.py`) uses a more modern argument parser with named parameters for better clarity and usability.
+
+### Basic Command Structure
+
+```bash
+python run-phx.py <client_id> <client_secret> [options]
+```
+
+### Required Arguments
+
+1. `client_id` (positional, required)
+   - Your Phoenix API Client ID
+   - Must be provided as the first argument
+
+2. `client_secret` (positional, required)
+   - Your Phoenix API Client Secret
+   - Must be provided as the second argument
+   - Example: `your-secret-key`
+
+### Optional Arguments
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|----------|
+| `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
+| `--verify` | Run in simulation mode without making changes | False | `--verify=True` |
+| `--action_teams` | Create and manage teams | False | `--action_teams=True` |
+| `--action_code` | Create applications and components | False | `--action_code=True` |
+| `--action_cloud` | Create environments and services | False | `--action_cloud=True` |
+| `--action_deployment` | Create deployments | False | `--action_deployment=True` |
+| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | False | `--action_autolink_deploymentset=True` |
+| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=True` |
+| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=True` |
+
+### Common Usage Patterns
+
+1. **Verify Configuration Only**
+```bash
+python run-phx.py your_client_id your_client_secret --verify=True --action_code=True --action_cloud=True
+```
+This will simulate the creation of applications, components, environments, and services without making actual changes.
+
+2. **Complete Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_code=True \
+  --action_cloud=True \
+  --action_deployment=True
+```
+This will perform a full setup including teams, applications, environments, and deployments.
+
+3. **Team Management Only**
+```bash
+python run-phx.py your_client_id your_client_secret --action_teams=True
+```
+This will only handle team creation and management.
+
+4. **Environment and Service Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_cloud=True \
+  --action_create_components_from_assets=True
+```
+This will create environments and services, and automatically discover and create components from assets.
+
+5. **Custom API Domain**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --api_domain=https://api.custom.appsecphx.io \
+  --action_code=True
+```
+This will use a custom API domain for the operations.
+
+### Action Combinations
+
+Different actions can be combined based on your needs. Here are some useful combinations:
+
+1. **Initial Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_code=True \
+  --action_cloud=True \
+  --verify=True  # First run in verify mode
+```
+
+2. **Regular Update**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_code=True \
+  --action_cloud=True \
+  --action_deployment=True
+```
+
+3. **Asset Discovery and Component Creation**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_cloud=True \
+  --action_create_components_from_assets=True \
+  --action_autolink_deploymentset=True
+```
+
+4. **Team and Deployment Management**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_deployment=True \
+  --action_autocreate_teams_from_pteam=True
+```
+
+### Best Practices
+
+1. **Always Verify First**
+   - Use `--verify=True` when making significant changes
+   - Review the proposed changes before actual execution
+   ```bash
+   python run-phx.py your_client_id your_client_secret --verify=True [other_actions]
+   ```
+
+2. **Incremental Updates**
+   - Run specific actions rather than all at once
+   - Makes troubleshooting easier
+   ```bash
+   python run-phx.py your_client_id your_client_secret --action_teams=True
+   python run-phx.py your_client_id your_client_secret --action_code=True
+   ```
+
+3. **Regular Maintenance**
+   - Schedule regular runs for team updates
+   - Keep deployments in sync
+   ```bash
+   # Example daily update
+   python run-phx.py your_client_id your_client_secret \
+     --action_teams=True \
+     --action_deployment=True
+   ```
+
+4. **Error Handling**
+   - Monitor the error log file
+   - Use verify mode when troubleshooting
+   - Check specific action results
+
+### Troubleshooting
+
+1. **API Connection Issues**
+   ```bash
+   # Test API connection
+   python run-phx.py your_client_id your_client_secret \
+     --verify=True \
+     --api_domain=https://api.custom.appsecphx.io
+   ```
+
+2. **Team Creation Issues**
+   ```bash
+   # Verify team configuration
+   python run-phx.py your_client_id your_client_secret \
+     --verify=True \
+     --action_teams=True
+   ```
+
+3. **Deployment Problems**
+   ```bash
+   # Check deployment configuration
+   python run-phx.py your_client_id your_client_secret \
+     --verify=True \
+     --action_deployment=True
+   ```
+
+# Examples and Detailed Usage
+
+## Command Line Usage
+
+### New Format (Recommended)
+Using `run-phx.py` with named arguments:
+
+```bash
+# Basic structure
+python run-phx.py <client_id> <client_secret> [options]
+
+# Complete example with all options
+python run-phx.py your_client_id your_client_secret \
+  --api_domain=https://api.demo.appsecphx.io \
+  --verify=True \
+  --action_teams=True \
+  --action_code=True \
+  --action_cloud=True \
+  --action_deployment=True \
+  --action_autolink_deploymentset=True \
+  --action_autocreate_teams_from_pteam=True \
+  --action_create_components_from_assets=True
+```
+
+### Common Use Cases
+
+1. **Team Management Only**
+```bash
+python run-phx.py your_client_id your_client_secret --action_teams=True
+```
+
+2. **Full Application Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_code=True \
+  --action_cloud=True \
+  --action_deployment=True
+```
+
+3. **Verification Mode**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --verify=True \
+  --action_code=True \
+  --action_cloud=True
+```
+
+## Configuration Examples
+
+### 1. Environment Configuration
+
+#### Basic Environment
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ops@company.com
+    Tier: 1
+    TeamName: DevOps
+```
+
+#### Environment with Services
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ops@company.com
+    Tier: 1
+    TeamName: DevOps
+    Services:
+      - Service: WebAPI
+        Type: Cloud
+        Tier: 1
+        TeamName: APITeam
+        SearchName: web-api-*
+        Tag: environment:production
+```
+
+#### Environment with Multiple Services and Rules
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ops@company.com
+    Services:
+      - Service: DatabaseService
+        Type: Cloud
+        Tier: 1
+        TeamName: DBTeam
+        MultiConditionRules:
+          - RepositoryName: company/db-repo
+            SearchName: db-*
+            Tag: type:database
+          - RepositoryName: company/cache-repo
+            SearchName: cache-*
+            Tag: type:cache
+      - Service: WebService
+        Type: Cloud
+        Tier: 2
+        TeamName: WebTeam
+        SearchName: web-*
+        Tag: type:web
+```
+
+### 2. Application Configuration
+
+#### Basic Application
+```yaml
+DeploymentGroups:
+  - AppName: MyWebApp
+    TeamNames:
+      - WebTeam
+    Responsable: lead@company.com
+    Tier: 2
+```
+
+#### Application with Components
+```yaml
+DeploymentGroups:
+  - AppName: MyWebApp
+    TeamNames:
+      - WebTeam
+      - APITeam
+    Responsable: lead@company.com
+    Tier: 2
+    Components:
+      - ComponentName: Frontend
+        TeamNames:
+          - WebTeam
+        RepositoryName: company/frontend-repo
+        Type: Web
+      - ComponentName: Backend
+        TeamNames:
+          - APITeam
+        RepositoryName: company/backend-repo
+        Type: API
+```
+
+#### Complex Application with Rules
+```yaml
+DeploymentGroups:
+  - AppName: EnterpriseApp
+    TeamNames:
+      - CoreTeam
+    Responsable: architect@company.com
+    Tier: 1
+    Components:
+      - ComponentName: APIGateway
+        TeamNames:
+          - GatewayTeam
+        MultiConditionRule:
+          RepositoryName: company/gateway
+          SearchName: gateway-*
+          AssetType: CONTAINER
+        MULTI_MultiConditionRules:
+          - RepositoryName: company/auth
+            SearchName: auth-*
+            Tag: component:auth
+          - RepositoryName: company/routing
+            SearchName: routing-*
+            Tag: component:routing
+```
+
+### 3. Team Configuration
+
+#### Basic Team
+```yaml
+TeamName: DevTeam
+AzureDevopsAreaPath: company\DevTeam
+TeamMembers:
+  - Name: John Smith
+    EmailAddress: john.smith@company.com
+    EmployeeType: Employee
+```
+
+#### Team with Multiple Members and Roles
+```yaml
+TeamName: SecurityTeam
+AzureDevopsAreaPath: company\SecurityTeam
+RecreateTeamAssociations: True
+TeamMembers:
+  - Name: Alice Johnson
+    EmailAddress: alice.j@company.com
+    EmployeeType: Employee
+    Level: Lead
+  - Name: Bob Wilson
+    EmailAddress: bob.w@company.com
+    EmployeeType: Contractor
+    Level: Senior
+```
+
+### 4. Integration Examples
+
+#### Ticketing Integration
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Ticketing:
+      - TIntegrationName: JIRA
+        Backlog: PROD-BACKLOG
+    Messaging:
+      - MIntegrationName: SLACK
+        Channel: prod-alerts
+```
+
+#### Cloud Asset Rules
+```yaml
+Services:
+  - Service: CloudInfra
+    Type: Cloud
+    MultiConditionRules:
+      - AssetType: CLOUD
+        ProviderAccountId: ["123456789"]
+        ResourceGroup: ["prod-rg"]
+        Tag: environment:production
+```
+
+## Advanced Usage Examples
+
+### 1. Deployment Configuration
+
+#### Simple Deployment
+```yaml
+DeploymentGroups:
+  - AppName: WebApp
+    Deployment_set: prod-web
+    
+Environment Groups:
+  - Name: Production
+    Services:
+      - Service: WebService
+        Deployment_set: prod-web
+```
+
+#### Tag-Based Deployment
+```yaml
+DeploymentGroups:
+  - AppName: MicroService
+    Deployment_set: service-tag
+
+Environment Groups:
+  - Name: Production
+    Services:
+      - Service: ServiceInstance
+        Deployment_tag: service-tag
+```
+
+### 2. Asset Management
+
+#### Component Creation from Assets
+```yaml
+Components:
+  - ComponentName: DatabaseCluster
+    AssetType: CLOUD
+    Tags:
+      - "type:database"
+      - "env:prod"
+    ProviderAccountId: 
+      - "123456789"
+```
+
+### 3. Security Integration
+
+#### CIDR-Based Rules
+```yaml
+Services:
+  - Service: NetworkService
+    Type: Infra
+    Cidr: 10.0.0.0/16
+    MultiConditionRules:
+      - Cidr: 172.16.0.0/12
+        Tag: network:internal
+```
+
 ## Configuration Files
 
 ### Core Structure (core-structure.yaml)
@@ -477,9 +926,9 @@ The function that create the environments is [CreateEnvironments] Phoenix.ps1
 
 If you want to create users from Environment Group.Responsable field, set the variable in core-structure.yaml file
 
-``
+```
 CreateUsersForApplications: True 
-``
+```
 
 Example core-structure.yaml file
 
@@ -1093,20 +1542,20 @@ After that, you may specify any of these items listed:
 
 Running actions (code + cloud + deployment)
 
-``
+```
 python run-phx.py < clientId > < clientSecret > --action_code=true --action_cloud=true --action_deployment=true
-``
+```
 
 Running actions (teams + code + cloud + deployment)
 
-``
+```
 python run-phx.py < clientId > < clientSecret > --action_teams=true --action_code=true --action_cloud=true --action_deployment=true
-``
+```
 
 If you want to override the API domain from Phoenix.py file, use this option:
-``
+```
 --api_domain=https://newapi.appsecphx.io (or whatever is the domain)
-``
+```
 
 ## Error Handling and Logging
 

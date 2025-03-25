@@ -76,6 +76,7 @@ def construct_api_url(endpoint):
 
 def create_environment(environment, headers):
     print("[Environment]")
+    print(f"└─ Creating: {environment['Name']}")
 
     payload = {
         "name": environment['Name'],
@@ -96,18 +97,154 @@ def create_environment(environment, headers):
     if environment['TeamName']:
         payload["tags"].append({"key": "pteam", "value": environment['TeamName']})
     else:
-        print(f"Warning: No team_name provided for environment {environment['Name']}. Skipping pteam tag.")
+        print(f"└─ Warning: No team_name provided for environment {environment['Name']}. Skipping pteam tag.")
+
+    # Handle ticketing configuration
+    if environment.get('Ticketing'):
+        ticketing = environment['Ticketing']
+        if isinstance(ticketing, list):
+            ticketing = ticketing[0] if ticketing else {}
+        
+        if ticketing.get('Backlog'):  # Only add if Backlog is present
+            payload["ticketing"] = {
+                "integrationName": ticketing.get('TIntegrationName'),
+                "projectName": ticketing.get('Backlog')  # This is required
+            }
+        else:
+            print(f"└─ Warning: Skipping ticketing configuration - missing required Backlog field")
+
+    # Handle messaging configuration
+    if environment.get('Messaging'):
+        messaging = environment['Messaging']
+        if isinstance(messaging, list):
+            messaging = messaging[0] if messaging else {}
+        
+        if messaging.get('Channel'):  # Only add if Channel is present
+            payload["messaging"] = {
+                "integrationName": messaging.get('MIntegrationName'),
+                "channelName": messaging.get('Channel')
+            }
+        else:
+            print(f"└─ Warning: Skipping messaging configuration - missing required Channel field")
 
     try:
         api_url = construct_api_url("/v1/applications")
-        print(f"Payload for environment creation: {json.dumps(payload, indent=2)}")
+        print(f"└─ Sending payload:")
+        print(f"   └─ {json.dumps(payload, indent=2)}")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + Environment added: {environment['Name']}")
+        print(f"└─ Environment added successfully: {environment['Name']}")
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        print(f'Response content: {response.content}')
-        raise
+        error_msg = f"Failed to create environment: {str(e)}"
+        error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+        log_error(
+            'Environment Creation',
+            environment['Name'],
+            'N/A',
+            error_msg,
+            error_details
+        )
+        print(f"└─ Error: {error_msg}")
+        if DEBUG:
+            print(f"└─ Response content: {response.content}")
+
+def update_environment(environment, existing_environment, headers):
+    payload = {}
+    has_errors = False
+
+    # Handle ticketing configuration
+    if environment.get('Ticketing'):
+        try:
+            ticketing = environment['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            
+            integration_name = ticketing.get('TIntegrationName')
+            project_name = ticketing.get('Backlog')
+
+            if integration_name and project_name:
+                payload["ticketing"] = {
+                    "integrationName": integration_name,
+                    "projectName": project_name
+                }
+                print(f"└─ Adding ticketing configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Project: {project_name}")
+            else:
+                has_errors = True
+                print(f"└─ Warning: Ticketing configuration missing required fields")
+                print(f"   └─ TIntegrationName: {integration_name}")
+                print(f"   └─ Backlog: {project_name}")
+        except Exception as e:
+            has_errors = True
+            error_msg = f"Failed to process ticketing configuration: {str(e)}"
+            log_error(
+                'Ticketing Config',
+                environment['Name'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Handle messaging configuration
+    if environment.get('Messaging'):
+        try:
+            messaging = environment['Messaging']
+            if isinstance(messaging, list):
+                messaging = messaging[0] if messaging else {}
+            
+            integration_name = messaging.get('MIntegrationName')
+            channel_name = messaging.get('Channel')
+
+            if integration_name and channel_name:
+                payload["messaging"] = {
+                    "integrationName": integration_name,
+                    "channelName": channel_name
+                }
+                print(f"└─ Adding messaging configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Channel: {channel_name}")
+            else:
+                has_errors = True
+                print(f"└─ Warning: Messaging configuration missing required fields")
+                print(f"   └─ MIntegrationName: {integration_name}")
+                print(f"   └─ Channel: {channel_name}")
+        except Exception as e:
+            has_errors = True
+            error_msg = f"Failed to process messaging configuration: {str(e)}"
+            log_error(
+                'Messaging Config',
+                environment['Name'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+    
+    if not payload:
+        if DEBUG:
+            print(f'No changes detected to update environment {environment["Name"]}')
+        return
+    
+    try:
+        api_url = construct_api_url(f"/v1/applications/{existing_environment['id']}")
+        print(f"Payload for environment update: {json.dumps(payload, indent=2)}")
+        response = requests.patch(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        print(f" + Environment updated: {environment['Name']}")
+    except requests.exceptions.RequestException as e:
+        has_errors = True
+        error_msg = f"Failed to update environment: {str(e)}"
+        log_error(
+            'Environment Update',
+            environment['Name'],
+            'N/A',
+            error_msg,
+            details={'payload': payload}
+        )
+        print(f"└─ Error: {error_msg}")
+        if hasattr(response, 'content'):
+            print(f"Response content: {response.content}")
+        # Don't raise the exception, just log it and continue
 
 # Function to add services and process rules for the environment
 def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token):
@@ -132,9 +269,9 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                     creation_success = False
                     try:
                         if team_name:
-                            creation_success = add_service(env_name, service_name, service['Tier'], team_name, headers)
+                            creation_success = add_service(env_name, service, service['Tier'], team_name, headers)
                         else:
-                            creation_success = add_service(env_name, service_name, service['Tier'], headers)
+                            creation_success = add_service(env_name, service, service['Tier'], headers)
                     except NotImplementedError as e:
                         print(f"Error adding service {service_name} for environment {env_name}: {e}")
                         continue
@@ -148,6 +285,8 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                     if not exists:
                         print(f" ! Service {service_name} creation verified failed, skipping rule creation")
                         continue
+                else:
+                    update_service(service, service_id, headers)
                 
                 print(f" > Service {service_name} verified, updating rules...")
                 # Always update rules if service exists and is verified
@@ -361,6 +500,9 @@ def create_applications(applications, application_environments, phoenix_componen
 
 
 def create_application(app, headers):
+    print(f"\n[Application Creation]")
+    print(f"└─ Creating: {app['AppName']}")
+    
     payload = {
         "name": app['AppName'],
         "type": "APPLICATION",
@@ -369,41 +511,125 @@ def create_application(app, headers):
         "owner": {"email": app['Responsable']}
     }
 
+    # Handle ticketing configuration
+    if app.get('Ticketing'):
+        try:
+            ticketing = app['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            
+            integration_name = ticketing.get('TIntegrationName')
+            project_name = ticketing.get('Backlog')
+
+            if integration_name and project_name:
+                payload["ticketing"] = {
+                    "integrationName": integration_name,
+                    "projectName": project_name
+                }
+                print(f"└─ Adding ticketing configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Project: {project_name}")
+            else:
+                print(f"└─ Warning: Ticketing configuration missing required fields")
+                print(f"   └─ TIntegrationName: {integration_name}")
+                print(f"   └─ Backlog: {project_name}")
+        except Exception as e:
+            error_msg = f"Failed to process ticketing configuration: {str(e)}"
+            log_error(
+                'Ticketing Config',
+                app['AppName'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Handle messaging configuration
+    if app.get('Messaging'):
+        try:
+            messaging = app['Messaging']
+            if isinstance(messaging, list):
+                messaging = messaging[0] if messaging else {}
+            
+            integration_name = messaging.get('MIntegrationName')
+            channel_name = messaging.get('Channel')
+
+            if integration_name and channel_name:
+                payload["messaging"] = {
+                    "integrationName": integration_name,
+                    "channelName": channel_name
+                }
+                print(f"└─ Adding messaging configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Channel: {channel_name}")
+            else:
+                print(f"└─ Warning: Messaging configuration missing required fields")
+                print(f"   └─ MIntegrationName: {integration_name}")
+                print(f"   └─ Channel: {channel_name}")
+        except Exception as e:
+            error_msg = f"Failed to process messaging configuration: {str(e)}"
+            log_error(
+                'Messaging Config',
+                app['AppName'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Add team tags
     for team in app['TeamNames']:
         payload['tags'].append({"key": "pteam", "value": team})
                     
     if DEBUG:
-        print(f"Payload being sent to /v1rule: {json.dumps(payload, indent=2)}")
-
+        print(f"└─ Final payload:")
+        print(json.dumps(payload, indent=2))
 
     try:
         api_url = construct_api_url("/v1/applications")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + Application {app['AppName']} added")
+        print(f"└─ Application created successfully")
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > Application {app['AppName']} already exists")
+            print(f"└─ Application {app['AppName']} already exists")
         else:
-            print(f"Error: {e}")
-            print(response.content)
-            exit(1)
+            error_msg = f"Failed to create application: {str(e)}"
+            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+            log_error(
+                'Application Creation',
+                app['AppName'],
+                'N/A',
+                error_msg,
+                error_details
+            )
+            print(f"└─ Error: {error_msg}")
+            if DEBUG:
+                print(f"└─ Response content: {response.content}")
+            return
     
-    for component in app['Components']:
-        create_custom_component(app['AppName'], component, headers)
+    # Create components if any
+    if app.get('Components'):
+        print(f"└─ Processing {len(app['Components'])} components")
+        for component in app['Components']:
+            create_custom_component(app['AppName'], component, headers)
 
 def create_custom_component(applicationName, component, headers):
+    print(f"\n[Component Creation]")
+    print(f"└─ Application: {applicationName}")
+    print(f"└─ Component: {component['ComponentName']}")
+
     # Ensure valid tag values by filtering out empty or None 
-    tags = [
-        {"key": "Status", "value": component['Status']},
-        {"key": "Type", "value": component['Type']}
-    ]
+    tags = []
+    
+    if component.get('Status'):
+        tags.append({"key": "Status", "value": component['Status']})
+    if component.get('Type'):
+        tags.append({"key": "Type", "value": component['Type']})
 
-    for team in component['TeamNames']:
-        tags.append({"key": "pteam", "value": team})
-
-    tags = list(filter(lambda tag : tag['value'], tags))
+    # Add team tags
+    for team in component.get('TeamNames', []):
+        if team:  # Only add non-empty team names
+            tags.append({"key": "pteam", "value": team})
 
     # Add domain and subdomain tags only if they are not None or empty
     if component.get('Domain'):
@@ -420,102 +646,353 @@ def create_custom_component(applicationName, component, headers):
         "tags": tags
     }
 
+    # Handle ticketing configuration
+    if component.get('Ticketing'):
+        ticketing = component['Ticketing']
+        if isinstance(ticketing, list):
+            ticketing = ticketing[0] if ticketing else {}
+        
+        if ticketing.get('Backlog'):  # Only add if Backlog is present
+            payload["ticketing"] = {
+                "integrationName": ticketing.get('TIntegrationName'),
+                "projectName": ticketing.get('Backlog')  # This is required
+            }
+        else:
+            print(f"└─ Warning: Skipping ticketing configuration - missing required Backlog field")
+
+    # Handle messaging configuration
+    if component.get('Messaging'):
+        messaging = component['Messaging']
+        if isinstance(messaging, list):
+            messaging = messaging[0] if messaging else {}
+        
+        if messaging.get('Channel'):  # Only add if Channel is present
+            payload["messaging"] = {
+                "integrationName": messaging.get('MIntegrationName'),
+                "channelName": messaging.get('Channel')
+            }
+        else:
+            print(f"└─ Warning: Skipping messaging configuration - missing required Channel field")
+
     if DEBUG:
-        print(f"Payload being sent to /v1/components: {json.dumps(payload, indent=2)}")
+        print(f"└─ Sending payload:")
+        print(f"   └─ {json.dumps(payload, indent=2)}")
 
     api_url = construct_api_url("/v1/components")
 
     try:
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f"Created component with name {component['ComponentName']} in environment: {applicationName}")
+        print(f"└─ Component created successfully")
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > Component {component['ComponentName']} already exists")
+            print(f"└─ Component already exists")
         else:
-            print(f"Error: {e}")
-            print(f"Response content: {response.content}")
-            exit(1)
+            error_msg = f"Failed to create component: {str(e)}"
+            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+            log_error(
+                'Component Creation',
+                f"{applicationName} -> {component['ComponentName']}",
+                'N/A',
+                error_msg,
+                error_details
+            )
+            print(f"└─ Error: {error_msg}")
+            if DEBUG:
+                print(f"└─ Response content: {response.content}")
+            return
 
-    create_component_rules(applicationName, component, headers)
+    try:
+        create_component_rules(applicationName, component, headers)
+    except Exception as e:
+        error_msg = f"Failed to create component rules: {str(e)}"
+        log_error(
+            'Component Rules Creation',
+            f"{applicationName} -> {component['ComponentName']}",
+            'N/A',
+            error_msg
+        )
+        print(f"└─ Warning: {error_msg}")
 
 def update_application(application, existing_apps_envs, existing_components, headers):
-    existing_app = next(filter(lambda app: app['name'] == application['AppName'] and app['type'] == "APPLICATION", existing_apps_envs), None)
-    if not existing_app:
-        print(f"Unexpected call to the update application, as the application does not exist")
+    print(f"\n[Application Update]")
+    print(f"└─ Processing: {application['AppName']}")
     
-    update_application_teams(existing_app, application, headers)
+    # Find the existing application
+    existing_app = next((app for app in existing_apps_envs if app['name'] == application['AppName'] and app['type'] == 'APPLICATION'), None)
+    if not existing_app:
+        error_msg = f"Application {application['AppName']} not found for update"
+        log_error(
+            'Application Update',
+            application['AppName'],
+            'N/A',
+            error_msg,
+            'Application missing during update'
+        )
+        print(f"└─ Warning: {error_msg}")
+        return
 
-    update_application_crit_owner(application, existing_app, headers)
+    # Update teams and criticality first
+    try:
+        update_application_teams(existing_app, application, headers)
+    except Exception as e:
+        error_msg = f"Failed to update teams: {str(e)}"
+        log_error(
+            'Team Update',
+            application['AppName'],
+            'N/A',
+            error_msg
+        )
+        print(f"└─ Warning: {error_msg}")
 
-    for component in application['Components']:
-        existing_component = next(filter(lambda comp: comp['name'] == component['ComponentName'], existing_components), None)
-        # if new component, create it, otherwise update repos
-        if not existing_component:
-            create_custom_component(application['AppName'], component, headers)
-            continue
+    try:
+        update_application_crit_owner(application, existing_app, headers)
+    except Exception as e:
+        error_msg = f"Failed to update criticality/owner: {str(e)}"
+        log_error(
+            'Criticality/Owner Update',
+            application['AppName'],
+            'N/A',
+            error_msg
+        )
+        print(f"└─ Warning: {error_msg}")
 
-        update_component(application, component, existing_component, headers)
+    payload = {}
+    has_changes = False
+
+    # Handle ticketing configuration
+    if application.get('Ticketing'):
+        try:
+            ticketing = application['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            
+            if ticketing:
+                integration_name = ticketing.get('TIntegrationName')
+                project_name = ticketing.get('Backlog')
+
+                if not integration_name or not project_name:
+                    print(f"└─ Warning: Ticketing configuration missing required fields")
+                    print(f"   └─ TIntegrationName: {integration_name}")
+                    print(f"   └─ Backlog: {project_name}")
+                else:
+                    payload["ticketing"] = {
+                        "integrationName": integration_name,
+                        "projectName": project_name
+                    }
+                    has_changes = True
+                    print(f"└─ Adding ticketing configuration:")
+                    print(f"   └─ Integration: {integration_name}")
+                    print(f"   └─ Project: {project_name}")
+        except Exception as e:
+            error_msg = f"Failed to process ticketing configuration: {str(e)}"
+            log_error(
+                'Ticketing Config',
+                application['AppName'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Handle messaging configuration
+    if application.get('Messaging'):
+        try:
+            messaging = application['Messaging']
+            if isinstance(messaging, list):
+                messaging = messaging[0] if messaging else {}
+            
+            if messaging:
+                integration_name = messaging.get('MIntegrationName')
+                channel_name = messaging.get('Channel')
+
+                if not integration_name or not channel_name:
+                    print(f"└─ Warning: Messaging configuration missing required fields")
+                    print(f"   └─ MIntegrationName: {integration_name}")
+                    print(f"   └─ Channel: {channel_name}")
+                else:
+                    payload["messaging"] = {
+                        "integrationName": integration_name,
+                        "channelName": channel_name
+                    }
+                    has_changes = True
+                    print(f"└─ Adding messaging configuration:")
+                    print(f"   └─ Integration: {integration_name}")
+                    print(f"   └─ Channel: {channel_name}")
+        except Exception as e:
+            error_msg = f"Failed to process messaging configuration: {str(e)}"
+            log_error(
+                'Messaging Config',
+                application['AppName'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Only proceed with update if there are changes
+    if has_changes and payload:
+        try:
+            api_url = construct_api_url(f"/v1/applications/{existing_app['id']}")
+            print(f"└─ Updating application with:")
+            print(f"   └─ {json.dumps(payload, indent=2)}")
+            response = requests.patch(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            print(f"└─ Application configuration updated successfully")
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Failed to update application configuration: {str(e)}"
+            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+            log_error(
+                'Application Config Update',
+                application['AppName'],
+                'N/A',
+                error_msg,
+                error_details
+            )
+            print(f"└─ Warning: {error_msg}")
+            if DEBUG:
+                print(f"└─ Response content: {getattr(response, 'content', 'No response content')}")
+
+    # Update components if needed
+    if 'Components' in application:
+        print(f"└─ Processing {len(application['Components'])} components")
+        for component in application['Components']:
+            try:
+                existing_component = next((comp for comp in existing_components 
+                                        if comp['name'] == component['ComponentName'] 
+                                        and comp['applicationId'] == existing_app['id']), None)
+                if existing_component:
+                    print(f"   └─ Updating component: {component['ComponentName']}")
+                    update_component(application, component, existing_component, headers)
+                else:
+                    print(f"   └─ Creating new component: {component['ComponentName']}")
+                    create_custom_component(application['AppName'], component, headers)
+            except Exception as e:
+                error_msg = f"Failed to process component {component.get('ComponentName', 'Unknown')}: {str(e)}"
+                log_error(
+                    'Component Update',
+                    f"{application['AppName']} -> {component.get('ComponentName', 'Unknown')}",
+                    'N/A',
+                    error_msg
+                )
+                print(f"   └─ Warning: {error_msg}")
+                continue  # Continue with next component
+
+    print(f"└─ Completed processing application: {application['AppName']}")
 
 def update_component(application, component, existing_component, headers):
-    for team in filter(lambda tag: tag.get('key') == 'pteam', existing_component.get('tags')):
-        if team.get('value') not in component.get('TeamNames'):
-            remove_tag_from_component(team.get('id'), team.get('key'), team.get('value'), existing_component.get('id'), headers)
-    # Ensure valid tag values by filtering out empty or None 
-    tags_to_remove = []
-    tags_to_add = []
-    for tag in existing_component.get('tags'):
-        if tag.get('key') == 'Status' and not tag.get('value') == component.get('Status'):
-            tags_to_remove.append(tag)
-        if tag.get('key') == 'Type' and not tag.get('value') == component.get('Type'):
-            tags_to_remove.append(tag)
-        if tag.get('key') == 'domain' and not tag.get('value') == component.get('Domain'):
-            tags_to_remove.append(tag)
-        if tag.get('key') == 'subdomain' and not tag.get('value') == component.get('SubDomain'):
-            tags_to_remove.append(tag)
-    
-    for tag in tags_to_remove:
-        existing_component.get('tags').remove(tag)
-        remove_tag_from_component(tag.get('id'), tag.get('key'), tag.get('value'), existing_component.get('id'), headers)
+    print(f"\n[Component Update]")
+    print(f"└─ Application: {application['AppName']}")
+    print(f"└─ Component: {component['ComponentName']}")
 
-    if component.get('Status') and not next(filter(lambda tag: tag.get('key') == 'Status', existing_component.get('tags')), None):
-        tags_to_add.append({"key": "Status", "value": component['Status']})
-
-    if component.get('Type') and not next(filter(lambda tag: tag.get('key') == 'Type', existing_component.get('tags')), None):
-        tags_to_add.append({"key": "Type", "value": component['Type']})
-
-    if component.get('Domain') and not next(filter(lambda tag: tag.get('key') == 'domain', existing_component.get('tags')), None):
-        tags_to_add.append({"key": "domain", "value": component['Domain']})
-
-    if component.get('SubDomain') and not next(filter(lambda tag: tag.get('key') == 'subdomain', existing_component.get('tags')), None):
-        tags_to_add.append({"key": "subdomain", "value": component['SubDomain']})
-
-    for team in component['TeamNames']:
-        tags_to_add.append({"key": "pteam", "value": team})
-
-    tags = list(filter(lambda tag : tag['value'], tags_to_add))
+    # Handle team tags
+    try:
+        for team in filter(lambda tag: tag.get('key') == 'pteam', existing_component.get('tags', [])):
+            if team.get('value') not in component.get('TeamNames', []):
+                remove_tag_from_component(team.get('id'), team.get('key'), team.get('value'), existing_component.get('id'), headers)
+    except Exception as e:
+        error_msg = f"Failed to update team tags: {str(e)}"
+        log_error(
+            'Team Tags Update',
+            f"{application['AppName']} -> {component['ComponentName']}",
+            'N/A',
+            error_msg
+        )
+        print(f"└─ Warning: {error_msg}")
 
     payload = {
         "name": component['ComponentName'],
         "criticality": component.get('Criticality', 5),  # Default to criticality 5
-        "tags": tags
+        "tags": []
     }
 
-    if DEBUG:
-        print(f"Payload being sent to update /v1/components: {json.dumps(payload, indent=2)}")
+    # Handle ticketing configuration
+    if component.get('Ticketing'):
+        try:
+            ticketing = component['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            
+            if ticketing:
+                integration_name = ticketing.get('TIntegrationName')
+                project_name = ticketing.get('Backlog')
 
-    api_url = construct_api_url(f"/v1/components/{existing_component.get('id')}")
+                if not integration_name or not project_name:
+                    print(f"└─ Warning: Ticketing configuration missing required fields")
+                    print(f"   └─ TIntegrationName: {integration_name}")
+                    print(f"   └─ Backlog: {project_name}")
+                else:
+                    payload["ticketing"] = {
+                        "integrationName": integration_name,
+                        "projectName": project_name
+                    }
+                    print(f"└─ Adding ticketing configuration:")
+                    print(f"   └─ Integration: {integration_name}")
+                    print(f"   └─ Project: {project_name}")
+        except Exception as e:
+            error_msg = f"Failed to process ticketing configuration: {str(e)}"
+            log_error(
+                'Ticketing Config',
+                f"{application['AppName']} -> {component['ComponentName']}",
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
 
-    try:
-        response = requests.patch(api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        print(f"{component['ComponentName']} component updated.")
-        time.sleep(2)
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        print(f"Response content: {response.content}")
-        exit(1)
+    # Handle messaging configuration
+    if component.get('Messaging'):
+        try:
+            messaging = component['Messaging']
+            if isinstance(messaging, list):
+                messaging = messaging[0] if messaging else {}
+            
+            if messaging:
+                integration_name = messaging.get('MIntegrationName')
+                channel_name = messaging.get('Channel')
+
+                if not integration_name or not channel_name:
+                    print(f"└─ Warning: Messaging configuration missing required fields")
+                    print(f"   └─ MIntegrationName: {integration_name}")
+                    print(f"   └─ Channel: {channel_name}")
+                else:
+                    payload["messaging"] = {
+                        "integrationName": integration_name,
+                        "channelName": channel_name
+                    }
+                    print(f"└─ Adding messaging configuration:")
+                    print(f"   └─ Integration: {integration_name}")
+                    print(f"   └─ Channel: {channel_name}")
+        except Exception as e:
+            error_msg = f"Failed to process messaging configuration: {str(e)}"
+            log_error(
+                'Messaging Config',
+                f"{application['AppName']} -> {component['ComponentName']}",
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Only proceed with update if there are changes
+    if payload:
+        try:
+            api_url = construct_api_url(f"/v1/components/{existing_component['id']}")
+            print(f"└─ Sending update payload:")
+            print(f"   └─ {json.dumps(payload, indent=2)}")
+            response = requests.patch(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            print(f"└─ Component updated successfully")
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Failed to update component: {str(e)}"
+            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+            log_error(
+                'Component Update',
+                f"{application['AppName']} -> {component['ComponentName']}",
+                'N/A',
+                error_msg,
+                error_details
+            )
+            print(f"└─ Error: {error_msg}")
+            if DEBUG:
+                print(f"└─ Response content: {response.content}")
 
 def update_application_teams(existing_app, application, headers):
     for team in filter(lambda tag: tag.get('key') == 'pteam', existing_app.get('tags')):
@@ -527,10 +1004,8 @@ def update_application_teams(existing_app, application, headers):
             add_tag_to_application('pteam', new_team, existing_app.get('id'), headers)
 
 def update_application_crit_owner(application, existing_application, headers):
-    if application['Criticality'] == existing_application.get('criticality') and application['Responsable'] == existing_application.get('owner').get('email'):
-        if DEBUG:
-            print(f"No change detected to update for application {application['AppName']}")
-        return
+    print(f"\n[Application Configuration Update]")
+    print(f"└─ Application: {application['AppName']}")
     
     payload = {
         "name": application['AppName'],
@@ -538,15 +1013,102 @@ def update_application_crit_owner(application, existing_application, headers):
         "owner": {"email": application['Responsable']}
     }
 
+    # Handle ticketing configuration
+    if application.get('Ticketing'):
+        try:
+            ticketing = application['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            elif not isinstance(ticketing, dict):
+                print(f"└─ Warning: Ticketing configuration is not in the expected format")
+                ticketing = {}
+            
+            integration_name = ticketing.get('TIntegrationName')
+            project_name = ticketing.get('Backlog')
+
+            if integration_name and project_name:
+                payload["ticketing"] = {
+                    "integrationName": integration_name,
+                    "projectName": project_name
+                }
+                print(f"└─ Adding ticketing configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Project: {project_name}")
+            else:
+                print(f"└─ Warning: Ticketing configuration missing required fields")
+                print(f"   └─ TIntegrationName: {integration_name}")
+                print(f"   └─ Backlog: {project_name}")
+                if DEBUG:
+                    print(f"   └─ Raw ticketing config: {ticketing}")
+        except Exception as e:
+            error_msg = f"Failed to process ticketing configuration: {str(e)}"
+            log_error(
+                'Ticketing Config',
+                application['AppName'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    # Handle messaging configuration
+    if application.get('Messaging'):
+        try:
+            messaging = application['Messaging']
+            if isinstance(messaging, list):
+                messaging = messaging[0] if messaging else {}
+            elif not isinstance(messaging, dict):
+                print(f"└─ Warning: Messaging configuration is not in the expected format")
+                messaging = {}
+            
+            integration_name = messaging.get('MIntegrationName')
+            channel_name = messaging.get('Channel')
+
+            if integration_name and channel_name:
+                payload["messaging"] = {
+                    "integrationName": integration_name,
+                    "channelName": channel_name
+                }
+                print(f"└─ Adding messaging configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Channel: {channel_name}")
+            else:
+                print(f"└─ Warning: Messaging configuration missing required fields")
+                print(f"   └─ MIntegrationName: {integration_name}")
+                print(f"   └─ Channel: {channel_name}")
+                if DEBUG:
+                    print(f"   └─ Raw messaging config: {messaging}")
+        except Exception as e:
+            error_msg = f"Failed to process messaging configuration: {str(e)}"
+            log_error(
+                'Messaging Config',
+                application['AppName'],
+                'N/A',
+                error_msg
+            )
+            print(f"└─ Warning: {error_msg}")
+
+    if DEBUG:
+        print(f"└─ Final payload:")
+        print(json.dumps(payload, indent=2))
+
     try:
         api_url = construct_api_url(f"/v1/applications/{existing_application.get('id')}")
         response = requests.patch(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f"Updated application {application['AppName']}.")
+        print(f"└─ Application configuration updated successfully")
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        print(f"Response content: {response.content}")
-        exit(1)
+        error_msg = f"Failed to update application: {str(e)}"
+        error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+        log_error(
+            'Application Update',
+            application['AppName'],
+            'N/A',
+            error_msg,
+            error_details
+        )
+        print(f"└─ Warning: {error_msg}")
+        if DEBUG:
+            print(f"└─ Response content: {getattr(response, 'content', 'No response content')}")
 
 def create_component_rules(applicationName, component, headers):
     # Helper function to validate value
@@ -1749,19 +2311,33 @@ def populate_applications_and_environments(headers):
 
     return components
 
-@dispatch(str, str, int, dict)
+@dispatch(str, dict, int, dict)
 def add_service(applicationSelectorName, service, tier, headers):
+    service_name = service['Service']
+
     criticality = calculate_criticality(tier)
-    print(f" > Attempting to add {service}")
+    print(f" > Attempting to add {service_name}")
     
     payload = {
-        "name": service,
+        "name": service_name,
         "criticality": criticality,
         "applicationSelector": {
             "name": applicationSelectorName
         },
         "tags": []
     }
+
+    if service.get('Ticketing', None):
+        payload["ticketing"] = {
+            "integrationName": service.get('Ticketing').get('IntegrationName', None),
+            "projectName": service.get('Ticketing').get('Backlog')
+        }
+
+    if service.get('Messaging', None):
+        payload["messaging"] = {
+            "integrationName": service.get('Messaging').get('IntegrationName', None),
+            "channelName": service.get('Messaging').get('Channel')
+        }
 
     try:
         api_url = construct_api_url("/v1/components")
@@ -1773,7 +2349,7 @@ def add_service(applicationSelectorName, service, tier, headers):
             verify_url = construct_api_url("/v1/components")
             params = {
                 "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                "componentSelector": {"name": service, "caseSensitive": False}
+                "componentSelector": {"name": service_name, "caseSensitive": False}
             }
             
             verify_response = requests.get(verify_url, headers=headers, params=params)
@@ -1781,19 +2357,19 @@ def add_service(applicationSelectorName, service, tier, headers):
             components = verify_response.json().get('content', [])
             
             service_exists = any(
-                comp['name'].lower() == service.lower() 
+                comp['name'].lower() == service_name.lower() 
                 for comp in components
             )
             
             if service_exists:
-                print(f" + Service {service} verified in correct environment")
+                print(f" + Service {service_name} verified in correct environment")
                 return True
             else:
-                print(f" ! Service {service} exists but not in environment {applicationSelectorName}")
+                print(f" ! Service {service_name} exists but not in environment {applicationSelectorName}")
                 return False
         
         response.raise_for_status()
-        print(f" + Added Service: {service}")
+        print(f" + Added Service: {service_name}")
         
         # Verify service was created with retries
         max_retries = 5
@@ -1807,25 +2383,25 @@ def add_service(applicationSelectorName, service, tier, headers):
                 verify_url = construct_api_url("/v1/components")
                 params = {
                     "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                    "componentSelector": {"name": service, "caseSensitive": False}
+                    "componentSelector": {"name": service_name, "caseSensitive": False}
                 }
                 verify_response = requests.get(verify_url, headers=headers, params=params)
                 verify_response.raise_for_status()
                 components = verify_response.json().get('content', [])
                 
                 service_exists = any(
-                    comp['name'].lower() == service.lower() 
+                    comp['name'].lower() == service_name.lower() 
                     for comp in components
                 )
                 
                 if service_exists:
-                    print(f" + Service {service} verified successfully")
+                    print(f" + Service {service_name} verified successfully")
                     return True
                 else:
-                    print(f" ! Service {service} not found in verification attempt {attempt + 1}")
+                    print(f" ! Service {service_name} not found in verification attempt {attempt + 1}")
                     
                     if attempt == max_retries - 1:
-                        print(f" ! Service {service} could not be verified after {max_retries} attempts")
+                        print(f" ! Service {service_name} could not be verified after {max_retries} attempts")
                         return False
                     
             except requests.exceptions.RequestException as e:
@@ -1842,19 +2418,20 @@ def add_service(applicationSelectorName, service, tier, headers):
             print(f"Response content: {response.content}")
         return False
 
-@dispatch(str, str, int, str, dict)
+@dispatch(str, dict, int, str, dict)
 def add_service(applicationSelectorName, service, tier, team, headers):
+    service_name = service['Service']
     criticality = calculate_criticality(tier)
     print(f"\n[Service Creation]")
     print(f" └─ Environment: {applicationSelectorName}")
-    print(f" └─ Service: {service}")
+    print(f" └─ Service: {service_name}")
     print(f" └─ Team: {team}")
     
     # First verify if service exists in the target environment
     verify_url = construct_api_url("/v1/components")
     params = {
         "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-        "componentSelector": {"name": service, "caseSensitive": False}
+        "componentSelector": {"name": service_name, "caseSensitive": False}
     }
     
     try:
@@ -1862,13 +2439,13 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         verify_response.raise_for_status()
         components = verify_response.json().get('content', [])
         
-        if any(comp['name'].lower() == service.lower() for comp in components):
-            print(f" + Service {service} already exists in {applicationSelectorName}")
+        if any(comp['name'].lower() == service_name.lower() for comp in components):
+            print(f" + Service {service_name} already exists in {applicationSelectorName}")
             return True
             
         # Service doesn't exist in target environment, try to create it
         payload = {
-            "name": service,
+            "name": service_name,
             "criticality": criticality,
             "applicationSelector": {
                 "name": applicationSelectorName,
@@ -1876,6 +2453,26 @@ def add_service(applicationSelectorName, service, tier, team, headers):
             },
             "tags": [{"key": "pteam", "value": team}]
         }
+
+        # Handle ticketing configuration
+        if service.get('Ticketing'):
+            ticketing = service['Ticketing']
+            if isinstance(ticketing, list) and ticketing:
+                ticketing_config = ticketing[0]  # Get first item from list
+                payload["ticketing"] = {
+                    "integrationName": ticketing_config.get('TIntegrationName') or ticketing_config.get('IntegrationName'),
+                    "projectName": ticketing_config.get('Backlog')
+                }
+
+        # Handle messaging configuration
+        if service.get('Messaging'):
+            messaging = service['Messaging']
+            if isinstance(messaging, list) and messaging:
+                messaging_config = messaging[0]  # Get first item from list
+                payload["messaging"] = {
+                    "integrationName": messaging_config.get('MIntegrationName') or messaging_config.get('IntegrationName'),
+                    "channelName": messaging_config.get('Channel')
+                }
         
         api_url = construct_api_url("/v1/components")
         print(" * Sending service creation request...")
@@ -1885,8 +2482,8 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         
         if response.status_code == 409:
             # Service exists somewhere else, try with a suffix
-            unique_service = f"{service}-{applicationSelectorName.lower()}"
-            print(f" ! Service {service} exists in another environment")
+            unique_service = f"{service_name}-{applicationSelectorName.lower()}"
+            print(f" ! Service {service_name} exists in another environment")
             print(f" * Attempting to create service as {unique_service}")
             
             payload["name"] = unique_service
@@ -1977,6 +2574,82 @@ def add_service(applicationSelectorName, service, tier, team, headers):
         if hasattr(response, 'content'):
             print(f"Response content: {response.content}")
         return False
+    
+def update_service(service, existing_service_id, headers):
+    payload = {}
+    
+    # Handle ticketing configuration first
+    if service.get('Ticketing'):
+        ticketing = service.get('Ticketing')
+        if isinstance(ticketing, list) and ticketing:
+            ticketing_config = ticketing[0]  # Get first item from list
+            payload["ticketing"] = {
+                "integrationName": ticketing_config.get('TIntegrationName') or ticketing_config.get('IntegrationName'),
+                "projectName": ticketing_config.get('Backlog')
+            }
+            print(f" > Adding ticketing configuration for {service['Service']}")
+    
+    # Handle messaging configuration separately
+    if service.get('Messaging'):
+        try:
+            messaging = service.get('Messaging')
+            if isinstance(messaging, list) and messaging:
+                messaging_config = messaging[0]  # Get first item from list
+                integration_name = messaging_config.get('MIntegrationName') or messaging_config.get('IntegrationName')
+                channel_name = messaging_config.get('Channel')
+                
+                if integration_name and channel_name:
+                    messaging_payload = {
+                        "messaging": {
+                            "integrationName": integration_name,
+                            "channelName": channel_name
+                        }
+                    }
+                    print(f" > Adding messaging configuration for {service['Service']}")
+                    print(f"   └─ Integration: {integration_name}")
+                    print(f"   └─ Channel: {channel_name}")
+                    
+                    # Update messaging configuration
+                    try:
+                        api_url = construct_api_url(f"/v1/components/{existing_service_id}")
+                        response = requests.patch(api_url, headers=headers, json=messaging_payload)
+                        
+                        if response.status_code == 400 and b'Channel not found' in response.content:
+                            print(f" ! Warning: Slack channel '{channel_name}' not found. Please verify the channel exists and is accessible.")
+                            log_error(
+                                'Messaging Config',
+                                service['Service'],
+                                'N/A',
+                                f"Channel '{channel_name}' not found",
+                                f'Integration: {integration_name}'
+                            )
+                        else:
+                            response.raise_for_status()
+                            print(f" + Updated messaging for service: {service['Service']}")
+                    except Exception as e:
+                        print(f" ! Error updating messaging: {e}")
+                        if hasattr(response, 'content'):
+                            print(f"   └─ {response.content.decode()}")
+                else:
+                    print(f" ! Warning: Messaging configuration missing required fields")
+                    print(f"   └─ MIntegrationName: {integration_name}")
+                    print(f"   └─ Channel: {channel_name}")
+        except Exception as e:
+            print(f" ! Error processing messaging configuration: {e}")
+    
+    # Update ticketing if present
+    if payload:
+        try:
+            api_url = construct_api_url(f"/v1/components/{existing_service_id}")
+            response = requests.patch(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            print(f" + Updated ticketing for service: {service['Service']}")
+        except Exception as e:
+            print(f" ! Error updating ticketing: {e}")
+            if hasattr(response, 'content'):
+                print(f"   └─ {response.content.decode()}")
+    
+    time.sleep(1)  # Small delay between updates
 
 def add_thirdparty_services(phoenix_components, application_environments, subdomain_owners, headers):
     services = [
@@ -1992,7 +2665,7 @@ def add_thirdparty_services(phoenix_components, application_environments, subdom
 
     for service in services:
         if not environment_service_exist(env_id, phoenix_components, service):
-            add_service(env_name, service, 5, "Thirdparty", subdomain_owners, headers)
+            add_service(env_name, {"Service": service}, 5, "Thirdparty", subdomain_owners, headers)
 
 def get_environment_id(application_environments, env_name):
     for environment in application_environments:
@@ -2759,22 +3432,82 @@ def create_user_for_application(existing_users_emails, newly_created_users_email
             exit(1)
 
 def load_users_from_phoenix(headers):
-    try:
-        print("Getting list of Phoenix Users")
-        api_url = construct_api_url("/v1/users")
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-
-        data = response.json()
-        users = data.get('content', [])
-        total_pages = data.get('totalPages', 1)
-
-        for i in range(1, total_pages):
-            api_url = construct_api_url(f"/v1/users?pageNumber={i}")
-            response = requests.get(api_url, headers=headers)
-            users += response.json().get('content', [])
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        exit(1)
-
+    """
+    Load all users from Phoenix with proper pagination and error handling.
+    
+    Args:
+        headers: Request headers containing authorization
+        
+    Returns:
+        list: Complete list of all users across all pages
+        
+    Raises:
+        requests.exceptions.RequestException: If there's an error fetching users
+    """
+    users = []
+    page_size = 100
+    page_number = 0
+    total_pages = None
+    
+    print("\n[User Listing]")
+    print(" * Fetching all users with pagination...")
+    
+    while total_pages is None or page_number < total_pages:
+        try:
+            api_url = construct_api_url("/v1/users")
+            params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sort": "email,asc"  # Sort by email for consistent listing
+            }
+            
+            response = requests.get(api_url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Add users from current page
+            page_users = data.get('content', [])
+            users.extend(page_users)
+            
+            # Update total pages on first iteration
+            if total_pages is None:
+                total_pages = data.get('totalPages', 1)
+                total_elements = data.get('totalElements', 0)
+                print(f" * Found {total_elements} total users across {total_pages} pages")
+            
+            if DEBUG:
+                print(f" * Fetched page {page_number + 1}/{total_pages} ({len(page_users)} users)")
+                for user in page_users:
+                    print(f"   - [Unknown] {user.get('email', 'No email')}")
+            
+            page_number += 1
+            
+            # Add small delay between pages to avoid rate limiting
+            if page_number < total_pages:
+                time.sleep(0.5)
+                
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Error fetching users page {page_number}: {str(e)}"
+            log_error(
+                'User Listing',
+                'N/A',
+                'N/A',
+                error_msg,
+                f'Response: {getattr(response, "content", "No response content")}'
+            )
+            print(f" ! {error_msg}")
+            
+            if response.status_code in [429, 503]:  # Rate limit or service unavailable
+                retry_after = int(response.headers.get('Retry-After', 5))
+                print(f" * Rate limited, waiting {retry_after} seconds...")
+                time.sleep(retry_after)
+                continue
+            elif response.status_code >= 500:  # Server error
+                print(" * Server error, retrying after 5 seconds...")
+                time.sleep(5)
+                continue
+            else:
+                raise  # Re-raise other exceptions
+    
+    print(f" * Total users fetched: {len(users)}")
     return users
