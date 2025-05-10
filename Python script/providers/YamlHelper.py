@@ -17,16 +17,23 @@ DEBUG = True
 
 # Function to populate repositories
 def populate_repositories(resource_folder):
-    repos = []
-
     if not resource_folder:
         print("Please supply path for the resources")
-        return repos
+        return []
 
     core_structure = os.path.join(resource_folder, "core-structure.yaml")
 
+    return populate_repositories_from_config(core_structure) 
+
+
+def populate_repositories_from_config(core_structure):
+    repos = []
     with open(core_structure, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
+
+    if 'DeploymentGroups' not in repos_yaml:
+        print(f"DeploymentGroups not found in {core_structure}, uanble to populate repositories")
+        return repos
 
     for deployment_group in repos_yaml['DeploymentGroups']:
         if 'BuildDefinitions' not in deployment_group:
@@ -61,16 +68,23 @@ def populate_repositories(resource_folder):
 
 # Function to populate environments
 def populate_environments_from_env_groups(resource_folder):
-    envs = []
-
     if not resource_folder:
         print("Please supply path for the resources")
-        return envs
+        return []
 
     banking_core = os.path.join(resource_folder, "core-structure.yaml")
+    return populate_environments_from_env_groups_from_config(banking_core)
 
-    with open(banking_core, 'r') as stream:
+
+def populate_environments_from_env_groups_from_config(config_file_path):
+    envs = []
+    
+    with open(config_file_path, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
+
+    if 'Environment Groups' not in repos_yaml:
+        print(f"Environment Groups key not found in {config_file_path}, unable to populate envs from config")
+        return envs
 
     for row in repos_yaml['Environment Groups']:
         # Define the environment item
@@ -80,7 +94,7 @@ def populate_environments_from_env_groups(resource_folder):
             'Criticality': calculate_criticality(row['Tier']),
             'CloudAccounts': [""],  # Add CloudAccounts if applicable
             'Status': row['Status'],
-            'Responsable': row['Responsable'],
+            'Responsable': row['Responsable'].lower(),
             'TeamName': row.get('TeamName', None),  # Add TeamName from the environment or set as None
             'Ticketing': load_ticketing(row),
             'Messaging': load_messaging(row),
@@ -103,7 +117,7 @@ def populate_environments_from_env_groups(resource_folder):
                     'Messaging': load_messaging(service),
                     'Deployment_set': service.get('Deployment_set', None),
                     'Deployment_tag': service.get('Deployment_tag', None),
-                    'MultiConditionRule': load_multi_condition_rule(service.get('MultiConditionRule', None)),
+                    'MultiConditionRule': list(x for x in [load_multi_condition_rule(service.get('MultiConditionRule', None))] if x is not None),
                     'MultiConditionRules': load_multi_condition_rules(service),
                     'RepositoryName': repository_names,  # Properly handle missing 'RepositoryName'
                     'SearchName': service.get('SearchName', None),
@@ -229,33 +243,46 @@ def conditionally_replace_first_last_name_with_email(is_custom_email, company_em
 
 
 def populate_all_access_emails(resource_folder):
-    all_access_emails = []
-
     if not resource_folder:
         print("Please supply path for the resources")
-        return all_access_emails
+        return []
 
     core_structure = os.path.join(resource_folder, "core-structure.yaml")
 
-    with open(core_structure, 'r') as stream:
+    return populate_all_access_emails_from_config(core_structure)
+
+
+def populate_all_access_emails_from_config(config_file_path):
+    with open(config_file_path, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
+    if 'AllAccessAccounts' not in repos_yaml:
+        print(f"AllAccessAccounts not found in {config_file_path}, unable to populate all access account list")
+        return []
     return repos_yaml['AllAccessAccounts']
 
 # Populate applications
 
 # Populate applications
 def populate_applications(resource_folder):
-    apps = []
-
     if not resource_folder:
         print("Please supply path for the resources")
-        return apps
+        return []
 
     core_structure = os.path.join(resource_folder, "core-structure.yaml")
 
-    with open(core_structure, 'r') as stream:
+    return populate_applications_from_config(core_structure)
+
+
+def populate_applications_from_config(config_file_path):
+    apps = []
+    with open(config_file_path, 'r') as stream:
         apps_yaml = yaml.safe_load(stream)
+
+    if 'DeploymentGroups' not in apps_yaml:
+        print(f"DeploymentGroups key not found in {config_file_path}, unable to populate apps from config")
+        return apps
+        
 
     for row in apps_yaml['DeploymentGroups']:
         app = {
@@ -263,7 +290,7 @@ def populate_applications(resource_folder):
             'Status': row.get('Status', None),
             'TeamNames': row.get('TeamNames', []),
             'ReleaseDefinitions': row['ReleaseDefinitions'],
-            'Responsable': row['Responsable'],
+            'Responsable': row['Responsable'].lower(),
             'Criticality': calculate_criticality(row.get('Tier', 5)),
             'Deployment_set': row.get('Deployment_set', None),
             'Ticketing': load_ticketing(row),
@@ -329,6 +356,7 @@ def populate_applications(resource_folder):
 
     return apps
 
+
 def load_multi_condition_rule(mcr):
     if not mcr:
         return None
@@ -353,6 +381,7 @@ def load_multi_condition_rule(mcr):
         return None
     return rule
 
+
 def load_multi_condition_rules(component):
     rules = []
     
@@ -374,15 +403,21 @@ def load_multi_condition_rules(component):
                     rules.append(rule)
     
     return rules if rules else None
-    
+
+
 def load_flag_for_create_users(resource_folder):
     core_structure = os.path.join(resource_folder, "core-structure.yaml")
-    with open(core_structure, 'r') as stream:
+    return load_flag_for_create_users_from_config(core_structure)
+
+
+def load_flag_for_create_users_from_config(config_file_path):
+    with open(config_file_path, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
     if True == repos_yaml.get('CreateUsersForApplications', "False"):
         return True
     return False
+
 
 def load_ticketing(element):
     """
@@ -430,6 +465,7 @@ def load_ticketing(element):
     
     return ticketing
 
+
 def load_messaging(element):
     """
     Load messaging configuration from element.
@@ -475,3 +511,23 @@ def load_messaging(element):
         print(f'Warning: Using deprecated "IntegrationName" field in Messaging. Please update to "MIntegrationName"')
     
     return messaging
+
+
+def load_run_config(resource_folder):
+    default_config_files = ["core-structure.yaml"]
+    config_file = os.path.join(resource_folder, 'run-config.yaml')
+    if not resource_folder or not os.path.exists(config_file):
+        config = {
+            "ConfigFiles": default_config_files
+        }
+        print(f" ! Run config not provided via run-config.yaml, using default values: {config}")
+        return config
+
+    with open(config_file, 'r') as stream:
+        config = yaml.safe_load(stream)
+
+    if not 'ConfigFiles' in config:
+        print(f" ! ConfigFiles not found in run-config.yaml, using default value: {default_config_files}")
+        config['ConfigFiles'] = default_config_files
+    
+    return config

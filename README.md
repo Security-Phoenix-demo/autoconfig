@@ -1,7 +1,836 @@
 ## Versioning
 
 V 4.5
-Date - 22 March 2025
+Date - 9 May 2025
+
+# Quick Start Guide
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Security-Phoenix-demo/autoconfig.git
+cd autoconfig/Python\ script
+```
+
+2. Install dependencies:
+```bash
+pip install -r providers/requirements.txt
+```
+
+3. Setup run-config.yaml in resources folder:
+Define list of configuration files that hold application/environment data, like:
+
+```
+ConfigFiles:
+  - core-structure.yaml
+  - some_other_config.yaml
+```
+
+## Basic Usage
+
+The script can be run with different combinations of flags to perform specific operations:
+
+```bash
+python run.py <client_id> <client_secret> <teams> <code> <cloud> <deployment> <autolink> <autocreate_teams> <create_components> <api_domain>
+```
+
+### Minimal Example
+
+```bash
+python run.py your_client_id your_client_secret True False False False False False False api.yourdomain.securityphoenix.cloud
+```
+
+## Using run-phx.py (New Version)
+
+The new version of the script (`run-phx.py`) uses a more modern argument parser with named parameters for better clarity and usability.
+
+### Basic Command Structure
+
+```bash
+python run-phx.py <client_id> <client_secret> [options]
+```
+
+### Required Arguments
+
+1. `client_id` (positional, required)
+   - Your Phoenix API Client ID
+   - Must be provided as the first argument
+
+2. `client_secret` (positional, required)
+   - Your Phoenix API Client Secret
+   - Must be provided as the second argument
+   - Example: `your-secret-key`
+
+### Optional Arguments
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|----------|
+| `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
+| `--verify` | Run in simulation mode without making changes | False | `--verify=True` |
+| `--action_teams` | Create and manage teams | False | `--action_teams=True` |
+| `--action_create_users_from_teams` | Automatically create users from team configuration | False | `--action_create_users_from_teams=True` |
+| `--action_code` | Create applications and components | False | `--action_code=True` |
+| `--action_cloud` | Create environments and services | False | `--action_cloud=True` |
+| `--action_deployment` | Create deployments | False | `--action_deployment=True` |
+| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | False | `--action_autolink_deploymentset=True` |
+| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=true` |
+| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=true` |
+| `--verbose` | Enable verbose debug output (sets DEBUG=True in all modules) | `false` | `--verbose` |
+
+### Team Configuration and User Management
+
+The script now supports automatic user creation from team configuration files. Users can be created with specific roles based on their `EmployeeRole` in the team configuration.
+
+#### Team Member Configuration Format
+
+Team configuration files should be placed in the `Resources/Teams` directory with the following format:
+
+```yaml
+TeamName: "Example Team"
+TeamMembers:
+  - Name: "John Smith"  # Required, must have first and last name
+    EmailAddress: "john.smith@company.com"  # Required
+    EmployeeRole: "Engineering User"  # Optional, maps to Phoenix roles
+```
+
+#### Supported Employee Roles
+
+The following `EmployeeRole` values are mapped to Phoenix roles:
+
+| Team Config Role | Phoenix Role |
+|-----------------|--------------|
+| Security Champion | SECURITY_CHAMPION |
+| Engineering User | ENGINEERING_USER |
+| Application Admin | APPLICATION_ADMIN |
+| *(any other value)* | ORG_USER |
+
+#### Example: Creating Users from Team Configuration
+
+```bash
+# Create teams and users
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_create_users_from_teams=True
+
+# Verify user creation first
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_create_users_from_teams=True \
+  --verify=True
+```
+
+#### User Creation Process
+
+When `--action_create_users_from_teams` is enabled:
+1. Validates team member data (name format, required fields)
+2. Checks for existing users to avoid duplicates
+3. Creates users with appropriate roles based on `EmployeeRole`
+4. Automatically adds users to their respective teams
+5. Logs all operations and any errors
+
+#### Requirements for User Creation
+
+1. Team member must have:
+   - Full name (first and last name) in the `Name` field
+   - Valid email address in the `EmailAddress` field
+2. Optional `EmployeeRole` field determines Phoenix role
+3. Team configuration must be in the correct YAML format
+
+#### Error Handling
+
+The script will:
+- Skip users with missing or invalid names
+- Skip users that already exist
+- Log detailed error messages for troubleshooting
+- Continue processing other users if one fails
+
+### Common Usage Patterns
+
+1. **Complete Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
+```
+This will perform a full setup including teams, applications, environments, and deployments.
+
+2. **Team Management Only**
+```bash
+python run-phx.py your_client_id your_client_secret --action_teams=true
+```
+This will only handle team creation and management.
+
+3. **Environment and Service Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_cloud=true \
+  --action_create_components_from_assets=true
+```
+This will create environments and services, and automatically discover and create components from assets.
+
+4. **Custom API Domain**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --api_domain=https://api.custom.appsecphx.io \
+  --action_code=true
+```
+This will use a custom API domain for the operations.
+
+### Action Combinations
+
+Different actions can be combined based on your needs. Here are some useful combinations:
+
+1. **Initial Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true
+```
+
+2. **Regular Update**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
+```
+
+3. **Asset Discovery and Component Creation**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_cloud=true \
+  --action_create_components_from_assets=true \
+  --action_autolink_deploymentset=true
+```
+
+4. **Team and Deployment Management**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=true \
+  --action_deployment=true \
+  --action_autocreate_teams_from_pteam=true
+```
+
+### Best Practices
+
+2. **Incremental Updates**
+   - Run specific actions rather than all at once
+   - Makes troubleshooting easier
+   ```bash
+   python run-phx.py your_client_id your_client_secret --action_teams=true
+   python run-phx.py your_client_id your_client_secret --action_code=true
+   ```
+
+3. **Regular Maintenance**
+   - Schedule regular runs for team updates
+   - Keep deployments in sync
+   ```bash
+   # Example daily update
+   python run-phx.py your_client_id your_client_secret \
+     --action_teams=true \
+     --action_deployment=true
+   ```
+
+4. **Error Handling**
+   - Monitor the error log file
+   - Check specific action results
+
+### Troubleshooting
+
+1. **API Connection Issues**
+   ```bash
+   # Test API connection
+   python run-phx.py your_client_id your_client_secret \
+     --api_domain=https://api.custom.appsecphx.io
+   ```
+
+2. **Team Creation Issues**
+   ```bash
+   # Verify team configuration
+   python run-phx.py your_client_id your_client_secret \
+     --action_teams=true
+   ```
+
+3. **Deployment Problems**
+   ```bash
+   # Check deployment configuration
+   python run-phx.py your_client_id your_client_secret \
+     --action_deployment=true
+   ```
+
+# Examples and Detailed Usage
+
+## Command Line Usage
+
+### New Format (Recommended)
+Using `run-phx.py` with named arguments:
+
+```bash
+# Basic structure
+python run-phx.py <client_id> <client_secret> [options]
+
+# Complete example with all options
+python run-phx.py your_client_id your_client_secret \
+  --api_domain=https://api.demo.appsecphx.io \
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true \
+  --action_autolink_deploymentset=true \
+  --action_autocreate_teams_from_pteam=true \
+  --action_create_components_from_assets=true
+```
+
+### Common Use Cases
+
+1. **Team Management Only**
+```bash
+python run-phx.py your_client_id your_client_secret --action_teams=true
+```
+
+2. **Full Application Setup**
+```bash
+python run-phx.py your_client_id your_client_secret \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
+```
+
+## Configuration Examples
+
+### 1. Environment Configuration
+
+#### Basic Environment
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ops@company.com
+    Tier: 1
+    TeamName: DevOps
+```
+
+#### Environment with Services
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ops@company.com
+    Tier: 1
+    TeamName: DevOps
+    Services:
+      - Service: WebAPI
+        Type: Cloud
+        Tier: 1
+        TeamName: APITeam
+        SearchName: web-api-*
+        Tag: environment:production
+```
+
+#### Environment with Multiple Services and Rules
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ops@company.com
+    Services:
+      - Service: DatabaseService
+        Type: Cloud
+        Tier: 1
+        TeamName: DBTeam
+        MultiConditionRules:
+          - RepositoryName: company/db-repo
+            SearchName: db-*
+            Tag: type:database
+          - RepositoryName: company/cache-repo
+            SearchName: cache-*
+            Tag: type:cache
+      - Service: WebService
+        Type: Cloud
+        Tier: 2
+        TeamName: WebTeam
+        SearchName: web-*
+        Tag: type:web
+```
+
+### 2. Application Configuration
+
+#### Basic Application
+```yaml
+DeploymentGroups:
+  - AppName: MyWebApp
+    TeamNames:
+      - WebTeam
+    Responsable: lead@company.com
+    Tier: 2
+```
+
+#### Application with Components
+```yaml
+DeploymentGroups:
+  - AppName: MyWebApp
+    TeamNames:
+      - WebTeam
+      - APITeam
+    Responsable: lead@company.com
+    Tier: 2
+    Components:
+      - ComponentName: Frontend
+        TeamNames:
+          - WebTeam
+        RepositoryName: company/frontend-repo
+        Type: Web
+      - ComponentName: Backend
+        TeamNames:
+          - APITeam
+        RepositoryName: company/backend-repo
+        Type: API
+```
+
+#### Complex Application with Rules
+```yaml
+DeploymentGroups:
+  - AppName: EnterpriseApp
+    TeamNames:
+      - CoreTeam
+    Responsable: architect@company.com
+    Tier: 1
+    Components:
+      - ComponentName: APIGateway
+        TeamNames:
+          - GatewayTeam
+        MultiConditionRule:
+          RepositoryName: company/gateway
+          SearchName: gateway-*
+          AssetType: CONTAINER
+        MULTI_MultiConditionRules:
+          - RepositoryName: company/auth
+            SearchName: auth-*
+            Tag: component:auth
+          - RepositoryName: company/routing
+            SearchName: routing-*
+            Tag: component:routing
+```
+
+### 3. Team Configuration
+
+#### Basic Team
+```yaml
+TeamName: DevTeam
+AzureDevopsAreaPath: company\DevTeam
+TeamMembers:
+  - Name: John Smith
+    EmailAddress: john.smith@company.com
+    EmployeeType: Employee
+```
+
+#### Team with Multiple Members and Roles
+```yaml
+TeamName: SecurityTeam
+AzureDevopsAreaPath: company\SecurityTeam
+RecreateTeamAssociations: True
+TeamMembers:
+  - Name: Alice Johnson
+    EmailAddress: alice.j@company.com
+    EmployeeType: Employee
+    Level: Lead
+  - Name: Bob Wilson
+    EmailAddress: bob.w@company.com
+    EmployeeType: Contractor
+    Level: Senior
+```
+
+### 4. Integration Examples
+
+#### Ticketing Integration
+```yaml
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Ticketing:
+      - TIntegrationName: JIRA
+        Backlog: PROD-BACKLOG
+    Messaging:
+      - MIntegrationName: SLACK
+        Channel: prod-alerts
+```
+
+#### Cloud Asset Rules
+```yaml
+Services:
+  - Service: CloudInfra
+    Type: Cloud
+    MultiConditionRules:
+      - AssetType: CLOUD
+        ProviderAccountId: ["123456789"]
+        ResourceGroup: ["prod-rg"]
+        Tag: environment:production
+```
+
+## Advanced Usage Examples
+
+### 1. Deployment Configuration
+
+#### Simple Deployment
+```yaml
+DeploymentGroups:
+  - AppName: WebApp
+    Deployment_set: prod-web
+    
+Environment Groups:
+  - Name: Production
+    Services:
+      - Service: WebService
+        Deployment_set: prod-web
+```
+
+#### Tag-Based Deployment
+```yaml
+DeploymentGroups:
+  - AppName: MicroService
+    Deployment_set: service-tag
+
+Environment Groups:
+  - Name: Production
+    Services:
+      - Service: ServiceInstance
+        Deployment_tag: service-tag
+```
+
+### 2. Asset Management
+
+#### Component Creation from Assets
+```yaml
+Components:
+  - ComponentName: DatabaseCluster
+    AssetType: CLOUD
+    Tags:
+      - "type:database"
+      - "env:prod"
+    ProviderAccountId: 
+      - "123456789"
+```
+
+### 3. Security Integration
+
+#### CIDR-Based Rules
+```yaml
+Services:
+  - Service: NetworkService
+    Type: Infra
+    Cidr: 10.0.0.0/16
+    MultiConditionRules:
+      - Cidr: 172.16.0.0/12
+        Tag: network:internal
+```
+
+## Configuration Files
+
+### Core Structure (core-structure.yaml)
+
+The main configuration file that defines your organization's structure:
+
+```yaml
+DeploymentGroups:
+  - AppName: MyApp
+    TeamNames:
+      - DevTeam
+    Responsable: admin@company.com
+    Tier: 3
+    Components:
+      - ComponentName: Frontend
+        TeamNames:
+          - FrontendTeam
+        RepositoryName: company/frontend-repo
+
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Tier: 1
+    Responsable: ops@company.com
+    Services:
+      - Service: WebService
+        Type: Cloud
+        TeamName: WebTeam
+```
+
+### Teams Configuration (Teams/*.yaml)
+
+Individual team configurations in the `Teams` directory:
+
+```yaml
+TeamName: DevTeam
+AzureDevopsAreaPath: company\DevTeam
+TeamMembers:
+  - Name: John Doe
+    EmailAddress: john.doe@company.com
+    EmployeeType: Employee
+```
+
+### Hives Configuration (hives.yaml)
+
+Define team hierarchies and leadership:
+
+```yaml
+CustomEmail: false
+CompanyEmailDomain: company.com
+Hives:
+  - Name: Development
+    Teams:
+      - Name: DevTeam
+        Lead: jane.smith
+        Product: john.doe
+```
+
+## Advanced Configuration
+
+### Service Configuration Options
+
+1. **Basic Service**:
+```yaml
+Services:
+  - Service: MyService
+    Type: Cloud
+    Tier: 3
+    TeamName: DevTeam
+```
+
+2. **Service with Tags**:
+```yaml
+Services:
+  - Service: MyService
+    Type: Cloud
+    Tag: environment:production
+    SearchName: my-service-*
+```
+
+3. **Service with Multiple Rules**:
+```yaml
+Services:
+  - Service: MyService
+    MultiConditionRules:
+      - RepositoryName: repo1
+        SearchName: service1
+      - RepositoryName: repo2
+        SearchName: service2
+```
+
+### Component Configuration Options
+
+1. **Basic Component**:
+```yaml
+Components:
+  - ComponentName: MyComponent
+    TeamNames:
+      - DevTeam
+    RepositoryName: company/repo
+```
+
+2. **Component with Multiple Rules**:
+```yaml
+Components:
+  - ComponentName: MyComponent
+    MultiConditionRule:
+      RepositoryName: repo1
+      SearchName: component1
+    MULTI_MultiConditionRules:
+      - RepositoryName: repo2
+        SearchName: component2
+```
+
+## Environment Variables
+
+Optional environment variables for configuration:
+
+```bash
+export PHOENIX_DEBUG=True           # Enable debug logging
+export PHOENIX_MAX_RETRIES=5       # Set max retry attempts
+export PHOENIX_BASE_DELAY=3        # Set base delay for retries
+```
+
+## Script Modes
+
+### 1. Team Management Mode
+```bash
+python run.py client_id client_secret True false false false false false false api_domain
+```
+- Creates and updates teams
+- Assigns members to teams
+- Updates team permissions
+
+### 2. Code Management Mode
+```bash
+python run.py client_id client_secret false True false false false false false api_domain
+```
+- Creates applications and components
+- Sets up repository associations
+- Configures code-related rules
+
+### 3. Cloud Infrastructure Mode
+```bash
+python run.py client_id client_secret false false True false false false false api_domain
+```
+- Sets up cloud environments
+- Creates service definitions
+- Configures cloud asset rules
+
+### 4. Deployment Management Mode
+```bash
+python run.py client_id client_secret false false false True false false false api_domain
+```
+- Creates deployment associations
+- Links applications to services
+- Sets up deployment rules
+
+## Performance Optimization
+
+### Batch Operations
+For large deployments, use batch operations:
+```yaml
+batch_size: 10           # Number of operations per batch
+delay_between_batches: 1 # Delay in seconds between batches
+```
+
+### Retry Configuration
+Customize retry behavior:
+```python
+max_retries = 5      # Maximum retry attempts
+base_delay = 3       # Base delay between retries
+max_delay = 60       # Maximum delay for exponential backoff
+```
+
+## Monitoring and Maintenance
+
+### Health Checks
+Monitor script health:
+1. Check `errors.log` for failures
+2. Monitor API response times
+3. Track resource creation success rates
+
+### Regular Maintenance
+Maintain script health:
+1. Rotate log files weekly
+2. Clean up old error logs
+3. Update API credentials regularly
+4. Review and update team configurations
+
+## Security Considerations
+
+1. **API Credentials**:
+   - Store credentials securely
+   - Rotate credentials regularly
+   - Use environment variables for sensitive data
+
+2. **Access Control**:
+   - Review team permissions regularly
+   - Audit team membership changes
+   - Monitor service access patterns
+
+3. **Data Protection**:
+   - Validate input data
+   - Sanitize configuration files
+   - Encrypt sensitive information
+
+## Troubleshooting Guide
+
+### Common Issues
+
+1. **Service Creation Fails**
+```
+Issue: 404 Not Found after service creation
+Solution: Increase verification retries and delays
+```
+
+2. **Rule Creation Fails**
+```
+Issue: 400 Bad Request for rule creation
+Solution: Check field names and case sensitivity
+```
+
+3. **Team Assignment Fails**
+```
+Issue: User cannot be assigned to team
+Solution: Verify user has logged in to Phoenix portal
+```
+
+### Debug Steps
+
+1. Enable debug mode:
+```python
+DEBUG = True
+```
+
+2. Check API responses:
+```python
+print(f"Response content: {response.content}")
+```
+
+3. Verify configurations:
+```bash
+python run.py --validate-config
+```
+
+## Integration Examples
+
+### CI/CD Pipeline Integration
+
+```yaml
+# GitHub Actions Example
+name: Phoenix Configuration
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Configuration
+        run: |
+          python run.py ${{ secrets.PHOENIX_CLIENT_ID }} \
+                       ${{ secrets.PHOENIX_CLIENT_SECRET }} \
+                       true false false false false false false \
+                       ${{ secrets.PHOENIX_API_DOMAIN }}
+```
+
+### Automation Scripts
+
+```bash
+#!/bin/bash
+# Daily update script
+python run.py $CLIENT_ID $CLIENT_SECRET true true true true false false false $API_DOMAIN
+```
+
+## Best Practices
+
+1. **Configuration Management**:
+   - Use version control for configurations
+   - Document all configuration changes
+   - Validate configurations before deployment
+
+2. **Error Handling**:
+   - Implement proper error logging
+   - Use retries with exponential backoff
+   - Handle API rate limits
+
+3. **Performance**:
+   - Use batch operations when possible
+   - Implement caching for frequent operations
+   - Monitor execution times
+
+4. **Maintenance**:
+   - Regular configuration reviews
+   - Periodic credential rotation
+   - Log file management
 
 # Introduction
 
@@ -146,6 +975,30 @@ The currently defined environments are:
 
 The function that create the environments is [CreateEnvironments] Phoenix.ps1
 
+If you want to create users from Environment Group.Responsable field, set the variable in core-structure.yaml file
+
+```
+CreateUsersForApplications: True 
+```
+
+Example core-structure.yaml file
+
+```
+CreateUsersForApplications: True
+Environment Groups:
+  - Name: TST_Production
+    Type: CLOUD
+    Status: Production
+    Responsable: ciso6.ttt@company.com
+```
+
+In the example above, user `ciso6.ttt@company.com` will be
+created if not present in Phoenix. User first and last name are deduced from the first part of the email 
+
+(`ciso6.ttt`) -> first name = ciso6; last name = ttt
+
+If `Responsable` value is not valid email, user won't be created.
+
 ## Services
 
 Services are the cloud resources that are used by different applications. These are typically grouped by the `subdomain` or a similar data grouping function  that uses the services.
@@ -194,7 +1047,8 @@ Environment Groups:
           - testresourcegroup
 ~~~
 
-2. MultiConditionRule - can combine repos, search, tags etc in one rule
+2. MultiConditionRules - can combine repos, search, tags etc in one rule. Suppport for multiple multicondition rule is 
+done through MULTI_MultiConditionRules key.
 
 ~~~
 
@@ -215,24 +1069,63 @@ Environment Groups:
         TeamName: SP_lima20
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
-          Tag: key1:value1
-          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          RepositoryName: testrepo2
+          SearchName: testsearch4
+          Tag: key10:value10
+          Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
           Fqdn: 
-            - testfqdn
+            - testfqdn3
           Netbios: 
-            - testbios
+            - testbios3
           OsNames: 
-            - testosnames
+            - testosnames3
           Hostnames: 
-            - testhostnames
+            - testhostnames3
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid3
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname3
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup3
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo
+            SearchName: testsearch2
+            Tag: key1:value1
+            Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn
+            Netbios: 
+              - testbios
+            OsNames: 
+              - testosnames
+            Hostnames: 
+              - testhostnames
+            ProviderAccountId: 
+              - testaccountid
+            ProviderAccountName: 
+              - testaccountname
+            ResourceGroup: 
+              - testresourcegroup
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tag: key2:value2
+            Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
 
 ~~~
 
@@ -273,34 +1166,64 @@ Environment Groups:
           - testresourcegroup
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
-          Tag: key1:value1
-          Cidr: 10.1.1.0/24 # multiple cidrs are not supported in MultiConditionRule
+          RepositoryName: testrepo2
+          SearchName: testsearch4
+          Tag: key10:value10
+          Cidr: 10.1.2.0/24 # multiple cidrs are not supported in MultiConditionRule
           Fqdn: 
-            - testfqdn
+            - testfqdn3
           Netbios: 
-            - testbios
+            - testbios3
           OsNames: 
-            - testosnames
+            - testosnames3
           Hostnames: 
-            - testhostnames
+            - testhostnames3
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid3
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname3
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup3
 
 ~~~
 
 ## Applications
 
 Applications are groupings of code that provide functionality for a service. As per environment services the `subdomain` in `core-structure.yaml`.
+The function for Component creation is [CreateRepositories](Phoenix.ps1).
 
 For python the application and component are created: in `core-structure.yaml`.
+## Deployed Applications
 
 The function is called [CreateApplications](Phoenix.ps1)
+Deployed applications is the association of Applications to the Service.
+
+If you want to create users from DeploymentGroups.Responsable field, set the variable in core-structure.yaml file
+This is based on the logic that Applications (subdomains) are the same as the Service(subdomain).
+
+``
+CreateUsersForApplications: True 
+``
+This association is achieved via `Deployment_set` element in Application and Service.
+Application and Service that have the same value of `Deployment_set` element will be included in the deployment. 
+Deployment is done by application and service names.
+
+Example core-structure.yaml file
+
+```
+DeploymentGroups:
+  - AppName: TST_TestApp10915 #name of the application
+    Domain: Security
+    SubDomain: Simplified Access Management
+    Responsable: ciso4.test@company.com
+```
+
+In the example above, user `ciso4.test@company.com` will be
+created if not present in Phoenix. User first and last name are deduced from the first part of the email 
+
+(`ciso4.test`) -> first name = ciso4; last name = test
+
+If `Responsable` value is not valid email, user won't be created.
 
 ## Components
 
@@ -363,7 +1286,8 @@ DeploymentGroups:
           - testresourcegroup
 ~~~
 
-2. MultiConditionRule - can combine repos, search, tags etc in one rule
+2. MultiConditionRules - can combine repos, search, tags etc in one rule. Suppport for multiple multicondition rule is 
+done through MULTI_MultiConditionRules key.
 
 ~~~
 
@@ -387,30 +1311,73 @@ DeploymentGroups:
           - SP_lima20
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
+          RepositoryName: testrepo5
+          SearchName: testsearch25
           Tags:
-            - "123"
             - "1235"
-          Cidr: 10.1.1.0/24
+            - "12355"
+          Cidr: 10.1.5.0/24
           Fqdn: 
-            - testfqdn
+            - testfqdn5
           Netbios: 
-            - testbios
+            - testbios5
           OsNames: 
-            - testosnames
+            - testosnames5
           Hostnames: 
-            - testhostnames
+            - testhostnames5
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid5
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname5
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup5
+        MULTI_MultiConditionRules:
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo7
+            SearchName: testsearch27
+            Tags:
+              - "1237"
+              - "12357"
+            Cidr: 10.1.7.0/24
+            Fqdn: 
+              - testfqdn7
+            Netbios: 
+              - testbios7
+            OsNames: 
+              - testosnames7
+            Hostnames: 
+              - testhostnames7
+            ProviderAccountId: 
+              - testaccountid7
+            ProviderAccountName: 
+              - testaccountname7
+            ResourceGroup: 
+              - testresourcegroup7
+          - AssetType: REPOSITORY #Look up possible values in the documentation
+            RepositoryName: testrepo2
+            SearchName: testsearch3
+            Tags:
+              - "1234"
+              - "12356"
+            Cidr: 10.1.2.0/24
+            Fqdn: 
+              - testfqdn2
+            Netbios: 
+              - testbios2
+            OsNames: 
+              - testosnames2
+            Hostnames: 
+              - testhostnames2
+            ProviderAccountId: 
+              - testaccountid2
+            ProviderAccountName: 
+              - testaccountname2
+            ResourceGroup: 
+              - testresourcegroup2
 
 ~~~
 
-3. Combining single rule with multicondition rule is also supported
+3. Combining single rule with multicondition rules is also supported
 
 ~~~
 
@@ -455,26 +1422,26 @@ DeploymentGroups:
           - testresourcegroup
         MultiConditionRule:
           AssetType: REPOSITORY #Look up possible values in the documentation
-          RepositoryName: testrepo
-          SearchName: testsearch2
+          RepositoryName: testrepo5
+          SearchName: testsearch25
           Tags:
-            - "123"
             - "1235"
-          Cidr: 10.1.1.0/24
+            - "12355"
+          Cidr: 10.1.5.0/24
           Fqdn: 
-            - testfqdn
+            - testfqdn5
           Netbios: 
-            - testbios
+            - testbios5
           OsNames: 
-            - testosnames
+            - testosnames5
           Hostnames: 
-            - testhostnames
+            - testhostnames5
           ProviderAccountId: 
-            - testaccountid
+            - testaccountid5
           ProviderAccountName: 
-            - testaccountname
+            - testaccountname5
           ResourceGroup: 
-            - testresourcegroup
+            - testresourcegroup5
 
 ~~~
 
@@ -488,6 +1455,9 @@ Deployed applications is the association of Applications to the Service.
 This is based on the logic that Applications (subdomains) are the same as the Service(subdomain).
 
 This association is achieved via `Deployment_set` element in Application and Service.
+Application and Service that have the same value of `Deployment_set` element will be included in the deployment. 
+Deployment is done by application and service names.
+
 Example:
 
 ```
@@ -589,3 +1559,217 @@ This action will iterate over all environments, and then for each environment:
 - for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
     - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
 - if user confirms the component creation, component is created in that environment
+
+
+## Overview of commands to run autoconfig, with examples
+
+### LEGACY MODE - NOT MAINTAINED ANYMORE
+
+| Command to run                                                                    | Example command                                                                                                                    | action_teams | action_code | action_cloud | action_deployment | action_autolink_deploymentset | action_autocreate_teams_from_pteams | action_create_components_from_assets |
+|-----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|--------------|-------------|--------------|-------------------|-------------------------------|-------------------------------------|--------------------------------------|
+| create teams                                                                      | <span style="white-space:nowrap;">python run.py client_id client_secret True false false false false false false api_domain</span> | True         | false       | false        | false             | false                         | false                               | false                                |
+| create applications and components                                                | <nobr>python run.py client_id client_secret false True false false false false false api_domain</nobr>                             | false        | True        | false        | false             | false                         | false                               | false                                |
+| create environments and services                                                  | <nobr>python run.py client_id client_secret false false True false false false false api_domain</nobr>                             | false        | false       | True         | false             | false                         | false                               | false                                |
+| Deployment by 'Deployment_set' or 'Deployment_tag'                                | <nobr>python run.py client_id client_secret false false false True false false false api_domain</nobr>                             | false        | false       | false        | True              | false                         | false                               | false                                |
+| Auto create deployments based on application name <br>and service name similarity | <nobr>python run.py client_id client_secret false false false false True false false api_domain</nobr>                             | false        | false       | false        | false             | True                          | false                               | false                                |
+| Auto create teams from pteam tags in config                                       | <nobr>python run.py client_id client_secret false false false false false True false api_domain</nobr>                             | false        | false       | false        | false             | false                         | True                                | false                                |
+| Create assets from components/services<br> with similar name                      | <nobr>python run.py client_id client_secret false false false false false false True api_domain</nobr>                             | false        | false       | false        | false             | false                         | false                               | True                                 |
+
+### NEW MODE
+
+Command to run was updated to use different format:
+
+python run-phx.py < clientId > < clientSecret > --api_domain=https://api.demo.appsecphx.io --action_autocreate_teams_from_pteam=true
+
+It takes two positional arguments (clientId and clientSecret) right after the run.py
+After that, you may specify any of these items listed:
+
+| Option                                 | Description                                                                | Example                                     |
+|----------------------------------------|----------------------------------------------------------------------------|---------------------------------------------|
+| --api_domain                           | to override the value in Phoenix.py file                                   | --api_domain=https://api.demo.appsecphx.io  |
+| --action_teams                         | Trigger teams action                                                       | --action_teams=true                         |
+| --action_code                          | Trigger code action                                                        | --action_code=true                          |
+| --action_cloud                         | Trigger cloud action                                                       | --action_cloud=true                         |
+| --action_deployment                    | Trigger deployment action                                                  | --action_deployment=true                    |
+| --action_autolink_deploymentset        | Trigger autolink deploymentset action                                      | --action_autolink_deploymentset=true        |
+| --action_autocreate_teams_from_pteam   | Trigger autocreate teams from pteam action                                 | --action_autocreate_teams_from_pteam=true   |
+| --action_create_components_from_assets | Trigger create components from assets action                               | --action_create_components_from_assets=true |
+
+#### Examples of common usecases
+
+Running actions (code + cloud + deployment)
+
+```
+python run-phx.py < clientId > < clientSecret > --action_code=true --action_cloud=true --action_deployment=true
+```
+
+Running actions (teams + code + cloud + deployment)
+
+```
+python run-phx.py < clientId > < clientSecret > --action_teams=true --action_code=true --action_cloud=true --action_deployment=true
+```
+
+If you want to override the API domain from Phoenix.py file, use this option:
+```
+--api_domain=https://newapi.appsecphx.io (or whatever is the domain)
+```
+
+## Error Handling and Logging
+
+The script includes comprehensive error logging functionality that tracks failures in service creation, rule creation, and other operations. All errors are logged to an `errors.log` file in the same directory as the script.
+
+### Error Log Format
+
+Each error entry in the log file contains:
+```
+TIME: [Timestamp]
+OPERATION: [Type of Operation]
+NAME: [Name of Service/Component/Rule]
+ENVIRONMENT: [Environment Name]
+ERROR: [Error Message]
+DETAILS: [Additional Context]
+--------------------------------------------------------------------------------
+```
+
+### Types of Logged Errors
+
+1. Service Creation Failures:
+   - Failed service verifications
+   - API errors during service creation
+   - Timeout errors
+   - Authentication failures
+
+2. Rule Creation Failures:
+   - Invalid rule configurations
+   - Missing service errors
+   - API validation errors
+   - Case sensitivity issues
+
+3. Component Creation Failures:
+   - Component validation errors
+   - Duplicate component errors
+   - Missing required fields
+
+### Example Error Log Entries
+
+```
+TIME: 2024-03-21 14:30:45
+OPERATION: Service Creation
+NAME: my-service
+ENVIRONMENT: production
+ERROR: Service creation verification failed after maximum retries
+DETAILS: Team: dev-team, Tier: 3
+--------------------------------------------------------------------------------
+
+TIME: 2024-03-21 14:31:12
+OPERATION: Rule Creation
+NAME: repository-rule
+ENVIRONMENT: staging
+ERROR: Service not found after 3 attempts
+DETAILS: Component: my-component, Filter: repository=repo-name
+--------------------------------------------------------------------------------
+```
+
+### Using the Error Log
+
+1. **Monitoring Failed Operations**:
+   - Check `errors.log` after script execution to identify any failures
+   - Each error entry includes timestamp and context for debugging
+   - Failed operations are logged but don't stop script execution
+
+2. **Debugging Common Issues**:
+   - Service creation failures often indicate API timing issues
+   - Rule creation failures may indicate missing or invalid configurations
+   - Component failures usually relate to validation or duplicate entries
+
+3. **Error Resolution**:
+   - Review error details for specific failure reasons
+   - Check component and service names for case sensitivity
+   - Verify API credentials and permissions
+   - Ensure all required fields are properly configured
+
+### Error Log Location
+
+The `errors.log` file is created in the same directory as the script. Each run appends new errors to the existing log file.
+
+### Debug Mode
+
+You can enable verbose debug output for troubleshooting and development by using the `--verbose` flag:
+
+```bash
+python run-phx.py your_client_id your_client_secret --verbose
+```
+
+This will set `DEBUG = True` in all relevant modules (including Phoenix.py and YamlHelper.py), enabling detailed logging, API payloads, and response content for failed requests.
+
+**Note:** Setting `DEBUG = True` directly in the code is no longer necessary; use `--verbose` for convenience.
+
+### Common Error Types and Solutions
+
+1. **Service Not Found (404)**:
+   - Cause: Service creation succeeded but verification failed
+   - Solution: Increase retry attempts or delay between retries
+   - Configuration: Adjust `max_retries` and `base_delay` in service creation
+
+2. **Bad Request (400)**:
+   - Cause: Invalid payload or configuration
+   - Solution: Check field names and values in configuration
+   - Common issues: Case sensitivity, invalid characters in names
+
+3. **Conflict (409)**:
+   - Cause: Resource already exists
+   - Solution: Usually safe to ignore, indicates duplicate creation attempt
+   - Check existing resources if unexpected
+
+4. **Authentication Errors**:
+   - Cause: Invalid or expired credentials
+   - Solution: Verify API credentials and token refresh
+   - Check access permissions for operations
+
+### Best Practices
+
+1. **Regular Log Review**:
+   - Check logs after each script run
+   - Monitor for patterns in failures
+   - Address recurring issues
+
+2. **Log Maintenance**:
+   - Rotate logs periodically
+   - Archive old logs for reference
+   - Clean up logs to manage file size
+
+3. **Error Resolution**:
+   - Address critical errors first
+   - Group similar errors for batch resolution
+   - Document common solutions
+
+4. **Configuration Updates**:
+   - Update configurations based on error patterns
+   - Adjust timeouts and retries as needed
+   - Document configuration changes
+
+### Troubleshooting Tips
+
+1. **Service Creation Issues**:
+   ```python
+   # Increase retry attempts and delays
+   max_retries = 5  # Default: 3
+   base_delay = 5   # Default: 2
+   ```
+
+2. **Rule Creation Issues**:
+   ```python
+   # Enable debug mode for detailed logging
+   DEBUG = True
+   ```
+
+3. **Component Verification**:
+   ```python
+   # Add verification delay
+   time.sleep(delay)  # Adjust delay as needed
+   ```
+
+4. **API Rate Limiting**:
+   - Monitor response headers for rate limits
+   - Implement exponential backoff
+   - Batch operations when possible 

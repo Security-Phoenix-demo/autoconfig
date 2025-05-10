@@ -1,7 +1,7 @@
 ## Versioning
 
-V 4.2
-Date - 28 Feb 2025
+V 4.5
+Date - 9 May 2025
 
 # Quick Start Guide
 
@@ -16,6 +16,15 @@ cd autoconfig/Python\ script
 2. Install dependencies:
 ```bash
 pip install -r providers/requirements.txt
+```
+
+3. Setup run-config.yaml in resources folder:
+Define list of configuration files that hold application/environment data, like:
+
+```
+ConfigFiles:
+  - core-structure.yaml
+  - some_other_config.yaml
 ```
 
 ## Basic Usage
@@ -60,50 +69,113 @@ python run-phx.py <client_id> <client_secret> [options]
 | `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
 | `--verify` | Run in simulation mode without making changes | False | `--verify=True` |
 | `--action_teams` | Create and manage teams | False | `--action_teams=True` |
+| `--action_create_users_from_teams` | Automatically create users from team configuration | False | `--action_create_users_from_teams=True` |
 | `--action_code` | Create applications and components | False | `--action_code=True` |
 | `--action_cloud` | Create environments and services | False | `--action_cloud=True` |
 | `--action_deployment` | Create deployments | False | `--action_deployment=True` |
 | `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | False | `--action_autolink_deploymentset=True` |
-| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=True` |
-| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=True` |
+| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=true` |
+| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=true` |
+| `--verbose` | Enable verbose debug output (sets DEBUG=True in all modules) | `false` | `--verbose` |
+
+### Team Configuration and User Management
+
+The script now supports automatic user creation from team configuration files. Users can be created with specific roles based on their `EmployeeRole` in the team configuration.
+
+#### Team Member Configuration Format
+
+Team configuration files should be placed in the `Resources/Teams` directory with the following format:
+
+```yaml
+TeamName: "Example Team"
+TeamMembers:
+  - Name: "John Smith"  # Required, must have first and last name
+    EmailAddress: "john.smith@company.com"  # Required
+    EmployeeRole: "Engineering User"  # Optional, maps to Phoenix roles
+```
+
+#### Supported Employee Roles
+
+The following `EmployeeRole` values are mapped to Phoenix roles:
+
+| Team Config Role | Phoenix Role |
+|-----------------|--------------|
+| Security Champion | SECURITY_CHAMPION |
+| Engineering User | ENGINEERING_USER |
+| Application Admin | APPLICATION_ADMIN |
+| *(any other value)* | ORG_USER |
+
+#### Example: Creating Users from Team Configuration
+
+```bash
+# Create teams and users
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_create_users_from_teams=True
+
+# Verify user creation first
+python run-phx.py your_client_id your_client_secret \
+  --action_teams=True \
+  --action_create_users_from_teams=True \
+  --verify=True
+```
+
+#### User Creation Process
+
+When `--action_create_users_from_teams` is enabled:
+1. Validates team member data (name format, required fields)
+2. Checks for existing users to avoid duplicates
+3. Creates users with appropriate roles based on `EmployeeRole`
+4. Automatically adds users to their respective teams
+5. Logs all operations and any errors
+
+#### Requirements for User Creation
+
+1. Team member must have:
+   - Full name (first and last name) in the `Name` field
+   - Valid email address in the `EmailAddress` field
+2. Optional `EmployeeRole` field determines Phoenix role
+3. Team configuration must be in the correct YAML format
+
+#### Error Handling
+
+The script will:
+- Skip users with missing or invalid names
+- Skip users that already exist
+- Log detailed error messages for troubleshooting
+- Continue processing other users if one fails
 
 ### Common Usage Patterns
 
-1. **Verify Configuration Only**
-```bash
-python run-phx.py your_client_id your_client_secret --verify=True --action_code=True --action_cloud=True
-```
-This will simulate the creation of applications, components, environments, and services without making actual changes.
-
-2. **Complete Setup**
+1. **Complete Setup**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_code=True \
-  --action_cloud=True \
-  --action_deployment=True
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
 ```
 This will perform a full setup including teams, applications, environments, and deployments.
 
-3. **Team Management Only**
+2. **Team Management Only**
 ```bash
-python run-phx.py your_client_id your_client_secret --action_teams=True
+python run-phx.py your_client_id your_client_secret --action_teams=true
 ```
 This will only handle team creation and management.
 
-4. **Environment and Service Setup**
+3. **Environment and Service Setup**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_cloud=True \
-  --action_create_components_from_assets=True
+  --action_cloud=true \
+  --action_create_components_from_assets=true
 ```
 This will create environments and services, and automatically discover and create components from assets.
 
-5. **Custom API Domain**
+4. **Custom API Domain**
 ```bash
 python run-phx.py your_client_id your_client_secret \
   --api_domain=https://api.custom.appsecphx.io \
-  --action_code=True
+  --action_code=true
 ```
 This will use a custom API domain for the operations.
 
@@ -114,52 +186,44 @@ Different actions can be combined based on your needs. Here are some useful comb
 1. **Initial Setup**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_code=True \
-  --action_cloud=True \
-  --verify=True  # First run in verify mode
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true
 ```
 
 2. **Regular Update**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_code=True \
-  --action_cloud=True \
-  --action_deployment=True
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
 ```
 
 3. **Asset Discovery and Component Creation**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_cloud=True \
-  --action_create_components_from_assets=True \
-  --action_autolink_deploymentset=True
+  --action_cloud=true \
+  --action_create_components_from_assets=true \
+  --action_autolink_deploymentset=true
 ```
 
 4. **Team and Deployment Management**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_deployment=True \
-  --action_autocreate_teams_from_pteam=True
+  --action_teams=true \
+  --action_deployment=true \
+  --action_autocreate_teams_from_pteam=true
 ```
 
 ### Best Practices
-
-1. **Always Verify First**
-   - Use `--verify=True` when making significant changes
-   - Review the proposed changes before actual execution
-   ```bash
-   python run-phx.py your_client_id your_client_secret --verify=True [other_actions]
-   ```
 
 2. **Incremental Updates**
    - Run specific actions rather than all at once
    - Makes troubleshooting easier
    ```bash
-   python run-phx.py your_client_id your_client_secret --action_teams=True
-   python run-phx.py your_client_id your_client_secret --action_code=True
+   python run-phx.py your_client_id your_client_secret --action_teams=true
+   python run-phx.py your_client_id your_client_secret --action_code=true
    ```
 
 3. **Regular Maintenance**
@@ -168,13 +232,12 @@ python run-phx.py your_client_id your_client_secret \
    ```bash
    # Example daily update
    python run-phx.py your_client_id your_client_secret \
-     --action_teams=True \
-     --action_deployment=True
+     --action_teams=true \
+     --action_deployment=true
    ```
 
 4. **Error Handling**
    - Monitor the error log file
-   - Use verify mode when troubleshooting
    - Check specific action results
 
 ### Troubleshooting
@@ -183,7 +246,6 @@ python run-phx.py your_client_id your_client_secret \
    ```bash
    # Test API connection
    python run-phx.py your_client_id your_client_secret \
-     --verify=True \
      --api_domain=https://api.custom.appsecphx.io
    ```
 
@@ -191,16 +253,14 @@ python run-phx.py your_client_id your_client_secret \
    ```bash
    # Verify team configuration
    python run-phx.py your_client_id your_client_secret \
-     --verify=True \
-     --action_teams=True
+     --action_teams=true
    ```
 
 3. **Deployment Problems**
    ```bash
    # Check deployment configuration
    python run-phx.py your_client_id your_client_secret \
-     --verify=True \
-     --action_deployment=True
+     --action_deployment=true
    ```
 
 # Examples and Detailed Usage
@@ -217,37 +277,28 @@ python run-phx.py <client_id> <client_secret> [options]
 # Complete example with all options
 python run-phx.py your_client_id your_client_secret \
   --api_domain=https://api.demo.appsecphx.io \
-  --verify=True \
-  --action_teams=True \
-  --action_code=True \
-  --action_cloud=True \
-  --action_deployment=True \
-  --action_autolink_deploymentset=True \
-  --action_autocreate_teams_from_pteam=True \
-  --action_create_components_from_assets=True
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true \
+  --action_autolink_deploymentset=true \
+  --action_autocreate_teams_from_pteam=true \
+  --action_create_components_from_assets=true
 ```
 
 ### Common Use Cases
 
 1. **Team Management Only**
 ```bash
-python run-phx.py your_client_id your_client_secret --action_teams=True
+python run-phx.py your_client_id your_client_secret --action_teams=true
 ```
 
 2. **Full Application Setup**
 ```bash
 python run-phx.py your_client_id your_client_secret \
-  --action_code=True \
-  --action_cloud=True \
-  --action_deployment=True
-```
-
-3. **Verification Mode**
-```bash
-python run-phx.py your_client_id your_client_secret \
-  --verify=True \
-  --action_code=True \
-  --action_cloud=True
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
 ```
 
 ## Configuration Examples
@@ -1139,16 +1190,23 @@ Environment Groups:
 ## Applications
 
 Applications are groupings of code that provide functionality for a service. As per environment services the `subdomain` in `core-structure.yaml`.
+The function for Component creation is [CreateRepositories](Phoenix.ps1).
 
 For python the application and component are created: in `core-structure.yaml`.
+## Deployed Applications
 
 The function is called [CreateApplications](Phoenix.ps1)
+Deployed applications is the association of Applications to the Service.
 
 If you want to create users from DeploymentGroups.Responsable field, set the variable in core-structure.yaml file
+This is based on the logic that Applications (subdomains) are the same as the Service(subdomain).
 
 ``
 CreateUsersForApplications: True 
 ``
+This association is achieved via `Deployment_set` element in Application and Service.
+Application and Service that have the same value of `Deployment_set` element will be included in the deployment. 
+Deployment is done by application and service names.
 
 Example core-structure.yaml file
 
@@ -1521,7 +1579,7 @@ This action will iterate over all environments, and then for each environment:
 
 Command to run was updated to use different format:
 
-python run-phx.py < clientId > < clientSecret > --api_domain=https://api.demo.appsecphx.io --verify=True --action_autocreate_teams_from_pteam=True
+python run-phx.py < clientId > < clientSecret > --api_domain=https://api.demo.appsecphx.io --action_autocreate_teams_from_pteam=true
 
 It takes two positional arguments (clientId and clientSecret) right after the run.py
 After that, you may specify any of these items listed:
@@ -1529,14 +1587,13 @@ After that, you may specify any of these items listed:
 | Option                                 | Description                                                                | Example                                     |
 |----------------------------------------|----------------------------------------------------------------------------|---------------------------------------------|
 | --api_domain                           | to override the value in Phoenix.py file                                   | --api_domain=https://api.demo.appsecphx.io  |
-| --verify                               | Flag to run the simulated mode, without committing the changes to platform | --verify=True                               |
-| --action_teams                         | Trigger teams action                                                       | --action_teams=True                         |
-| --action_code                          | Trigger code action                                                        | --action_code=True                          |
-| --action_cloud                         | Trigger cloud action                                                       | --action_cloud=True                         |
-| --action_deployment                    | Trigger deployment action                                                  | --action_deployment=True                    |
-| --action_autolink_deploymentset        | Trigger autolink deploymentset action                                      | --action_autolink_deploymentset=True        |
-| --action_autocreate_teams_from_pteam   | Trigger autocreate teams from pteam action                                 | --action_autocreate_teams_from_pteam=True   |
-| --action_create_components_from_assets | Trigger create components from assets action                               | --action_create_components_from_assets=True |
+| --action_teams                         | Trigger teams action                                                       | --action_teams=true                         |
+| --action_code                          | Trigger code action                                                        | --action_code=true                          |
+| --action_cloud                         | Trigger cloud action                                                       | --action_cloud=true                         |
+| --action_deployment                    | Trigger deployment action                                                  | --action_deployment=true                    |
+| --action_autolink_deploymentset        | Trigger autolink deploymentset action                                      | --action_autolink_deploymentset=true        |
+| --action_autocreate_teams_from_pteam   | Trigger autocreate teams from pteam action                                 | --action_autocreate_teams_from_pteam=true   |
+| --action_create_components_from_assets | Trigger create components from assets action                               | --action_create_components_from_assets=true |
 
 #### Examples of common usecases
 
@@ -1637,11 +1694,15 @@ The `errors.log` file is created in the same directory as the script. Each run a
 
 ### Debug Mode
 
-Set `DEBUG = True` in `Phoenix.py` to enable additional logging:
-- Detailed API request payloads
-- Response content for failed requests
-- Verification attempt details
-- Rule creation debugging information
+You can enable verbose debug output for troubleshooting and development by using the `--verbose` flag:
+
+```bash
+python run-phx.py your_client_id your_client_secret --verbose
+```
+
+This will set `DEBUG = True` in all relevant modules (including Phoenix.py and YamlHelper.py), enabling detailed logging, API payloads, and response content for failed requests.
+
+**Note:** Setting `DEBUG = True` directly in the code is no longer necessary; use `--verbose` for convenience.
 
 ### Common Error Types and Solutions
 

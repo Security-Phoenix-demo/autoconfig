@@ -100,3 +100,32 @@ def group_repos_by_subdomain(repos):
     return groupby(sorted_repos, lambda k: k['Subdomain'])
 
     
+def extract_user_name_from_email(email):
+    try:
+        email_parts = email.split("@")
+    except Exception as e:
+        print(f'  ! Failed to extract name from email {email}, error {e}')
+        return (None, None)
+    
+    if len(email_parts) < 2:
+        print(f'  ! Failed to extract name from email {email}, @ sign not found in email')
+        return (None, None)
+    
+    user_full_name = email_parts[0]
+    user_first_name = user_full_name
+    user_last_name = user_full_name
+    try:
+        user_full_name_parts = user_full_name.split(".")
+        if len(user_full_name_parts) > 1:
+            user_first_name = user_full_name_parts[0]
+            user_last_name = user_full_name_parts[1]
+    except Exception as e:
+        print(f"Unable to detect user's first and last name in {email}, using {user_full_name} as both first and last name")
+    return (user_first_name, user_last_name)
+
+def validate_user_role(user_role):
+    allowed_roles = ["ORG_ADMIN", "ORG_APP_ADMIN", "ORG_USER", 
+                    "ORG_ADMIN_LITE", "ORG_SEC_ADMIN", "ORG_SEC_DEV"]
+    
+    if not any(allowed_role == user_role for allowed_role in allowed_roles):
+        raise Exception(f"Invalid user role, received {user_role}, allowed roles: {allowed_roles}")

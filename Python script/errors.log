@@ -1,0 +1,2995 @@
+2025-03-24 20:36:36,253 - ERROR - 
+TIME: 2025-03-24 20:36:36
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 20:36:48,515 - ERROR - 
+TIME: 2025-03-24 20:36:48
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:17,951 - ERROR - 
+TIME: 2025-03-24 21:13:17
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:18,859 - ERROR - 
+TIME: 2025-03-24 21:13:18
+OPERATION: Rule Update
+NAME: smp-meta-publisher-list-asset-downloader -> R-REPO for smp-meta-publisher-list-asset-downloader (reporoot/smp-meta-publisher-list-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:19,766 - ERROR - 
+TIME: 2025-03-24 21:13:19
+OPERATION: Rule Update
+NAME: smp-generic-asset-downloader -> R-REPO for smp-generic-asset-downloader (reporoot/smp-generic-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:20,645 - ERROR - 
+TIME: 2025-03-24 21:13:20
+OPERATION: Rule Update
+NAME: smp-reddit-content-metadata-ingestion-api -> R-REPO for smp-reddit-content-metadata-ingestion-api (reporoot/smp-reddit-content-metadata-ingestion-api)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:21,531 - ERROR - 
+TIME: 2025-03-24 21:13:21
+OPERATION: Rule Update
+NAME: smp-generic-content-metadata-ingestion-api -> R-REPO for smp-generic-content-metadata-ingestion-api (reporoot/smp-generic-content-metadata-ingestion...)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:22,405 - ERROR - 
+TIME: 2025-03-24 21:13:22
+OPERATION: Rule Update
+NAME: smp-kwai-postbid-d2 -> R-REPO for smp-kwai-postbid-d2 (reporoot/smp-kwai-postbid-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:23,006 - ERROR - 
+TIME: 2025-03-24 21:13:23
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:23,895 - ERROR - 
+TIME: 2025-03-24 21:13:23
+OPERATION: Rule Update
+NAME: smp-nextdoor-prebid-d2 -> R-REPO for smp-nextdoor-prebid-d2 (reporoot/smp-nextdoor-prebid-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:13:24,515 - ERROR - 
+TIME: 2025-03-24 21:13:24
+OPERATION: Rule Update
+NAME: smp-rtbasia-asset-downloader -> R-REPO for smp-rtbasia-asset-downloader (reporoot/smp-rtbasia-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-24 21:21:29,977 - ERROR - 
+TIME: 2025-03-24 21:21:29
+OPERATION: Rule Update
+NAME: smp-tenant-asset-downloader -> R-REPO for smp-tenant-asset-downloader (reporoot/smp-tenant-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-tenant-asset-downloader"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:21:30,556 - ERROR - 
+TIME: 2025-03-24 21:21:30
+OPERATION: Rule Update
+NAME: smp-test-suites-v2 -> R-REPO for smp-test-suites-v2 (reporoot/smp-test-suites-v2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-test-suites-v2"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:25:30,546 - ERROR - 
+TIME: 2025-03-24 21:25:30
+OPERATION: Rule Update
+NAME: smp-generic-content-metadata-ingestion-api -> R-REPO for smp-generic-content-metadata-ingestion-api (reporoot/smp-generic-content-metadata-ingestion...)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-generic-content-metadata-ingestion-api"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:25:31,707 - ERROR - 
+TIME: 2025-03-24 21:25:31
+OPERATION: Rule Update
+NAME: smp-nextdoor-prebid-d2 -> R-REPO for smp-nextdoor-prebid-d2 (reporoot/smp-nextdoor-prebid-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-nextdoor-prebid-d2"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:27:03,450 - ERROR - 
+TIME: 2025-03-24 21:27:03
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-reddit-d2"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:27:06,088 - ERROR - 
+TIME: 2025-03-24 21:27:06
+OPERATION: Rule Update
+NAME: smp-rtbasia-asset-downloader -> R-REPO for smp-rtbasia-asset-downloader (reporoot/smp-rtbasia-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-rtbasia-asset-downloader"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:31,004 - ERROR - 
+TIME: 2025-03-24 21:32:31
+OPERATION: Application Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/applications/0193da0c-2b76-7062-b543-8a05a11ea0b9
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "aces", "criticality": 3, "owner": {"email": "asharma3@integralads.com"}, "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:31,269 - ERROR - 
+TIME: 2025-03-24 21:32:31
+OPERATION: Application Config Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application configuration: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/applications/0193da0c-2b76-7062-b543-8a05a11ea0b9
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:31,889 - ERROR - 
+TIME: 2025-03-24 21:32:31
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-reddit-d2"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:32,166 - ERROR - 
+TIME: 2025-03-24 21:32:32
+OPERATION: Component Update
+NAME: aces -> smp-meta-publisher-list-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/240e4a64-eb76-44e5-9a17-6c3f1dcd270b
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-meta-publisher-list-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:32,450 - ERROR - 
+TIME: 2025-03-24 21:32:32
+OPERATION: Component Update
+NAME: aces -> smp-generic-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/0f62db2d-fedc-4a0b-bf3e-e8cf0dbf5d67
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:32,745 - ERROR - 
+TIME: 2025-03-24 21:32:32
+OPERATION: Component Update
+NAME: aces -> smp-reddit-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/590db44a-b6e2-4b15-a960-51dbb7a03b60
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-reddit-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:33,040 - ERROR - 
+TIME: 2025-03-24 21:32:33
+OPERATION: Component Update
+NAME: aces -> smp-generic-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/20f66f4d-5b49-45a9-af40-e500e0a3fdc9
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:33,336 - ERROR - 
+TIME: 2025-03-24 21:32:33
+OPERATION: Component Update
+NAME: aces -> smp-kwai-postbid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/22973dc8-74fe-43d3-89d0-676e79a8473a
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-kwai-postbid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:33,895 - ERROR - 
+TIME: 2025-03-24 21:32:33
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-ffmpeg-lambda-layer"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:34,182 - ERROR - 
+TIME: 2025-03-24 21:32:34
+OPERATION: Component Update
+NAME: aces -> smp-nextdoor-prebid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/6836e70a-04c9-47c8-98e6-b182ffb1ddc8
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-nextdoor-prebid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:34,754 - ERROR - 
+TIME: 2025-03-24 21:32:34
+OPERATION: Rule Update
+NAME: smp-rtbasia-asset-downloader -> R-REPO for smp-rtbasia-asset-downloader (reporoot/smp-rtbasia-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-rtbasia-asset-downloader"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:35,322 - ERROR - 
+TIME: 2025-03-24 21:32:35
+OPERATION: Rule Update
+NAME: smp-tenant-asset-downloader -> R-REPO for smp-tenant-asset-downloader (reporoot/smp-tenant-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-tenant-asset-downloader"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:32:35,620 - ERROR - 
+TIME: 2025-03-24 21:32:35
+OPERATION: Component Update
+NAME: aces -> smp-test-suites-v2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.ias.securityphoenix.cloud/v1/components/7ca2466f-b1ca-4228-8b0e-d5952040e643
+DETAILS: Response: b'{"error":"Integration not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-test-suites-v2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Demo-phx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:34:19,852 - ERROR - 
+TIME: 2025-03-24 21:34:19
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-ffmpeg-lambda-layer"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:34:21,552 - ERROR - 
+TIME: 2025-03-24 21:34:21
+OPERATION: Rule Update
+NAME: smp-rtbasia-asset-downloader -> R-REPO for smp-rtbasia-asset-downloader (reporoot/smp-rtbasia-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-rtbasia-asset-downloader"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:34:22,129 - ERROR - 
+TIME: 2025-03-24 21:34:22
+OPERATION: Rule Update
+NAME: smp-tenant-asset-downloader -> R-REPO for smp-tenant-asset-downloader (reporoot/smp-tenant-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-tenant-asset-downloader"]}
+--------------------------------------------------------------------------------
+
+2025-03-24 21:34:22,716 - ERROR - 
+TIME: 2025-03-24 21:34:22
+OPERATION: Rule Update
+NAME: smp-test-suites-v2 -> R-REPO for smp-test-suites-v2 (reporoot/smp-test-suites-v2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+DETAILS: Filter: {"repository": ["reporoot/smp-test-suites-v2"]}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:05,182 - ERROR - 
+TIME: 2025-03-25 05:49:05
+OPERATION: Application Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "aces", "criticality": 3, "owner": {"email": "asharma3@integralads.com"}, "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:05,755 - ERROR - 
+TIME: 2025-03-25 05:49:05
+OPERATION: Application Config Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application configuration: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:06,385 - ERROR - 
+TIME: 2025-03-25 05:49:06
+OPERATION: Component Update
+NAME: aces -> smp-reddit-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/9de2a29b-1790-4ab2-96c8-e225ba4d1d0f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-reddit-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:06,982 - ERROR - 
+TIME: 2025-03-25 05:49:06
+OPERATION: Rule Update
+NAME: smp-meta-publisher-list-asset-downloader -> R-REPO for smp-meta-publisher-list-asset-downloader (reporoot/smp-meta-publisher-list-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:07,569 - ERROR - 
+TIME: 2025-03-25 05:49:07
+OPERATION: Component Update
+NAME: aces -> smp-generic-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/a2d49c7b-28bc-4b64-9edc-56558da53e4d
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:08,272 - ERROR - 
+TIME: 2025-03-25 05:49:08
+OPERATION: Rule Update
+NAME: smp-reddit-content-metadata-ingestion-api -> R-REPO for smp-reddit-content-metadata-ingestion-api (reporoot/smp-reddit-content-metadata-ingestion-api)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:08,916 - ERROR - 
+TIME: 2025-03-25 05:49:08
+OPERATION: Component Update
+NAME: aces -> smp-generic-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/138d609d-b2a6-467c-b5c7-4f61ca9e5202
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:09,500 - ERROR - 
+TIME: 2025-03-25 05:49:09
+OPERATION: Rule Update
+NAME: smp-kwai-postbid-d2 -> R-REPO for smp-kwai-postbid-d2 (reporoot/smp-kwai-postbid-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:10,073 - ERROR - 
+TIME: 2025-03-25 05:49:10
+OPERATION: Component Update
+NAME: aces -> smp-ffmpeg-lambda-layer
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/72ae5a40-5bbc-42e8-9516-9b6ed7d0fdf2
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-ffmpeg-lambda-layer", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:10,643 - ERROR - 
+TIME: 2025-03-25 05:49:10
+OPERATION: Component Update
+NAME: aces -> smp-nextdoor-prebid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/4fe6194d-5d52-454b-9c68-b5a7b6810fe4
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-nextdoor-prebid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:11,268 - ERROR - 
+TIME: 2025-03-25 05:49:11
+OPERATION: Component Update
+NAME: aces -> smp-rtbasia-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/ef201495-2a86-4e4f-ad32-9adf07e4eae8
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-rtbasia-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:11,846 - ERROR - 
+TIME: 2025-03-25 05:49:11
+OPERATION: Component Update
+NAME: aces -> smp-tenant-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/7318b8b4-a81b-4eb3-afdd-e608b3ac9296
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-tenant-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 05:49:12,428 - ERROR - 
+TIME: 2025-03-25 05:49:12
+OPERATION: Component Update
+NAME: aces -> smp-test-suites-v2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/eec2f6c4-ce3a-44e3-9ec3-787bba1bc75f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-test-suites-v2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:22,889 - ERROR - 
+TIME: 2025-03-25 06:01:22
+OPERATION: Environment Update
+NAME: Production
+ENVIRONMENT: N/A
+ERROR: Failed to update environment: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194adcc-6eaa-7c32-b3b6-e9e3bd7de25b
+DETAILS: {'payload': {'ticketing': {'integrationName': 'Jira-testphx', 'projectName': 'demoteam2'}, 'messaging': {'integrationName': 'Slack-phx', 'channelName': 'int-tests'}}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:46,059 - ERROR - 
+TIME: 2025-03-25 06:01:46
+OPERATION: Application Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "aces", "criticality": 3, "owner": {"email": "asharma3@integralads.com"}, "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:46,664 - ERROR - 
+TIME: 2025-03-25 06:01:46
+OPERATION: Application Config Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application configuration: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:47,277 - ERROR - 
+TIME: 2025-03-25 06:01:47
+OPERATION: Component Update
+NAME: aces -> smp-reddit-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/9de2a29b-1790-4ab2-96c8-e225ba4d1d0f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-reddit-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:47,950 - ERROR - 
+TIME: 2025-03-25 06:01:47
+OPERATION: Component Update
+NAME: aces -> smp-meta-publisher-list-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/68ce5fbe-d96c-42f9-b162-ea2366416d0d
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-meta-publisher-list-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:48,505 - ERROR - 
+TIME: 2025-03-25 06:01:48
+OPERATION: Component Update
+NAME: aces -> smp-generic-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/a2d49c7b-28bc-4b64-9edc-56558da53e4d
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:49,101 - ERROR - 
+TIME: 2025-03-25 06:01:49
+OPERATION: Component Update
+NAME: aces -> smp-reddit-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/c07dc752-197d-4ec1-940a-37439f9ee5c3
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-reddit-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:49,750 - ERROR - 
+TIME: 2025-03-25 06:01:49
+OPERATION: Component Update
+NAME: aces -> smp-generic-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/138d609d-b2a6-467c-b5c7-4f61ca9e5202
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:50,359 - ERROR - 
+TIME: 2025-03-25 06:01:50
+OPERATION: Component Update
+NAME: aces -> smp-kwai-postbid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/73b0873f-e95c-429e-bf40-4f3f45264569
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-kwai-postbid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:50,964 - ERROR - 
+TIME: 2025-03-25 06:01:50
+OPERATION: Component Update
+NAME: aces -> smp-ffmpeg-lambda-layer
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/72ae5a40-5bbc-42e8-9516-9b6ed7d0fdf2
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-ffmpeg-lambda-layer", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:51,688 - ERROR - 
+TIME: 2025-03-25 06:01:51
+OPERATION: Component Update
+NAME: aces -> smp-nextdoor-prebid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/4fe6194d-5d52-454b-9c68-b5a7b6810fe4
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-nextdoor-prebid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:52,277 - ERROR - 
+TIME: 2025-03-25 06:01:52
+OPERATION: Component Update
+NAME: aces -> smp-rtbasia-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/ef201495-2a86-4e4f-ad32-9adf07e4eae8
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-rtbasia-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:52,922 - ERROR - 
+TIME: 2025-03-25 06:01:52
+OPERATION: Component Update
+NAME: aces -> smp-tenant-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/7318b8b4-a81b-4eb3-afdd-e608b3ac9296
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-tenant-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:01:53,517 - ERROR - 
+TIME: 2025-03-25 06:01:53
+OPERATION: Component Update
+NAME: aces -> smp-test-suites-v2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/eec2f6c4-ce3a-44e3-9ec3-787bba1bc75f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-test-suites-v2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:34:39,078 - ERROR - 
+TIME: 2025-03-25 06:34:39
+OPERATION: Environment Update
+NAME: Production
+ENVIRONMENT: N/A
+ERROR: Failed to update environment: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194adcc-6eaa-7c32-b3b6-e9e3bd7de25b
+DETAILS: {'payload': {'ticketing': {'integrationName': 'Jira-testphx', 'projectName': 'demoteam2'}, 'messaging': {'integrationName': 'Slack-phx', 'channelName': 'int-tests'}}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:36:34,601 - ERROR - 
+TIME: 2025-03-25 06:36:34
+OPERATION: Environment Update
+NAME: Production
+ENVIRONMENT: N/A
+ERROR: Failed to update environment: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194adcc-6eaa-7c32-b3b6-e9e3bd7de25b
+DETAILS: {'payload': {'ticketing': {'integrationName': 'Jira-testphx', 'projectName': 'demoteam2'}, 'messaging': {'integrationName': 'Slack-phx', 'channelName': 'int-tests'}}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:36:57,546 - ERROR - 
+TIME: 2025-03-25 06:36:57
+OPERATION: Application Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "aces", "criticality": 3, "owner": {"email": "asharma3@integralads.com"}, "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:36:58,145 - ERROR - 
+TIME: 2025-03-25 06:36:58
+OPERATION: Application Config Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application configuration: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:36:58,744 - ERROR - 
+TIME: 2025-03-25 06:36:58
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:36:59,339 - ERROR - 
+TIME: 2025-03-25 06:36:59
+OPERATION: Rule Update
+NAME: smp-meta-publisher-list-asset-downloader -> R-REPO for smp-meta-publisher-list-asset-downloader (reporoot/smp-meta-publisher-list-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:36:59,946 - ERROR - 
+TIME: 2025-03-25 06:36:59
+OPERATION: Rule Update
+NAME: smp-generic-asset-downloader -> R-REPO for smp-generic-asset-downloader (reporoot/smp-generic-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:00,562 - ERROR - 
+TIME: 2025-03-25 06:37:00
+OPERATION: Rule Update
+NAME: smp-reddit-content-metadata-ingestion-api -> R-REPO for smp-reddit-content-metadata-ingestion-api (reporoot/smp-reddit-content-metadata-ingestion-api)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:01,258 - ERROR - 
+TIME: 2025-03-25 06:37:01
+OPERATION: Rule Update
+NAME: smp-generic-content-metadata-ingestion-api -> R-REPO for smp-generic-content-metadata-ingestion-api (reporoot/smp-generic-content-metadata-ingestion...)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:01,926 - ERROR - 
+TIME: 2025-03-25 06:37:01
+OPERATION: Rule Update
+NAME: smp-kwai-postbid-d2 -> R-REPO for smp-kwai-postbid-d2 (reporoot/smp-kwai-postbid-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:02,563 - ERROR - 
+TIME: 2025-03-25 06:37:02
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:03,168 - ERROR - 
+TIME: 2025-03-25 06:37:03
+OPERATION: Rule Update
+NAME: smp-nextdoor-prebid-d2 -> R-REPO for smp-nextdoor-prebid-d2 (reporoot/smp-nextdoor-prebid-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:03,753 - ERROR - 
+TIME: 2025-03-25 06:37:03
+OPERATION: Rule Update
+NAME: smp-rtbasia-asset-downloader -> R-REPO for smp-rtbasia-asset-downloader (reporoot/smp-rtbasia-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:04,343 - ERROR - 
+TIME: 2025-03-25 06:37:04
+OPERATION: Rule Update
+NAME: smp-tenant-asset-downloader -> R-REPO for smp-tenant-asset-downloader (reporoot/smp-tenant-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:37:04,938 - ERROR - 
+TIME: 2025-03-25 06:37:04
+OPERATION: Rule Update
+NAME: smp-test-suites-v2 -> R-REPO for smp-test-suites-v2 (reporoot/smp-test-suites-v2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:32,857 - ERROR - 
+TIME: 2025-03-25 06:39:32
+OPERATION: Environment Update
+NAME: Production
+ENVIRONMENT: N/A
+ERROR: Failed to update environment: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194adcc-6eaa-7c32-b3b6-e9e3bd7de25b
+DETAILS: {'payload': {'ticketing': {'integrationName': 'Jira-testphx', 'projectName': 'demoteam2'}, 'messaging': {'integrationName': 'Slack-phx', 'channelName': 'int-tests'}}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:56,025 - ERROR - 
+TIME: 2025-03-25 06:39:56
+OPERATION: Application Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "aces", "criticality": 3, "owner": {"email": "asharma3@integralads.com"}, "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:56,604 - ERROR - 
+TIME: 2025-03-25 06:39:56
+OPERATION: Application Config Update
+NAME: aces
+ENVIRONMENT: N/A
+ERROR: Failed to update application configuration: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/applications/0194990f-44d8-7adf-9a7a-03e38efb476f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:57,189 - ERROR - 
+TIME: 2025-03-25 06:39:57
+OPERATION: Component Update
+NAME: aces -> smp-reddit-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/9de2a29b-1790-4ab2-96c8-e225ba4d1d0f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-reddit-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:57,782 - ERROR - 
+TIME: 2025-03-25 06:39:57
+OPERATION: Component Update
+NAME: aces -> smp-meta-publisher-list-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/68ce5fbe-d96c-42f9-b162-ea2366416d0d
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-meta-publisher-list-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:58,361 - ERROR - 
+TIME: 2025-03-25 06:39:58
+OPERATION: Component Update
+NAME: aces -> smp-generic-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/a2d49c7b-28bc-4b64-9edc-56558da53e4d
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:58,943 - ERROR - 
+TIME: 2025-03-25 06:39:58
+OPERATION: Component Update
+NAME: aces -> smp-reddit-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/c07dc752-197d-4ec1-940a-37439f9ee5c3
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-reddit-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:39:59,533 - ERROR - 
+TIME: 2025-03-25 06:39:59
+OPERATION: Component Update
+NAME: aces -> smp-generic-content-metadata-ingestion-api
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/138d609d-b2a6-467c-b5c7-4f61ca9e5202
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-generic-content-metadata-ingestion-api", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:40:00,115 - ERROR - 
+TIME: 2025-03-25 06:40:00
+OPERATION: Component Update
+NAME: aces -> smp-kwai-postbid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/73b0873f-e95c-429e-bf40-4f3f45264569
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-kwai-postbid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:40:00,714 - ERROR - 
+TIME: 2025-03-25 06:40:00
+OPERATION: Component Update
+NAME: aces -> smp-ffmpeg-lambda-layer
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/72ae5a40-5bbc-42e8-9516-9b6ed7d0fdf2
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-ffmpeg-lambda-layer", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:40:01,271 - ERROR - 
+TIME: 2025-03-25 06:40:01
+OPERATION: Component Update
+NAME: aces -> smp-nextdoor-prebid-d2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/4fe6194d-5d52-454b-9c68-b5a7b6810fe4
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-nextdoor-prebid-d2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:40:02,004 - ERROR - 
+TIME: 2025-03-25 06:40:02
+OPERATION: Component Update
+NAME: aces -> smp-rtbasia-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/ef201495-2a86-4e4f-ad32-9adf07e4eae8
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-rtbasia-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:40:02,613 - ERROR - 
+TIME: 2025-03-25 06:40:02
+OPERATION: Component Update
+NAME: aces -> smp-tenant-asset-downloader
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/7318b8b4-a81b-4eb3-afdd-e608b3ac9296
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-tenant-asset-downloader", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:40:03,223 - ERROR - 
+TIME: 2025-03-25 06:40:03
+OPERATION: Component Update
+NAME: aces -> smp-test-suites-v2
+ENVIRONMENT: N/A
+ERROR: Failed to update component: 400 Client Error: Bad Request for url: https://api.poc1.appsecphx.io/v1/components/eec2f6c4-ce3a-44e3-9ec3-787bba1bc75f
+DETAILS: Response: b'{"error":"Channel not found","errorCode":0,"details":{}}'
+Payload: {"name": "smp-test-suites-v2", "criticality": 6, "tags": [], "ticketing": {"integrationName": "Jira-testphx", "projectName": "demoteam2"}, "messaging": {"integrationName": "Slack-phx", "channelName": "int-tests"}}
+--------------------------------------------------------------------------------
+
+2025-03-25 06:54:34,990 - ERROR - 
+TIME: 2025-03-25 06:54:34
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:54:36,883 - ERROR - 
+TIME: 2025-03-25 06:54:36
+OPERATION: Rule Update
+NAME: smp-reddit-content-metadata-ingestion-api -> R-REPO for smp-reddit-content-metadata-ingestion-api (reporoot/smp-reddit-content-metadata-ingestion-api)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:54:38,861 - ERROR - 
+TIME: 2025-03-25 06:54:38
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 06:54:43,485 - ERROR - 
+TIME: 2025-03-25 06:54:43
+OPERATION: Rule Update
+NAME: smp-test-suites-v2 -> R-REPO for smp-test-suites-v2 (reporoot/smp-test-suites-v2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 07:00:17,352 - ERROR - 
+TIME: 2025-03-25 07:00:17
+OPERATION: Rule Update
+NAME: smp-reddit-d2 -> R-REPO for smp-reddit-d2 (reporoot/smp-reddit-d2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 07:00:22,726 - ERROR - 
+TIME: 2025-03-25 07:00:22
+OPERATION: Rule Update
+NAME: smp-ffmpeg-lambda-layer -> R-REPO for smp-ffmpeg-lambda-layer (reporoot/smp-ffmpeg-lambda-layer)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 07:00:24,326 - ERROR - 
+TIME: 2025-03-25 07:00:24
+OPERATION: Rule Update
+NAME: smp-rtbasia-asset-downloader -> R-REPO for smp-rtbasia-asset-downloader (reporoot/smp-rtbasia-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 07:00:24,947 - ERROR - 
+TIME: 2025-03-25 07:00:24
+OPERATION: Rule Update
+NAME: smp-tenant-asset-downloader -> R-REPO for smp-tenant-asset-downloader (reporoot/smp-tenant-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 07:00:25,555 - ERROR - 
+TIME: 2025-03-25 07:00:25
+OPERATION: Rule Update
+NAME: smp-test-suites-v2 -> R-REPO for smp-test-suites-v2 (reporoot/smp-test-suites-v2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 09:15:05,277 - ERROR - 
+TIME: 2025-03-25 09:15:05
+OPERATION: Rule Update
+NAME: smp-tenant-asset-downloader -> R-REPO for smp-tenant-asset-downloader (reporoot/smp-tenant-asset-downloader)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-03-25 09:15:05,904 - ERROR - 
+TIME: 2025-03-25 09:15:05
+OPERATION: Rule Update
+NAME: smp-test-suites-v2 -> R-REPO for smp-test-suites-v2 (reporoot/smp-test-suites-v2)
+ENVIRONMENT: aces
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:55:39,432 - ERROR - 
+TIME: 2025-04-15 08:55:39
+OPERATION: Rule Update
+NAME: fe-app-manager -> R-REPO for fe-app-manager (sosafe-experience-squads/fe-app-manager)
+ENVIRONMENT: fe-app-manager
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:55:43,925 - ERROR - 
+TIME: 2025-04-15 08:55:43
+OPERATION: Rule Update
+NAME: fe-lib-ui-mantine-react -> R-REPO for fe-lib-ui-mantine-react (sosafe-platform-engineering/fe-lib-ui-mantine-r...)
+ENVIRONMENT: fe-lib-ui-mantine-react
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:55:48,397 - ERROR - 
+TIME: 2025-04-15 08:55:48
+OPERATION: Rule Update
+NAME: fe-mf-sofie -> R-REPO for fe-mf-sofie (sosafe-experience-squads/fe-mf-sofie)
+ENVIRONMENT: fe-mf-sofie
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:55:52,863 - ERROR - 
+TIME: 2025-04-15 08:55:52
+OPERATION: Rule Update
+NAME: be-ms-partner-management -> R-REPO for be-ms-partner-management (sosafe-experience-squads/be-ms-partner-management)
+ENVIRONMENT: be-ms-partner-management
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:55:57,366 - ERROR - 
+TIME: 2025-04-15 08:55:57
+OPERATION: Rule Update
+NAME: be-app-api -> R-REPO for be-app-api (sosafe-experience-squads/be-app-api)
+ENVIRONMENT: be-app-api
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:01,939 - ERROR - 
+TIME: 2025-04-15 08:56:01
+OPERATION: Rule Update
+NAME: be-ms-bot -> R-REPO for be-ms-bot (sosafe-experience-squads/be-ms-bot)
+ENVIRONMENT: be-ms-bot
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:06,372 - ERROR - 
+TIME: 2025-04-15 08:56:06
+OPERATION: Rule Update
+NAME: dev-app-github-api -> R-REPO for dev-app-github-api (sosafe-platform-engineering/dev-app-github-api)
+ENVIRONMENT: dev-app-github-api
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:10,849 - ERROR - 
+TIME: 2025-04-15 08:56:10
+OPERATION: Rule Update
+NAME: be-ms-entitlement -> R-REPO for be-ms-entitlement (sosafe-experience-squads/be-ms-entitlement)
+ENVIRONMENT: be-ms-entitlement
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:15,284 - ERROR - 
+TIME: 2025-04-15 08:56:15
+OPERATION: Rule Update
+NAME: be-ms-phishing-report-button -> R-REPO for be-ms-phishing-report-button (sosafe-experience-squads/be-ms-phishing-report-...)
+ENVIRONMENT: be-ms-phishing-report-button
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:19,868 - ERROR - 
+TIME: 2025-04-15 08:56:19
+OPERATION: Rule Update
+NAME: be-tpl-ms -> R-REPO for be-tpl-ms (sosafe-platform-engineering/be-tpl-ms)
+ENVIRONMENT: be-tpl-ms
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:24,329 - ERROR - 
+TIME: 2025-04-15 08:56:24
+OPERATION: Rule Update
+NAME: be-lib-jwt -> R-REPO for be-lib-jwt (sosafe-platform-engineering/be-lib-jwt)
+ENVIRONMENT: be-lib-jwt
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:28,785 - ERROR - 
+TIME: 2025-04-15 08:56:28
+OPERATION: Rule Update
+NAME: dev-ci-hadolint -> R-REPO for dev-ci-hadolint (sosafe-platform-engineering/dev-ci-hadolint)
+ENVIRONMENT: dev-ci-hadolint
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:33,277 - ERROR - 
+TIME: 2025-04-15 08:56:33
+OPERATION: Rule Update
+NAME: be-ms-url-shortener -> R-REPO for be-ms-url-shortener (sosafe-experience-squads/be-ms-url-shortener)
+ENVIRONMENT: be-ms-url-shortener
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:37,721 - ERROR - 
+TIME: 2025-04-15 08:56:37
+OPERATION: Rule Update
+NAME: be-ms-risk-score-calculator -> R-REPO for be-ms-risk-score-calculator (sosafe-platform-engineering/be-ms-risk-score-ca...)
+ENVIRONMENT: be-ms-risk-score-calculator
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:42,213 - ERROR - 
+TIME: 2025-04-15 08:56:42
+OPERATION: Rule Update
+NAME: vera-design-system -> R-REPO for vera-design-system (sosafe-platform-engineering/vera-design-system)
+ENVIRONMENT: vera-design-system
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:46,689 - ERROR - 
+TIME: 2025-04-15 08:56:46
+OPERATION: Rule Update
+NAME: be-ms-hrm-external-events-worker -> R-REPO for be-ms-hrm-external-events-worker (sosafe-platform-engineering/be-ms-hrm-external-...)
+ENVIRONMENT: be-ms-hrm-external-events-worker
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:51,138 - ERROR - 
+TIME: 2025-04-15 08:56:51
+OPERATION: Rule Update
+NAME: fe-app-prb-outlook -> R-REPO for fe-app-prb-outlook (sosafe-experience-squads/fe-app-prb-outlook)
+ENVIRONMENT: fe-app-prb-outlook
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:55,586 - ERROR - 
+TIME: 2025-04-15 08:56:55
+OPERATION: Rule Update
+NAME: fe-lib-maintenance-pages -> R-REPO for fe-lib-maintenance-pages (sosafe-platform-engineering/fe-lib-maintenance-...)
+ENVIRONMENT: fe-lib-maintenance-pages
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:56:59,999 - ERROR - 
+TIME: 2025-04-15 08:56:59
+OPERATION: Rule Update
+NAME: be-ms-scim -> R-REPO for be-ms-scim (sosafe-experience-squads/be-ms-scim)
+ENVIRONMENT: be-ms-scim
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:04,474 - ERROR - 
+TIME: 2025-04-15 08:57:04
+OPERATION: Rule Update
+NAME: fe-tpl-mf -> R-REPO for fe-tpl-mf (sosafe-platform-engineering/fe-tpl-mf)
+ENVIRONMENT: fe-tpl-mf
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:08,914 - ERROR - 
+TIME: 2025-04-15 08:57:08
+OPERATION: Rule Update
+NAME: dev-poc-woordle -> R-REPO for dev-poc-woordle (sosafe-experience-squads/dev-poc-woordle)
+ENVIRONMENT: dev-poc-woordle
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:13,375 - ERROR - 
+TIME: 2025-04-15 08:57:13
+OPERATION: Rule Update
+NAME: fe-mf-domain-management -> R-REPO for fe-mf-domain-management (sosafe-experience-squads/fe-mf-domain-management)
+ENVIRONMENT: fe-mf-domain-management
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:17,824 - ERROR - 
+TIME: 2025-04-15 08:57:17
+OPERATION: Rule Update
+NAME: fe-mf-partner-hub -> R-REPO for fe-mf-partner-hub (sosafe-experience-squads/fe-mf-partner-hub)
+ENVIRONMENT: fe-mf-partner-hub
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:22,283 - ERROR - 
+TIME: 2025-04-15 08:57:22
+OPERATION: Rule Update
+NAME: hackathlon-luam-app-shell -> R-REPO for hackathlon-luam-app-shell (sosafe-platform-engineering/hackathlon-luam-app...)
+ENVIRONMENT: hackathlon-luam-app-shell
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:26,690 - ERROR - 
+TIME: 2025-04-15 08:57:26
+OPERATION: Rule Update
+NAME: be-lib-phishing-reporter -> R-REPO for be-lib-phishing-reporter (sosafe-experience-squads/be-lib-phishing-reporter)
+ENVIRONMENT: be-lib-phishing-reporter
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:31,113 - ERROR - 
+TIME: 2025-04-15 08:57:31
+OPERATION: Rule Update
+NAME: fe-mf-customer-onboarding -> R-REPO for fe-mf-customer-onboarding (sosafe-experience-squads/fe-mf-customer-onboarding)
+ENVIRONMENT: fe-mf-customer-onboarding
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:35,565 - ERROR - 
+TIME: 2025-04-15 08:57:35
+OPERATION: Rule Update
+NAME: be-app-fake-data -> R-REPO for be-app-fake-data (sosafe-experience-squads/be-app-fake-data)
+ENVIRONMENT: be-app-fake-data
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:39,988 - ERROR - 
+TIME: 2025-04-15 08:57:39
+OPERATION: Rule Update
+NAME: be-ms-ai -> R-REPO for be-ms-ai (sosafe-platform-engineering/be-ms-ai)
+ENVIRONMENT: be-ms-ai
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:44,435 - ERROR - 
+TIME: 2025-04-15 08:57:44
+OPERATION: Rule Update
+NAME: fe-lib-ui-react -> R-REPO for fe-lib-ui-react (sosafe-platform-engineering/fe-lib-ui-react)
+ENVIRONMENT: fe-lib-ui-react
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:48,875 - ERROR - 
+TIME: 2025-04-15 08:57:48
+OPERATION: Rule Update
+NAME: be-ms-mail-processor -> R-REPO for be-ms-mail-processor (sosafe-platform-engineering/be-ms-mail-processor)
+ENVIRONMENT: be-ms-mail-processor
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:53,294 - ERROR - 
+TIME: 2025-04-15 08:57:53
+OPERATION: Rule Update
+NAME: be-ms-survey-hub -> R-REPO for be-ms-survey-hub (sosafe-experience-squads/be-ms-survey-hub)
+ENVIRONMENT: be-ms-survey-hub
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:57:57,719 - ERROR - 
+TIME: 2025-04-15 08:57:57
+OPERATION: Rule Update
+NAME: be-ms-personalized-learning -> R-REPO for be-ms-personalized-learning (sosafe-experience-squads/be-ms-personalized-lea...)
+ENVIRONMENT: be-ms-personalized-learning
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:02,159 - ERROR - 
+TIME: 2025-04-15 08:58:02
+OPERATION: Rule Update
+NAME: dev-ci-kubernetes-services -> R-REPO for dev-ci-kubernetes-services (sosafe-platform-engineering/dev-ci-kubernetes-s...)
+ENVIRONMENT: dev-ci-kubernetes-services
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:06,599 - ERROR - 
+TIME: 2025-04-15 08:58:06
+OPERATION: Rule Update
+NAME: dev-ci-action-lambda-image-update -> R-REPO for dev-ci-action-lambda-image-update (sosafe-platform-engineering/dev-ci-action-lambd...)
+ENVIRONMENT: dev-ci-action-lambda-image-update
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:11,024 - ERROR - 
+TIME: 2025-04-15 08:58:11
+OPERATION: Rule Update
+NAME: be-ms-simulation-hrm-consumer -> R-REPO for be-ms-simulation-hrm-consumer (sosafe-experience-squads/be-ms-simulation-hrm-c...)
+ENVIRONMENT: be-ms-simulation-hrm-consumer
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:15,481 - ERROR - 
+TIME: 2025-04-15 08:58:15
+OPERATION: Rule Update
+NAME: fe-mf-hrm -> R-REPO for fe-mf-hrm (sosafe-experience-squads/fe-mf-hrm)
+ENVIRONMENT: fe-mf-hrm
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:19,931 - ERROR - 
+TIME: 2025-04-15 08:58:19
+OPERATION: Rule Update
+NAME: fe-mf-partner-platform -> R-REPO for fe-mf-partner-platform (sosafe-experience-squads/fe-mf-partner-platform)
+ENVIRONMENT: fe-mf-partner-platform
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:24,373 - ERROR - 
+TIME: 2025-04-15 08:58:24
+OPERATION: Rule Update
+NAME: fe-app-prb-google-workspace -> R-REPO for fe-app-prb-google-workspace (sosafe-experience-squads/fe-app-prb-google-work...)
+ENVIRONMENT: fe-app-prb-google-workspace
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:28,829 - ERROR - 
+TIME: 2025-04-15 08:58:28
+OPERATION: Rule Update
+NAME: fe-lib-partner-shared -> R-REPO for fe-lib-partner-shared (sosafe-platform-engineering/fe-lib-partner-shared)
+ENVIRONMENT: fe-lib-partner-shared
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:33,250 - ERROR - 
+TIME: 2025-04-15 08:58:33
+OPERATION: Rule Update
+NAME: fe-lib-product-analytics -> R-REPO for fe-lib-product-analytics (sosafe-platform-engineering/fe-lib-product-anal...)
+ENVIRONMENT: fe-lib-product-analytics
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:37,667 - ERROR - 
+TIME: 2025-04-15 08:58:37
+OPERATION: Rule Update
+NAME: be-ms-customer -> R-REPO for be-ms-customer (sosafe-experience-squads/be-ms-customer)
+ENVIRONMENT: be-ms-customer
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:42,126 - ERROR - 
+TIME: 2025-04-15 08:58:42
+OPERATION: Rule Update
+NAME: be-task-hrm-user-export -> R-REPO for be-task-hrm-user-export (sosafe-platform-engineering/be-task-hrm-user-ex...)
+ENVIRONMENT: be-task-hrm-user-export
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:46,585 - ERROR - 
+TIME: 2025-04-15 08:58:46
+OPERATION: Rule Update
+NAME: fe-mf-personalized-phishing -> R-REPO for fe-mf-personalized-phishing (sosafe-experience-squads/fe-mf-personalized-phi...)
+ENVIRONMENT: fe-mf-personalized-phishing
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:51,032 - ERROR - 
+TIME: 2025-04-15 08:58:51
+OPERATION: Rule Update
+NAME: be-media-trigger-optimization-lambda -> R-REPO for be-media-trigger-optimization-lambda (sosafe-platform-engineering/be-media-trigger-op...)
+ENVIRONMENT: be-media-trigger-optimization-lambda
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:55,522 - ERROR - 
+TIME: 2025-04-15 08:58:55
+OPERATION: Rule Update
+NAME: be-ms-hrm-interventions -> R-REPO for be-ms-hrm-interventions (sosafe-experience-squads/be-ms-hrm-interventions)
+ENVIRONMENT: be-ms-hrm-interventions
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:58:59,968 - ERROR - 
+TIME: 2025-04-15 08:58:59
+OPERATION: Rule Update
+NAME: be-app-database-migrations -> R-REPO for be-app-database-migrations (sosafe-experience-squads/be-app-database-migrat...)
+ENVIRONMENT: be-app-database-migrations
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:04,447 - ERROR - 
+TIME: 2025-04-15 08:59:04
+OPERATION: Rule Update
+NAME: be-ms-mail-relay -> R-REPO for be-ms-mail-relay (sosafe-platform-engineering/be-ms-mail-relay)
+ENVIRONMENT: be-ms-mail-relay
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:08,905 - ERROR - 
+TIME: 2025-04-15 08:59:08
+OPERATION: Rule Update
+NAME: fe-lib-course-builder -> R-REPO for fe-lib-course-builder (sosafe-experience-squads/fe-lib-course-builder)
+ENVIRONMENT: fe-lib-course-builder
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:13,339 - ERROR - 
+TIME: 2025-04-15 08:59:13
+OPERATION: Rule Update
+NAME: fe-mf-integrations -> R-REPO for fe-mf-integrations (sosafe-experience-squads/fe-mf-integrations)
+ENVIRONMENT: fe-mf-integrations
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:17,900 - ERROR - 
+TIME: 2025-04-15 08:59:17
+OPERATION: Rule Update
+NAME: be-app-sofie-forge -> R-REPO for be-app-sofie-forge (sosafe-experience-squads/be-app-sofie-forge)
+ENVIRONMENT: be-app-sofie-forge
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:22,354 - ERROR - 
+TIME: 2025-04-15 08:59:22
+OPERATION: Rule Update
+NAME: fe-lib-manager-shared -> R-REPO for fe-lib-manager-shared (sosafe-platform-engineering/fe-lib-manager-shared)
+ENVIRONMENT: fe-lib-manager-shared
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:26,803 - ERROR - 
+TIME: 2025-04-15 08:59:26
+OPERATION: Rule Update
+NAME: fe-playground-chunk-mutation -> R-REPO for fe-playground-chunk-mutation (sosafe-platform-engineering/fe-playground-chunk...)
+ENVIRONMENT: fe-playground-chunk-mutation
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:31,269 - ERROR - 
+TIME: 2025-04-15 08:59:31
+OPERATION: Rule Update
+NAME: dev-lib-dangerjs -> R-REPO for dev-lib-dangerjs (sosafe-platform-engineering/dev-lib-dangerjs)
+ENVIRONMENT: dev-lib-dangerjs
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:35,744 - ERROR - 
+TIME: 2025-04-15 08:59:35
+OPERATION: Rule Update
+NAME: be-ms-lt-course-builder -> R-REPO for be-ms-lt-course-builder (sosafe-experience-squads/be-ms-lt-course-builder)
+ENVIRONMENT: be-ms-lt-course-builder
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:40,234 - ERROR - 
+TIME: 2025-04-15 08:59:40
+OPERATION: Rule Update
+NAME: airflow-etl -> R-REPO for airflow-etl (sosafe-data-science/airflow-etl)
+ENVIRONMENT: airflow-etl
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:44,689 - ERROR - 
+TIME: 2025-04-15 08:59:44
+OPERATION: Rule Update
+NAME: fe-mf-manager-root -> R-REPO for fe-mf-manager-root (sosafe-platform-engineering/fe-mf-manager-root)
+ENVIRONMENT: fe-mf-manager-root
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:49,155 - ERROR - 
+TIME: 2025-04-15 08:59:49
+OPERATION: Rule Update
+NAME: fe-mf-phishing-report-button -> R-REPO for fe-mf-phishing-report-button (sosafe-experience-squads/fe-mf-phishing-report-...)
+ENVIRONMENT: fe-mf-phishing-report-button
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:53,612 - ERROR - 
+TIME: 2025-04-15 08:59:53
+OPERATION: Rule Update
+NAME: fe-ansible-playbooks -> R-REPO for fe-ansible-playbooks (sosafe-platform-engineering/fe-ansible-playbooks)
+ENVIRONMENT: fe-ansible-playbooks
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 08:59:58,088 - ERROR - 
+TIME: 2025-04-15 08:59:58
+OPERATION: Rule Update
+NAME: exp-vishing-awareness -> R-REPO for exp-vishing-awareness (sosafe-experience-squads/exp-vishing-awareness)
+ENVIRONMENT: exp-vishing-awareness
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:02,667 - ERROR - 
+TIME: 2025-04-15 09:00:02
+OPERATION: Rule Update
+NAME: fe-app-login-pages -> R-REPO for fe-app-login-pages (sosafe-experience-squads/fe-app-login-pages)
+ENVIRONMENT: fe-app-login-pages
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:07,432 - ERROR - 
+TIME: 2025-04-15 09:00:07
+OPERATION: Rule Update
+NAME: be-ms-cronjob-partner-salesforce-sync -> R-REPO for be-ms-cronjob-partner-salesforce-sync (sosafe-experience-squads/be-ms-cronjob-partner-...)
+ENVIRONMENT: be-ms-cronjob-partner-salesforce-sync
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:12,033 - ERROR - 
+TIME: 2025-04-15 09:00:12
+OPERATION: Rule Update
+NAME: learning-content-localization -> R-REPO for learning-content-localization (sosafe-experience-squads/learning-content-local...)
+ENVIRONMENT: learning-content-localization
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:16,542 - ERROR - 
+TIME: 2025-04-15 09:00:16
+OPERATION: Rule Update
+NAME: fe-mf-hriswiz -> R-REPO for fe-mf-hriswiz (sosafe-experience-squads/fe-mf-hriswiz)
+ENVIRONMENT: fe-mf-hriswiz
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:21,124 - ERROR - 
+TIME: 2025-04-15 09:00:21
+OPERATION: Rule Update
+NAME: fe-app-learning -> R-REPO for fe-app-learning (sosafe-experience-squads/fe-app-learning)
+ENVIRONMENT: fe-app-learning
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:25,651 - ERROR - 
+TIME: 2025-04-15 09:00:25
+OPERATION: Rule Update
+NAME: fe-lib-feature-flags -> R-REPO for fe-lib-feature-flags (sosafe-platform-engineering/fe-lib-feature-flags)
+ENVIRONMENT: fe-lib-feature-flags
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:30,223 - ERROR - 
+TIME: 2025-04-15 09:00:30
+OPERATION: Rule Update
+NAME: be-ms-pdf-worker -> R-REPO for be-ms-pdf-worker (sosafe-platform-engineering/be-ms-pdf-worker)
+ENVIRONMENT: be-ms-pdf-worker
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:34,764 - ERROR - 
+TIME: 2025-04-15 09:00:34
+OPERATION: Rule Update
+NAME: fe-mf-analytics -> R-REPO for fe-mf-analytics (sosafe-experience-squads/fe-mf-analytics)
+ENVIRONMENT: fe-mf-analytics
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:39,330 - ERROR - 
+TIME: 2025-04-15 09:00:39
+OPERATION: Rule Update
+NAME: be-ms-content-dispatcher -> R-REPO for be-ms-content-dispatcher (sosafe-experience-squads/be-ms-content-dispatcher)
+ENVIRONMENT: be-ms-content-dispatcher
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:43,841 - ERROR - 
+TIME: 2025-04-15 09:00:43
+OPERATION: Rule Update
+NAME: be-lib-feature-flags -> R-REPO for be-lib-feature-flags (sosafe-platform-engineering/be-lib-feature-flags)
+ENVIRONMENT: be-lib-feature-flags
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:48,433 - ERROR - 
+TIME: 2025-04-15 09:00:48
+OPERATION: Rule Update
+NAME: be-ms-simulation-template -> R-REPO for be-ms-simulation-template (sosafe-experience-squads/be-ms-simulation-template)
+ENVIRONMENT: be-ms-simulation-template
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:53,041 - ERROR - 
+TIME: 2025-04-15 09:00:53
+OPERATION: Rule Update
+NAME: be-ms-public-api -> R-REPO for be-ms-public-api (sosafe-platform-engineering/be-ms-public-api)
+ENVIRONMENT: be-ms-public-api
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:00:57,575 - ERROR - 
+TIME: 2025-04-15 09:00:57
+OPERATION: Rule Update
+NAME: test-repo -> R-REPO for test-repo (sosafe-experience-squads/test-repo)
+ENVIRONMENT: test-repo
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:02,063 - ERROR - 
+TIME: 2025-04-15 09:01:02
+OPERATION: Rule Update
+NAME: poc-fe-manager-monorepo -> R-REPO for poc-fe-manager-monorepo (sosafe-experience-squads/poc-fe-manager-monorepo)
+ENVIRONMENT: poc-fe-manager-monorepo
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:06,569 - ERROR - 
+TIME: 2025-04-15 09:01:06
+OPERATION: Rule Update
+NAME: be-app-risk-score-compute-pipeline -> R-REPO for be-app-risk-score-compute-pipeline (sosafe-platform-engineering/be-app-risk-score-c...)
+ENVIRONMENT: be-app-risk-score-compute-pipeline
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:11,084 - ERROR - 
+TIME: 2025-04-15 09:01:11
+OPERATION: Rule Update
+NAME: be-ms-monolith-data-connector -> R-REPO for be-ms-monolith-data-connector (sosafe-platform-engineering/be-ms-monolith-data...)
+ENVIRONMENT: be-ms-monolith-data-connector
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:15,593 - ERROR - 
+TIME: 2025-04-15 09:01:15
+OPERATION: Rule Update
+NAME: be-lib-event-bus -> R-REPO for be-lib-event-bus (sosafe-platform-engineering/be-lib-event-bus)
+ENVIRONMENT: be-lib-event-bus
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:20,121 - ERROR - 
+TIME: 2025-04-15 09:01:20
+OPERATION: Rule Update
+NAME: fe-lib-domain-analytics -> R-REPO for fe-lib-domain-analytics (sosafe-experience-squads/fe-lib-domain-analytics)
+ENVIRONMENT: fe-lib-domain-analytics
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:24,669 - ERROR - 
+TIME: 2025-04-15 09:01:24
+OPERATION: Rule Update
+NAME: be-ms-mail-log -> R-REPO for be-ms-mail-log (sosafe-platform-engineering/be-ms-mail-log)
+ENVIRONMENT: be-ms-mail-log
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:29,283 - ERROR - 
+TIME: 2025-04-15 09:01:29
+OPERATION: Rule Update
+NAME: be-ms-simulation -> R-REPO for be-ms-simulation (sosafe-experience-squads/be-ms-simulation)
+ENVIRONMENT: be-ms-simulation
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:33,795 - ERROR - 
+TIME: 2025-04-15 09:01:33
+OPERATION: Rule Update
+NAME: fe-lib-iam -> R-REPO for fe-lib-iam (sosafe-platform-engineering/fe-lib-iam)
+ENVIRONMENT: fe-lib-iam
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:38,414 - ERROR - 
+TIME: 2025-04-15 09:01:38
+OPERATION: Rule Update
+NAME: fe-lib-http-request -> R-REPO for fe-lib-http-request (sosafe-platform-engineering/fe-lib-http-request)
+ENVIRONMENT: fe-lib-http-request
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:42,898 - ERROR - 
+TIME: 2025-04-15 09:01:42
+OPERATION: Rule Update
+NAME: dev-ci-action-create-tag -> R-REPO for dev-ci-action-create-tag (sosafe-platform-engineering/dev-ci-action-creat...)
+ENVIRONMENT: dev-ci-action-create-tag
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:47,423 - ERROR - 
+TIME: 2025-04-15 09:01:47
+OPERATION: Rule Update
+NAME: fe-app-phish-test -> R-REPO for fe-app-phish-test (sosafe-experience-squads/fe-app-phish-test)
+ENVIRONMENT: fe-app-phish-test
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:51,968 - ERROR - 
+TIME: 2025-04-15 09:01:51
+OPERATION: Rule Update
+NAME: dev-ci-argocd-deployments -> R-REPO for dev-ci-argocd-deployments (sosafe-platform-engineering/dev-ci-argocd-deplo...)
+ENVIRONMENT: dev-ci-argocd-deployments
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:01:56,517 - ERROR - 
+TIME: 2025-04-15 09:01:56
+OPERATION: Rule Update
+NAME: dev-poc-chrome-extension-qai -> R-REPO for dev-poc-chrome-extension-qai (sosafe-experience-squads/dev-poc-chrome-extensi...)
+ENVIRONMENT: dev-poc-chrome-extension-qai
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:00,995 - ERROR - 
+TIME: 2025-04-15 09:02:00
+OPERATION: Rule Update
+NAME: be-lib-logger -> R-REPO for be-lib-logger (sosafe-platform-engineering/be-lib-logger)
+ENVIRONMENT: be-lib-logger
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:05,513 - ERROR - 
+TIME: 2025-04-15 09:02:05
+OPERATION: Rule Update
+NAME: lambda-function -> R-REPO for lambda-function (sosafe-security/lambda-function)
+ENVIRONMENT: lambda-function
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:09,973 - ERROR - 
+TIME: 2025-04-15 09:02:09
+OPERATION: Rule Update
+NAME: be-media-assets-rollback-lambda -> R-REPO for be-media-assets-rollback-lambda (sosafe-platform-engineering/be-media-assets-rol...)
+ENVIRONMENT: be-media-assets-rollback-lambda
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:14,517 - ERROR - 
+TIME: 2025-04-15 09:02:14
+OPERATION: Rule Update
+NAME: eslint-plugin-fe-lib-lint -> R-REPO for eslint-plugin-fe-lib-lint (sosafe-platform-engineering/eslint-plugin-fe-li...)
+ENVIRONMENT: eslint-plugin-fe-lib-lint
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:19,020 - ERROR - 
+TIME: 2025-04-15 09:02:19
+OPERATION: Rule Update
+NAME: fe-app-course-player -> R-REPO for fe-app-course-player (sosafe-experience-squads/fe-app-course-player)
+ENVIRONMENT: fe-app-course-player
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:23,528 - ERROR - 
+TIME: 2025-04-15 09:02:23
+OPERATION: Rule Update
+NAME: fe-mf-course-builder -> R-REPO for fe-mf-course-builder (sosafe-experience-squads/fe-mf-course-builder)
+ENVIRONMENT: fe-mf-course-builder
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:28,066 - ERROR - 
+TIME: 2025-04-15 09:02:28
+OPERATION: Rule Update
+NAME: dev-ci-action-legacy-webhook-deploy -> R-REPO for dev-ci-action-legacy-webhook-deploy (sosafe-platform-engineering/dev-ci-action-legac...)
+ENVIRONMENT: dev-ci-action-legacy-webhook-deploy
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:32,565 - ERROR - 
+TIME: 2025-04-15 09:02:32
+OPERATION: Rule Update
+NAME: devsecops-workflows -> R-REPO for devsecops-workflows (sosafe-security/devsecops-workflows)
+ENVIRONMENT: devsecops-workflows
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:37,052 - ERROR - 
+TIME: 2025-04-15 09:02:37
+OPERATION: Rule Update
+NAME: abnormal-reporting-tool -> R-REPO for abnormal-reporting-tool (sosafe-security/abnormal-reporting-tool)
+ENVIRONMENT: abnormal-reporting-tool
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:41,514 - ERROR - 
+TIME: 2025-04-15 09:02:41
+OPERATION: Rule Update
+NAME: synthetic-monitoring -> R-REPO for synthetic-monitoring (sosafe-platform-engineering/synthetic-monitoring)
+ENVIRONMENT: synthetic-monitoring
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:46,013 - ERROR - 
+TIME: 2025-04-15 09:02:46
+OPERATION: Rule Update
+NAME: fe-app-learning-v2 -> R-REPO for fe-app-learning-v2 (sosafe-experience-squads/fe-app-learning-v2)
+ENVIRONMENT: fe-app-learning-v2
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:50,494 - ERROR - 
+TIME: 2025-04-15 09:02:50
+OPERATION: Rule Update
+NAME: security-templates -> R-REPO for security-templates (sosafe-security/security-templates)
+ENVIRONMENT: security-templates
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:54,990 - ERROR - 
+TIME: 2025-04-15 09:02:54
+OPERATION: Rule Update
+NAME: dast -> R-REPO for dast (sosafe-security/dast)
+ENVIRONMENT: dast
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:02:59,501 - ERROR - 
+TIME: 2025-04-15 09:02:59
+OPERATION: Rule Update
+NAME: dev-lib-sprint-kpi -> R-REPO for dev-lib-sprint-kpi (sosafe-experience-squads/dev-lib-sprint-kpi)
+ENVIRONMENT: dev-lib-sprint-kpi
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:04,074 - ERROR - 
+TIME: 2025-04-15 09:03:04
+OPERATION: Rule Update
+NAME: be-lib-http-logger -> R-REPO for be-lib-http-logger (sosafe-platform-engineering/be-lib-http-logger)
+ENVIRONMENT: be-lib-http-logger
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:08,661 - ERROR - 
+TIME: 2025-04-15 09:03:08
+OPERATION: Rule Update
+NAME: be-lib-event-schemas -> R-REPO for be-lib-event-schemas (sosafe-platform-engineering/be-lib-event-schemas)
+ENVIRONMENT: be-lib-event-schemas
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:13,152 - ERROR - 
+TIME: 2025-04-15 09:03:13
+OPERATION: Rule Update
+NAME: be-lib-health-check -> R-REPO for be-lib-health-check (sosafe-platform-engineering/be-lib-health-check)
+ENVIRONMENT: be-lib-health-check
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:17,670 - ERROR - 
+TIME: 2025-04-15 09:03:17
+OPERATION: Rule Update
+NAME: dev-poc-wheel-of-death -> R-REPO for dev-poc-wheel-of-death (sosafe-experience-squads/dev-poc-wheel-of-death)
+ENVIRONMENT: dev-poc-wheel-of-death
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:22,160 - ERROR - 
+TIME: 2025-04-15 09:03:22
+OPERATION: Rule Update
+NAME: be-chart-nodejs-microservice -> R-REPO for be-chart-nodejs-microservice (sosafe-platform-engineering/be-chart-nodejs-mic...)
+ENVIRONMENT: be-chart-nodejs-microservice
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:26,706 - ERROR - 
+TIME: 2025-04-15 09:03:26
+OPERATION: Rule Update
+NAME: be-rad -> R-REPO for be-rad (sosafe-experience-squads/be-rad)
+ENVIRONMENT: be-rad
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:31,190 - ERROR - 
+TIME: 2025-04-15 09:03:31
+OPERATION: Rule Update
+NAME: be-ms-quarantine -> R-REPO for be-ms-quarantine (sosafe-platform-engineering/be-ms-quarantine)
+ENVIRONMENT: be-ms-quarantine
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:35,714 - ERROR - 
+TIME: 2025-04-15 09:03:35
+OPERATION: Rule Update
+NAME: be-media-assets-add-metadata-lambda -> R-REPO for be-media-assets-add-metadata-lambda (sosafe-platform-engineering/be-media-assets-add...)
+ENVIRONMENT: be-media-assets-add-metadata-lambda
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:40,282 - ERROR - 
+TIME: 2025-04-15 09:03:40
+OPERATION: Rule Update
+NAME: ts-sofie -> R-REPO for ts-sofie (sosafe-experience-squads/ts-sofie)
+ENVIRONMENT: ts-sofie
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:44,832 - ERROR - 
+TIME: 2025-04-15 09:03:44
+OPERATION: Rule Update
+NAME: dev-poc-jira-automations -> R-REPO for dev-poc-jira-automations (sosafe-platform-engineering/dev-poc-jira-automa...)
+ENVIRONMENT: dev-poc-jira-automations
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:49,329 - ERROR - 
+TIME: 2025-04-15 09:03:49
+OPERATION: Rule Update
+NAME: be-lib-nodemailer-dkim-plugin -> R-REPO for be-lib-nodemailer-dkim-plugin (sosafe-platform-engineering/be-lib-nodemailer-d...)
+ENVIRONMENT: be-lib-nodemailer-dkim-plugin
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:53,846 - ERROR - 
+TIME: 2025-04-15 09:03:53
+OPERATION: Rule Update
+NAME: fe-lib-email-analyser -> R-REPO for fe-lib-email-analyser (sosafe-experience-squads/fe-lib-email-analyser)
+ENVIRONMENT: fe-lib-email-analyser
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:03:58,366 - ERROR - 
+TIME: 2025-04-15 09:03:58
+OPERATION: Rule Update
+NAME: be-ms-partner-external-api -> R-REPO for be-ms-partner-external-api (sosafe-experience-squads/be-ms-partner-external...)
+ENVIRONMENT: be-ms-partner-external-api
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:02,892 - ERROR - 
+TIME: 2025-04-15 09:04:02
+OPERATION: Rule Update
+NAME: be-ms-auth -> R-REPO for be-ms-auth (sosafe-experience-squads/be-ms-auth)
+ENVIRONMENT: be-ms-auth
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:07,412 - ERROR - 
+TIME: 2025-04-15 09:04:07
+OPERATION: Rule Update
+NAME: dev-ci-workflows -> R-REPO for dev-ci-workflows (sosafe-platform-engineering/dev-ci-workflows)
+ENVIRONMENT: dev-ci-workflows
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:12,030 - ERROR - 
+TIME: 2025-04-15 09:04:12
+OPERATION: Rule Update
+NAME: be-tpl-library -> R-REPO for be-tpl-library (sosafe-platform-engineering/be-tpl-library)
+ENVIRONMENT: be-tpl-library
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:16,541 - ERROR - 
+TIME: 2025-04-15 09:04:16
+OPERATION: Rule Update
+NAME: dev-lib-commit-convention -> R-REPO for dev-lib-commit-convention (sosafe-platform-engineering/dev-lib-commit-conv...)
+ENVIRONMENT: dev-lib-commit-convention
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:21,047 - ERROR - 
+TIME: 2025-04-15 09:04:21
+OPERATION: Rule Update
+NAME: be-ms-address-import -> R-REPO for be-ms-address-import (sosafe-experience-squads/be-ms-address-import)
+ENVIRONMENT: be-ms-address-import
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:25,546 - ERROR - 
+TIME: 2025-04-15 09:04:25
+OPERATION: Rule Update
+NAME: hackathlon-luam-app-b -> R-REPO for hackathlon-luam-app-b (sosafe-platform-engineering/hackathlon-luam-app-b)
+ENVIRONMENT: hackathlon-luam-app-b
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:30,153 - ERROR - 
+TIME: 2025-04-15 09:04:30
+OPERATION: Rule Update
+NAME: wpscan-automation-with-jira -> R-REPO for wpscan-automation-with-jira (sosafe-security/wpscan-automation-with-jira)
+ENVIRONMENT: wpscan-automation-with-jira
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:34,688 - ERROR - 
+TIME: 2025-04-15 09:04:34
+OPERATION: Rule Update
+NAME: cube.js -> R-REPO for cube.js (sosafe-data-science/cube.js)
+ENVIRONMENT: cube.js
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:39,257 - ERROR - 
+TIME: 2025-04-15 09:04:39
+OPERATION: Rule Update
+NAME: be-ms-sms-delivery-service -> R-REPO for be-ms-sms-delivery-service (sosafe-experience-squads/be-ms-sms-delivery-ser...)
+ENVIRONMENT: be-ms-sms-delivery-service
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:43,809 - ERROR - 
+TIME: 2025-04-15 09:04:43
+OPERATION: Rule Update
+NAME: fe-app-elearning -> R-REPO for fe-app-elearning (sosafe-experience-squads/fe-app-elearning)
+ENVIRONMENT: fe-app-elearning
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:48,354 - ERROR - 
+TIME: 2025-04-15 09:04:48
+OPERATION: Rule Update
+NAME: poc-infrastructure-test -> R-REPO for poc-infrastructure-test (sosafe-experience-squads/poc-infrastructure-test)
+ENVIRONMENT: poc-infrastructure-test
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:52,942 - ERROR - 
+TIME: 2025-04-15 09:04:52
+OPERATION: Rule Update
+NAME: dev-ci-action-glue-schema-publisher -> R-REPO for dev-ci-action-glue-schema-publisher (sosafe-platform-engineering/dev-ci-action-glue-...)
+ENVIRONMENT: dev-ci-action-glue-schema-publisher
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:04:57,478 - ERROR - 
+TIME: 2025-04-15 09:04:57
+OPERATION: Rule Update
+NAME: be-app-hrm-external-events-trigger-lambda -> R-REPO for be-app-hrm-external-events-trigger-lambda (sosafe-platform-engineering/be-app-hrm-external...)
+ENVIRONMENT: be-app-hrm-external-events-trigger-lambda
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:02,076 - ERROR - 
+TIME: 2025-04-15 09:05:02
+OPERATION: Rule Update
+NAME: dev-ci-action-batch-job-image-update -> R-REPO for dev-ci-action-batch-job-image-update (sosafe-platform-engineering/dev-ci-action-batch...)
+ENVIRONMENT: dev-ci-action-batch-job-image-update
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:06,644 - ERROR - 
+TIME: 2025-04-15 09:05:06
+OPERATION: Rule Update
+NAME: dev-app-event-bus-example -> R-REPO for dev-app-event-bus-example (sosafe-platform-engineering/dev-app-event-bus-e...)
+ENVIRONMENT: dev-app-event-bus-example
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:11,164 - ERROR - 
+TIME: 2025-04-15 09:05:11
+OPERATION: Rule Update
+NAME: fe-app-prb-outlook-legacy -> R-REPO for fe-app-prb-outlook-legacy (sosafe-experience-squads/fe-app-prb-outlook-legacy)
+ENVIRONMENT: fe-app-prb-outlook-legacy
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:15,720 - ERROR - 
+TIME: 2025-04-15 09:05:15
+OPERATION: Rule Update
+NAME: be-ms-feature-env-test -> R-REPO for be-ms-feature-env-test (sosafe-experience-squads/be-ms-feature-env-test)
+ENVIRONMENT: be-ms-feature-env-test
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:20,271 - ERROR - 
+TIME: 2025-04-15 09:05:20
+OPERATION: Rule Update
+NAME: fe-poc-uam -> R-REPO for fe-poc-uam (sosafe-platform-engineering/fe-poc-uam)
+ENVIRONMENT: fe-poc-uam
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:24,770 - ERROR - 
+TIME: 2025-04-15 09:05:24
+OPERATION: Rule Update
+NAME: be-media-assets-optimization-lambda -> R-REPO for be-media-assets-optimization-lambda (sosafe-platform-engineering/be-media-assets-opt...)
+ENVIRONMENT: be-media-assets-optimization-lambda
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:29,311 - ERROR - 
+TIME: 2025-04-15 09:05:29
+OPERATION: Rule Update
+NAME: dev-ci-base-images -> R-REPO for dev-ci-base-images (sosafe-platform-engineering/dev-ci-base-images)
+ENVIRONMENT: dev-ci-base-images
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:33,850 - ERROR - 
+TIME: 2025-04-15 09:05:33
+OPERATION: Rule Update
+NAME: poc-fe-isolated-module-federation -> R-REPO for poc-fe-isolated-module-federation (sosafe-experience-squads/poc-fe-isolated-module...)
+ENVIRONMENT: poc-fe-isolated-module-federation
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:38,457 - ERROR - 
+TIME: 2025-04-15 09:05:38
+OPERATION: Rule Update
+NAME: copy-of-dev-ci-kubernetes -> R-REPO for copy-of-dev-ci-kubernetes (sosafe-security/copy-of-dev-ci-kubernetes)
+ENVIRONMENT: copy-of-dev-ci-kubernetes
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:43,246 - ERROR - 
+TIME: 2025-04-15 09:05:43
+OPERATION: Rule Update
+NAME: be-lib-mail-client -> R-REPO for be-lib-mail-client (sosafe-platform-engineering/be-lib-mail-client)
+ENVIRONMENT: be-lib-mail-client
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:48,015 - ERROR - 
+TIME: 2025-04-15 09:05:48
+OPERATION: Rule Update
+NAME: sochatty-example -> R-REPO for sochatty-example (sosafe-platform-engineering/sochatty-example)
+ENVIRONMENT: sochatty-example
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:52,540 - ERROR - 
+TIME: 2025-04-15 09:05:52
+OPERATION: Rule Update
+NAME: dev-paragon-main -> R-REPO for dev-paragon-main (sosafe-experience-squads/dev-paragon-main)
+ENVIRONMENT: dev-paragon-main
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:05:57,135 - ERROR - 
+TIME: 2025-04-15 09:05:57
+OPERATION: Rule Update
+NAME: fe-mf-personalized-learning -> R-REPO for fe-mf-personalized-learning (sosafe-experience-squads/fe-mf-personalized-lea...)
+ENVIRONMENT: fe-mf-personalized-learning
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:01,742 - ERROR - 
+TIME: 2025-04-15 09:06:01
+OPERATION: Rule Update
+NAME: be-lib-nest-multipart -> R-REPO for be-lib-nest-multipart (sosafe-platform-engineering/be-lib-nest-multipart)
+ENVIRONMENT: be-lib-nest-multipart
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:06,333 - ERROR - 
+TIME: 2025-04-15 09:06:06
+OPERATION: Rule Update
+NAME: dev-poc-chrome-extension-paul-unicorn -> R-REPO for dev-poc-chrome-extension-paul-unicorn (sosafe-experience-squads/dev-poc-chrome-extensi...)
+ENVIRONMENT: dev-poc-chrome-extension-paul-unicorn
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:10,867 - ERROR - 
+TIME: 2025-04-15 09:06:10
+OPERATION: Rule Update
+NAME: fe-poc-learning-v2 -> R-REPO for fe-poc-learning-v2 (sosafe-experience-squads/fe-poc-learning-v2)
+ENVIRONMENT: fe-poc-learning-v2
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:15,408 - ERROR - 
+TIME: 2025-04-15 09:06:15
+OPERATION: Rule Update
+NAME: be-media-assets-update-job-state-lambda -> R-REPO for be-media-assets-update-job-state-lambda (sosafe-platform-engineering/be-media-assets-upd...)
+ENVIRONMENT: be-media-assets-update-job-state-lambda
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:19,961 - ERROR - 
+TIME: 2025-04-15 09:06:19
+OPERATION: Rule Update
+NAME: dev-ci-batch-code-update -> R-REPO for dev-ci-batch-code-update (sosafe-platform-engineering/dev-ci-batch-code-u...)
+ENVIRONMENT: dev-ci-batch-code-update
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:24,585 - ERROR - 
+TIME: 2025-04-15 09:06:24
+OPERATION: Rule Update
+NAME: hrm-poc -> R-REPO for hrm-poc (sosafe-platform-engineering/hrm-poc)
+ENVIRONMENT: hrm-poc
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:29,299 - ERROR - 
+TIME: 2025-04-15 09:06:29
+OPERATION: Rule Update
+NAME: dev-poc-react-email-templates -> R-REPO for dev-poc-react-email-templates (sosafe-experience-squads/dev-poc-react-email-te...)
+ENVIRONMENT: dev-poc-react-email-templates
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:33,861 - ERROR - 
+TIME: 2025-04-15 09:06:33
+OPERATION: Rule Update
+NAME: be-lib-tasks -> R-REPO for be-lib-tasks (sosafe-platform-engineering/be-lib-tasks)
+ENVIRONMENT: be-lib-tasks
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:38,444 - ERROR - 
+TIME: 2025-04-15 09:06:38
+OPERATION: Rule Update
+NAME: fe-tpl-library -> R-REPO for fe-tpl-library (sosafe-platform-engineering/fe-tpl-library)
+ENVIRONMENT: fe-tpl-library
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:43,003 - ERROR - 
+TIME: 2025-04-15 09:06:43
+OPERATION: Rule Update
+NAME: be-lib-api-prisma-schema -> R-REPO for be-lib-api-prisma-schema (sosafe-experience-squads/be-lib-api-prisma-schema)
+ENVIRONMENT: be-lib-api-prisma-schema
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:47,598 - ERROR - 
+TIME: 2025-04-15 09:06:47
+OPERATION: Rule Update
+NAME: dev-ci-action-lambda-execute -> R-REPO for dev-ci-action-lambda-execute (sosafe-platform-engineering/dev-ci-action-lambd...)
+ENVIRONMENT: dev-ci-action-lambda-execute
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:52,214 - ERROR - 
+TIME: 2025-04-15 09:06:52
+OPERATION: Rule Update
+NAME: metrics-reporting-tool -> R-REPO for metrics-reporting-tool (sosafe-security/metrics-reporting-tool)
+ENVIRONMENT: metrics-reporting-tool
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:06:56,879 - ERROR - 
+TIME: 2025-04-15 09:06:56
+OPERATION: Rule Update
+NAME: fe-app-check -> R-REPO for fe-app-check (sosafe-experience-squads/fe-app-check)
+ENVIRONMENT: fe-app-check
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:01,625 - ERROR - 
+TIME: 2025-04-15 09:07:01
+OPERATION: Rule Update
+NAME: be-poc-microsoft-dmi -> R-REPO for be-poc-microsoft-dmi (sosafe-platform-engineering/be-poc-microsoft-dmi)
+ENVIRONMENT: be-poc-microsoft-dmi
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:06,195 - ERROR - 
+TIME: 2025-04-15 09:07:06
+OPERATION: Rule Update
+NAME: be-chart-nodejs-single-instance-task -> R-REPO for be-chart-nodejs-single-instance-task (sosafe-platform-engineering/be-chart-nodejs-sin...)
+ENVIRONMENT: be-chart-nodejs-single-instance-task
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:10,731 - ERROR - 
+TIME: 2025-04-15 09:07:10
+OPERATION: Rule Update
+NAME: be-lib-utils -> R-REPO for be-lib-utils (sosafe-platform-engineering/be-lib-utils)
+ENVIRONMENT: be-lib-utils
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:15,290 - ERROR - 
+TIME: 2025-04-15 09:07:15
+OPERATION: Rule Update
+NAME: dev-poc-lingodev -> R-REPO for dev-poc-lingodev (sosafe-experience-squads/dev-poc-lingodev)
+ENVIRONMENT: dev-poc-lingodev
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:19,898 - ERROR - 
+TIME: 2025-04-15 09:07:19
+OPERATION: Rule Update
+NAME: performance-tests -> R-REPO for performance-tests (sosafe-platform-engineering/performance-tests)
+ENVIRONMENT: performance-tests
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:24,463 - ERROR - 
+TIME: 2025-04-15 09:07:24
+OPERATION: Rule Update
+NAME: be-lib-iam -> R-REPO for be-lib-iam (sosafe-platform-engineering/be-lib-iam)
+ENVIRONMENT: be-lib-iam
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:29,032 - ERROR - 
+TIME: 2025-04-15 09:07:29
+OPERATION: Rule Update
+NAME: hackathlon-luam-app-c -> R-REPO for hackathlon-luam-app-c (sosafe-platform-engineering/hackathlon-luam-app-c)
+ENVIRONMENT: hackathlon-luam-app-c
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:33,632 - ERROR - 
+TIME: 2025-04-15 09:07:33
+OPERATION: Rule Update
+NAME: hackathlon-luam-app-a -> R-REPO for hackathlon-luam-app-a (sosafe-platform-engineering/hackathlon-luam-app-a)
+ENVIRONMENT: hackathlon-luam-app-a
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:38,169 - ERROR - 
+TIME: 2025-04-15 09:07:38
+OPERATION: Rule Update
+NAME: AppSecIntegration -> R-REPO for AppSecIntegration (sosafe-security/AppSecIntegration)
+ENVIRONMENT: AppSecIntegration
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:42,723 - ERROR - 
+TIME: 2025-04-15 09:07:42
+OPERATION: Rule Update
+NAME: dev-ci-action-eks-deployment-checks -> R-REPO for dev-ci-action-eks-deployment-checks (sosafe-platform-engineering/dev-ci-action-eks-d...)
+ENVIRONMENT: dev-ci-action-eks-deployment-checks
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:47,354 - ERROR - 
+TIME: 2025-04-15 09:07:47
+OPERATION: Rule Update
+NAME: github-backup -> R-REPO for github-backup (sosafe-security/github-backup)
+ENVIRONMENT: github-backup
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:51,895 - ERROR - 
+TIME: 2025-04-15 09:07:51
+OPERATION: Rule Update
+NAME: be-lib-http-request -> R-REPO for be-lib-http-request (sosafe-platform-engineering/be-lib-http-request)
+ENVIRONMENT: be-lib-http-request
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:07:56,444 - ERROR - 
+TIME: 2025-04-15 09:07:56
+OPERATION: Rule Update
+NAME: sofie-shield -> R-REPO for sofie-shield (sosafe-experience-squads/sofie-shield)
+ENVIRONMENT: sofie-shield
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:08:00,974 - ERROR - 
+TIME: 2025-04-15 09:08:00
+OPERATION: Rule Update
+NAME: be-lib-s3 -> R-REPO for be-lib-s3 (sosafe-platform-engineering/be-lib-s3)
+ENVIRONMENT: be-lib-s3
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:08:05,503 - ERROR - 
+TIME: 2025-04-15 09:08:05
+OPERATION: Rule Update
+NAME: poc-fe-phishing-game -> R-REPO for poc-fe-phishing-game (sosafe-experience-squads/poc-fe-phishing-game)
+ENVIRONMENT: poc-fe-phishing-game
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:08:10,044 - ERROR - 
+TIME: 2025-04-15 09:08:10
+OPERATION: Rule Update
+NAME: fe-poc-ms-spam-reporting -> R-REPO for fe-poc-ms-spam-reporting (sosafe-experience-squads/fe-poc-ms-spam-reporting)
+ENVIRONMENT: fe-poc-ms-spam-reporting
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:08:14,578 - ERROR - 
+TIME: 2025-04-15 09:08:14
+OPERATION: Rule Update
+NAME: dev-ci-workflow-jobs -> R-REPO for dev-ci-workflow-jobs (sosafe-experience-squads/dev-ci-workflow-jobs)
+ENVIRONMENT: dev-ci-workflow-jobs
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:08:19,122 - ERROR - 
+TIME: 2025-04-15 09:08:19
+OPERATION: Rule Update
+NAME: be-ms-cyberhero -> R-REPO for be-ms-cyberhero (sosafe-platform-engineering/be-ms-cyberhero)
+ENVIRONMENT: be-ms-cyberhero
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-15 09:08:23,681 - ERROR - 
+TIME: 2025-04-15 09:08:23
+OPERATION: Rule Update
+NAME: be-ms-iam -> R-REPO for be-ms-iam (sosafe-platform-engineering/be-ms-iam)
+ENVIRONMENT: be-ms-iam
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:15,795 - ERROR - 
+TIME: 2025-04-29 12:46:15
+OPERATION: Rule Creation
+NAME: vce-backoffice-glif-rita -> R-REPO for vce-backoffice-glif-rita (https://dev.azure.com/VolvoGroup-MASDCL/VCEBusI...)
+ENVIRONMENT: GLIF
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:21,523 - ERROR - 
+TIME: 2025-04-29 12:46:21
+OPERATION: Rule Creation
+NAME: bpsb-87231-businesspartners -> R-REPO for bpsb-87231-businesspartners (https://github.com/VolvoGroup-Internal/bpsb-872...)
+ENVIRONMENT: BPSB
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:27,299 - ERROR - 
+TIME: 2025-04-29 12:46:27
+OPERATION: Rule Creation
+NAME: EasyConnect.WiFi -> R-REPO for EasyConnect.WiFi (https://dev.azure.com/volvogroup/Penta-EasyConn...)
+ENVIRONMENT: EasyConnect
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:33,063 - ERROR - 
+TIME: 2025-04-29 12:46:33
+OPERATION: Rule Creation
+NAME: RMCE-BackEnd -> R-REPO for RMCE-BackEnd (https://dev.azure.com/VolvoGroup-DVP/PictoandAn...)
+ENVIRONMENT: PICTO
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:38,691 - ERROR - 
+TIME: 2025-04-29 12:46:38
+OPERATION: Rule Creation
+NAME: EaaS -> R-REPO for EaaS (https://dev.azure.com/VolvoGroup-MASDCL/VFS-Eaa...)
+ENVIRONMENT: EaaS
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:44,267 - ERROR - 
+TIME: 2025-04-29 12:46:44
+OPERATION: Rule Creation
+NAME: praudit -> R-REPO for praudit (https://github.com/VolvoGroup-Internal/praudit)
+ENVIRONMENT: PrAudit
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:49,969 - ERROR - 
+TIME: 2025-04-29 12:46:49
+OPERATION: Rule Creation
+NAME: demo-130235-domainlayer-dotnet -> R-REPO for demo-130235-domainlayer-dotnet (https://github.com/VolvoGroup-Internal/demo-130...)
+ENVIRONMENT: DeMO
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 12:46:56,673 - ERROR - 
+TIME: 2025-04-29 12:46:56
+OPERATION: Rule Creation Failed
+NAME: volvopenta-117532-endcustomerservices-proxy -> Rule for repository for volvopenta-117532-endcustomerservices-proxy
+ENVIRONMENT: VolvoPentaConnect
+ERROR: Failed after 5 attempts. Last error: 404 Not Found
+--------------------------------------------------------------------------------
+
+2025-04-29 12:47:03,313 - ERROR - 
+TIME: 2025-04-29 12:47:03
+OPERATION: Rule Creation Failed
+NAME: ACTIF_ActifLigne -> Rule for repository for ACTIF_ActifLigne
+ENVIRONMENT: ACTIF
+ERROR: Failed after 5 attempts. Last error: 404 Not Found
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:49,110 - ERROR - 
+TIME: 2025-04-29 12:59:49
+OPERATION: Rule Update
+NAME: vce-backoffice-glif-rita -> R-REPO for vce-backoffice-glif-rita (https://dev.azure.com/VolvoGroup-MASDCL/VCEBusI...)
+ENVIRONMENT: GLIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:50,793 - ERROR - 
+TIME: 2025-04-29 12:59:50
+OPERATION: Rule Update
+NAME: bpsb-87231-businesspartners -> R-REPO for bpsb-87231-businesspartners (https://github.com/VolvoGroup-Internal/bpsb-872...)
+ENVIRONMENT: BPSB
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:52,617 - ERROR - 
+TIME: 2025-04-29 12:59:52
+OPERATION: Rule Update
+NAME: EasyConnect.WiFi -> R-REPO for EasyConnect.WiFi (https://dev.azure.com/volvogroup/Penta-EasyConn...)
+ENVIRONMENT: EasyConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:54,310 - ERROR - 
+TIME: 2025-04-29 12:59:54
+OPERATION: Rule Update
+NAME: RMCE-BackEnd -> R-REPO for RMCE-BackEnd (https://dev.azure.com/VolvoGroup-DVP/PictoandAn...)
+ENVIRONMENT: PICTO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:55,971 - ERROR - 
+TIME: 2025-04-29 12:59:55
+OPERATION: Rule Update
+NAME: EaaS -> R-REPO for EaaS (https://dev.azure.com/VolvoGroup-MASDCL/VFS-Eaa...)
+ENVIRONMENT: EaaS
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:57,646 - ERROR - 
+TIME: 2025-04-29 12:59:57
+OPERATION: Rule Update
+NAME: praudit -> R-REPO for praudit (https://github.com/VolvoGroup-Internal/praudit)
+ENVIRONMENT: PrAudit
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 12:59:59,293 - ERROR - 
+TIME: 2025-04-29 12:59:59
+OPERATION: Rule Update
+NAME: demo-130235-domainlayer-dotnet -> R-REPO for demo-130235-domainlayer-dotnet (https://github.com/VolvoGroup-Internal/demo-130...)
+ENVIRONMENT: DeMO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:00:01,008 - ERROR - 
+TIME: 2025-04-29 13:00:01
+OPERATION: Rule Creation
+NAME: volvopenta-117532-endcustomerservices-proxy -> R-REPO for volvopenta-117532-endcustomerservices-proxy (https://github.com/VolvoGroup-Internal/volvopen...)
+ENVIRONMENT: VolvoPentaConnect
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 13:00:03,267 - ERROR - 
+TIME: 2025-04-29 13:00:03
+OPERATION: Rule Creation
+NAME: ACTIF_ActifLigne -> R-REPO for ACTIF_ActifLigne (https://dev.azure.com/VolvoGroup-PRD/FrManufact...)
+ENVIRONMENT: ACTIF
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:04,109 - ERROR - 
+TIME: 2025-04-29 13:34:04
+OPERATION: Rule Update
+NAME: vce-backoffice-glif-rita -> R-REPO for vce-backoffice-glif-rita (https://dev.azure.com/VolvoGroup-MASDCL/VCEBusI...)
+ENVIRONMENT: GLIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:06,067 - ERROR - 
+TIME: 2025-04-29 13:34:06
+OPERATION: Rule Update
+NAME: bpsb-87231-businesspartners -> R-REPO for bpsb-87231-businesspartners (https://github.com/VolvoGroup-Internal/bpsb-872...)
+ENVIRONMENT: BPSB
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:08,056 - ERROR - 
+TIME: 2025-04-29 13:34:08
+OPERATION: Rule Update
+NAME: EasyConnect.WiFi -> R-REPO for EasyConnect.WiFi (https://dev.azure.com/volvogroup/Penta-EasyConn...)
+ENVIRONMENT: EasyConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:10,003 - ERROR - 
+TIME: 2025-04-29 13:34:10
+OPERATION: Rule Update
+NAME: RMCE-BackEnd -> R-REPO for RMCE-BackEnd (https://dev.azure.com/VolvoGroup-DVP/PictoandAn...)
+ENVIRONMENT: PICTO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:11,961 - ERROR - 
+TIME: 2025-04-29 13:34:11
+OPERATION: Rule Update
+NAME: EaaS -> R-REPO for EaaS (https://dev.azure.com/VolvoGroup-MASDCL/VFS-Eaa...)
+ENVIRONMENT: EaaS
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:13,953 - ERROR - 
+TIME: 2025-04-29 13:34:13
+OPERATION: Rule Update
+NAME: praudit -> R-REPO for praudit (https://github.com/VolvoGroup-Internal/praudit)
+ENVIRONMENT: PrAudit
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:15,905 - ERROR - 
+TIME: 2025-04-29 13:34:15
+OPERATION: Rule Update
+NAME: demo-130235-domainlayer-dotnet -> R-REPO for demo-130235-domainlayer-dotnet (https://github.com/VolvoGroup-Internal/demo-130...)
+ENVIRONMENT: DeMO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:17,930 - ERROR - 
+TIME: 2025-04-29 13:34:17
+OPERATION: Rule Update
+NAME: volvopenta-117532-endcustomerservices-proxy -> R-REPO for volvopenta-117532-endcustomerservices-proxy (https://github.com/VolvoGroup-Internal/volvopen...)
+ENVIRONMENT: VolvoPentaConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:34:19,890 - ERROR - 
+TIME: 2025-04-29 13:34:19
+OPERATION: Rule Update
+NAME: ACTIF_ActifLigne -> R-REPO for ACTIF_ActifLigne (https://dev.azure.com/VolvoGroup-PRD/FrManufact...)
+ENVIRONMENT: ACTIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:00,023 - ERROR - 
+TIME: 2025-04-29 13:47:00
+OPERATION: Rule Update
+NAME: vce-backoffice-glif-rita -> R-REPO for vce-backoffice-glif-rita (https://dev.azure.com/VolvoGroup-MASDCL/VCEBusI...)
+ENVIRONMENT: GLIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:01,932 - ERROR - 
+TIME: 2025-04-29 13:47:01
+OPERATION: Rule Update
+NAME: bpsb-87231-businesspartners -> R-REPO for bpsb-87231-businesspartners (https://github.com/VolvoGroup-Internal/bpsb-872...)
+ENVIRONMENT: BPSB
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:04,168 - ERROR - 
+TIME: 2025-04-29 13:47:04
+OPERATION: Rule Update
+NAME: EasyConnect.WiFi -> R-REPO for EasyConnect.WiFi (https://dev.azure.com/volvogroup/Penta-EasyConn...)
+ENVIRONMENT: EasyConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:06,318 - ERROR - 
+TIME: 2025-04-29 13:47:06
+OPERATION: Rule Update
+NAME: RMCE-BackEnd -> R-REPO for RMCE-BackEnd (https://dev.azure.com/VolvoGroup-DVP/PictoandAn...)
+ENVIRONMENT: PICTO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:08,321 - ERROR - 
+TIME: 2025-04-29 13:47:08
+OPERATION: Rule Update
+NAME: EaaS -> R-REPO for EaaS (https://dev.azure.com/VolvoGroup-MASDCL/VFS-Eaa...)
+ENVIRONMENT: EaaS
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:10,295 - ERROR - 
+TIME: 2025-04-29 13:47:10
+OPERATION: Rule Update
+NAME: praudit -> R-REPO for praudit (https://github.com/VolvoGroup-Internal/praudit)
+ENVIRONMENT: PrAudit
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:12,202 - ERROR - 
+TIME: 2025-04-29 13:47:12
+OPERATION: Rule Update
+NAME: demo-130235-domainlayer-dotnet -> R-REPO for demo-130235-domainlayer-dotnet (https://github.com/VolvoGroup-Internal/demo-130...)
+ENVIRONMENT: DeMO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:14,137 - ERROR - 
+TIME: 2025-04-29 13:47:14
+OPERATION: Rule Update
+NAME: volvopenta-117532-endcustomerservices-proxy -> R-REPO for volvopenta-117532-endcustomerservices-proxy (https://github.com/VolvoGroup-Internal/volvopen...)
+ENVIRONMENT: VolvoPentaConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 13:47:16,124 - ERROR - 
+TIME: 2025-04-29 13:47:16
+OPERATION: Rule Update
+NAME: ACTIF_ActifLigne -> R-REPO for ACTIF_ActifLigne (https://dev.azure.com/VolvoGroup-PRD/FrManufact...)
+ENVIRONMENT: ACTIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:10,396 - ERROR - 
+TIME: 2025-04-29 14:08:10
+OPERATION: Rule Update
+NAME: vce-backoffice-glif-rita -> R-REPO for vce-backoffice-glif-rita (https://dev.azure.com/VolvoGroup-MASDCL/VCEBusI...)
+ENVIRONMENT: GLIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:12,467 - ERROR - 
+TIME: 2025-04-29 14:08:12
+OPERATION: Rule Update
+NAME: bpsb-87231-businesspartners -> R-REPO for bpsb-87231-businesspartners (https://github.com/VolvoGroup-Internal/bpsb-872...)
+ENVIRONMENT: BPSB
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:14,528 - ERROR - 
+TIME: 2025-04-29 14:08:14
+OPERATION: Rule Update
+NAME: EasyConnect.WiFi -> R-REPO for EasyConnect.WiFi (https://dev.azure.com/volvogroup/Penta-EasyConn...)
+ENVIRONMENT: EasyConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:16,602 - ERROR - 
+TIME: 2025-04-29 14:08:16
+OPERATION: Rule Update
+NAME: RMCE-BackEnd -> R-REPO for RMCE-BackEnd (https://dev.azure.com/VolvoGroup-DVP/PictoandAn...)
+ENVIRONMENT: PICTO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:18,716 - ERROR - 
+TIME: 2025-04-29 14:08:18
+OPERATION: Rule Update
+NAME: EaaS -> R-REPO for EaaS (https://dev.azure.com/VolvoGroup-MASDCL/VFS-Eaa...)
+ENVIRONMENT: EaaS
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:20,761 - ERROR - 
+TIME: 2025-04-29 14:08:20
+OPERATION: Rule Update
+NAME: praudit -> R-REPO for praudit (https://github.com/VolvoGroup-Internal/praudit)
+ENVIRONMENT: PrAudit
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:22,791 - ERROR - 
+TIME: 2025-04-29 14:08:22
+OPERATION: Rule Update
+NAME: demo-130235-domainlayer-dotnet -> R-REPO for demo-130235-domainlayer-dotnet (https://github.com/VolvoGroup-Internal/demo-130...)
+ENVIRONMENT: DeMO
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:24,798 - ERROR - 
+TIME: 2025-04-29 14:08:24
+OPERATION: Rule Update
+NAME: volvopenta-117532-endcustomerservices-proxy -> R-REPO for volvopenta-117532-endcustomerservices-proxy (https://github.com/VolvoGroup-Internal/volvopen...)
+ENVIRONMENT: VolvoPentaConnect
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:26,832 - ERROR - 
+TIME: 2025-04-29 14:08:26
+OPERATION: Rule Update
+NAME: ACTIF_ActifLigne -> R-REPO for ACTIF_ActifLigne (https://dev.azure.com/VolvoGroup-PRD/FrManufact...)
+ENVIRONMENT: ACTIF
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-04-29 14:08:43,074 - ERROR - 
+TIME: 2025-04-29 14:08:43
+OPERATION: Team Creation
+NAME: PrAudit
+ENVIRONMENT: N/A
+ERROR: Failed to create team: 409 Client Error: Conflict for url: https://api.poc1.appsecphx.io/v1/teams
+DETAILS: Response: b'{"error":"Team name must be unique in the organization","errorCode":0,"details":{}}'
+Payload: {"name": "PrAudit", "type": "GENERAL"}
+--------------------------------------------------------------------------------
+
+2025-05-10 09:59:32,584 - ERROR - 
+TIME: 2025-05-10 09:59:32
+OPERATION: Rule Creation
+NAME: social-tools -> R-TAG for social-tools (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 09:59:32,756 - ERROR - 
+TIME: 2025-05-10 09:59:32
+OPERATION: Rule Creation
+NAME: social-tools -> R-TAG for social-tools (SystemName:social-tools)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 09:59:32,942 - ERROR - 
+TIME: 2025-05-10 09:59:32
+OPERATION: Rule Creation
+NAME: social-tools -> R-SEARCH for social-tools (social-tools)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:05:52,721 - ERROR - 
+TIME: 2025-05-10 10:05:52
+OPERATION: Rule Creation
+NAME: social-tools -> MC-R-social-tools-KEY:user-messaging-gateway.alb
+ENVIRONMENT: Production
+ERROR: Error creating rule: HTTPSConnectionPool(host='api.demo.appsecphx.io', port=443): Read timed out. (read timeout=None)
+Response content: 1 rule(s) added.
+--------------------------------------------------------------------------------
+
+2025-05-10 10:20:59,736 - ERROR - 
+TIME: 2025-05-10 10:20:59
+OPERATION: Rule Creation
+NAME: social-commerce-ai -> R-TAG for social-commerce-ai (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:20:59,943 - ERROR - 
+TIME: 2025-05-10 10:20:59
+OPERATION: Rule Creation
+NAME: social-commerce-ai -> R-TAG for social-commerce-ai (SystemName:social-commerce-ai)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:21:00,136 - ERROR - 
+TIME: 2025-05-10 10:21:00
+OPERATION: Rule Creation
+NAME: social-commerce-ai -> R-SEARCH for social-commerce-ai (social-commerce-ai)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:24:42,621 - ERROR - 
+TIME: 2025-05-10 10:24:42
+OPERATION: Rule Creation
+NAME: apiedge -> R-TAG for apiedge (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:24:42,812 - ERROR - 
+TIME: 2025-05-10 10:24:42
+OPERATION: Rule Creation
+NAME: apiedge -> R-TAG for apiedge (SystemName:apiedge)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:25:14,570 - ERROR - 
+TIME: 2025-05-10 10:25:14
+OPERATION: Rule Creation
+NAME: apiedge -> R-SEARCH for apiedge (apiedge)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:25:21,417 - ERROR - 
+TIME: 2025-05-10 10:25:21
+OPERATION: Rule Update
+NAME: devex-tools -> R-TAG for devex-tools (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:25:21,933 - ERROR - 
+TIME: 2025-05-10 10:25:21
+OPERATION: Rule Update
+NAME: devex-tools -> R-TAG for devex-tools (SystemName:devex-tools)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:25:24,485 - ERROR - 
+TIME: 2025-05-10 10:25:24
+OPERATION: Rule Update
+NAME: devex-tools -> R-SEARCH for devex-tools (devex-tools)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:18,716 - ERROR - 
+TIME: 2025-05-10 10:30:18
+OPERATION: Rule Update
+NAME: convsubmission -> R-TAG for convsubmission (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:19,016 - ERROR - 
+TIME: 2025-05-10 10:30:19
+OPERATION: Rule Update
+NAME: convsubmission -> R-TAG for convsubmission (SystemName:convsubmission)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:19,381 - ERROR - 
+TIME: 2025-05-10 10:30:19
+OPERATION: Rule Update
+NAME: convsubmission -> R-SEARCH for convsubmission (convsubmission)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:35,827 - ERROR - 
+TIME: 2025-05-10 10:30:35
+OPERATION: Rule Update
+NAME: connections -> R-TAG for connections (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:36,095 - ERROR - 
+TIME: 2025-05-10 10:30:36
+OPERATION: Rule Update
+NAME: connections -> R-TAG for connections (SystemName:connections)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:36,409 - ERROR - 
+TIME: 2025-05-10 10:30:36
+OPERATION: Rule Update
+NAME: connections -> R-SEARCH for connections (connections)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:47,462 - ERROR - 
+TIME: 2025-05-10 10:30:47
+OPERATION: Rule Update
+NAME: portal-alerts -> R-TAG for portal-alerts (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:47,646 - ERROR - 
+TIME: 2025-05-10 10:30:47
+OPERATION: Rule Update
+NAME: portal-alerts -> R-TAG for portal-alerts (SystemName:portal-alerts)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:30:47,826 - ERROR - 
+TIME: 2025-05-10 10:30:47
+OPERATION: Rule Update
+NAME: portal-alerts -> R-SEARCH for portal-alerts (portal-alerts)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:10,063 - ERROR - 
+TIME: 2025-05-10 10:31:10
+OPERATION: Rule Creation
+NAME: social-commerce-metrics -> R-TAG for social-commerce-metrics (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:10,247 - ERROR - 
+TIME: 2025-05-10 10:31:10
+OPERATION: Rule Creation
+NAME: social-commerce-metrics -> R-TAG for social-commerce-metrics (SystemName:social-commerce-metrics)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:10,463 - ERROR - 
+TIME: 2025-05-10 10:31:10
+OPERATION: Rule Creation
+NAME: social-commerce-metrics -> R-SEARCH for social-commerce-metrics (social-commerce-metrics)
+ENVIRONMENT: Production
+ERROR: Rule created successfully
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:15,123 - ERROR - 
+TIME: 2025-05-10 10:31:15
+OPERATION: Rule Update
+NAME: ucdm -> R-TAG for ucdm (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:15,422 - ERROR - 
+TIME: 2025-05-10 10:31:15
+OPERATION: Rule Update
+NAME: ucdm -> R-TAG for ucdm (SystemName:ucdm)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:15,728 - ERROR - 
+TIME: 2025-05-10 10:31:15
+OPERATION: Rule Update
+NAME: ucdm -> R-SEARCH for ucdm (ucdm)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:22,401 - ERROR - 
+TIME: 2025-05-10 10:31:22
+OPERATION: Rule Update
+NAME: goldrush -> R-TAG for goldrush (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:22,640 - ERROR - 
+TIME: 2025-05-10 10:31:22
+OPERATION: Rule Update
+NAME: goldrush -> R-TAG for goldrush (SystemName:goldrush)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:22,866 - ERROR - 
+TIME: 2025-05-10 10:31:22
+OPERATION: Rule Update
+NAME: goldrush -> R-SEARCH for goldrush (goldrush)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:27,973 - ERROR - 
+TIME: 2025-05-10 10:31:27
+OPERATION: Rule Update
+NAME: reporting -> R-TAG for reporting (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:28,208 - ERROR - 
+TIME: 2025-05-10 10:31:28
+OPERATION: Rule Update
+NAME: reporting -> R-TAG for reporting (SystemName:reporting)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:28,390 - ERROR - 
+TIME: 2025-05-10 10:31:28
+OPERATION: Rule Update
+NAME: reporting -> R-SEARCH for reporting (reporting)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:32,905 - ERROR - 
+TIME: 2025-05-10 10:31:32
+OPERATION: Rule Update
+NAME: sit-apps -> R-TAG for sit-apps (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:33,073 - ERROR - 
+TIME: 2025-05-10 10:31:33
+OPERATION: Rule Update
+NAME: sit-apps -> R-TAG for sit-apps (SystemName:sit-apps)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:33,223 - ERROR - 
+TIME: 2025-05-10 10:31:33
+OPERATION: Rule Update
+NAME: sit-apps -> R-SEARCH for sit-apps (sit-apps)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:44,928 - ERROR - 
+TIME: 2025-05-10 10:31:44
+OPERATION: Rule Update
+NAME: insights-dashboards -> R-TAG for insights-dashboards (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:45,173 - ERROR - 
+TIME: 2025-05-10 10:31:45
+OPERATION: Rule Update
+NAME: insights-dashboards -> R-TAG for insights-dashboards (SystemName:insights-dashboards)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:45,382 - ERROR - 
+TIME: 2025-05-10 10:31:45
+OPERATION: Rule Update
+NAME: insights-dashboards -> R-SEARCH for insights-dashboards (insights-dashboards)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:52,789 - ERROR - 
+TIME: 2025-05-10 10:31:52
+OPERATION: Rule Update
+NAME: visual-galleries -> R-TAG for visual-galleries (Environment:Production)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:52,961 - ERROR - 
+TIME: 2025-05-10 10:31:52
+OPERATION: Rule Update
+NAME: visual-galleries -> R-TAG for visual-galleries (SystemName:visual-galleries)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+
+2025-05-10 10:31:53,168 - ERROR - 
+TIME: 2025-05-10 10:31:53
+OPERATION: Rule Update
+NAME: visual-galleries -> R-SEARCH for visual-galleries (visual-galleries)
+ENVIRONMENT: Production
+ERROR: Rule already exists
+--------------------------------------------------------------------------------
+

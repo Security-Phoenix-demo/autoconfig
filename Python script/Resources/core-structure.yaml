@@ -14,6 +14,12 @@ DeploymentGroups:
     Responsable: frankadm@admin.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
     Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
     Deployment_set: Service1
+    Ticketing: #add ticketing information
+    - TIntegrationName: Jira-testphx
+      Backlog: demoteam2
+    Messaging: #add messaging information
+    - MIntegrationName: Slack-phx
+      Channel: int-tests
     Components:
       - ComponentName: product106-repo101 #name of the component 
         Status: Production #Tag Optional
@@ -125,6 +131,13 @@ DeploymentGroups:
         Domain: Security  #domain = component or application can be used to group by bysiness unit
         SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
         AutomaticSecurityReview: false #optional
+        Deployment_set: Service1 #add deployment set information
+        Ticketing: #add ticketing information
+        - TIntegrationName: Jira-testphx
+          Backlog: demoteam2
+        Messaging: #add messaging information
+        - MIntegrationName: Slack-phx
+          Channel: int-tests
       - ComponentName: product105repo2
         Status: Production
         Type: Release

@@ -5,7 +5,7 @@ import time
 import Levenshtein
 import random
 from multipledispatch import dispatch
-from providers.Utils import group_repos_by_subdomain, calculate_criticality
+from providers.Utils import group_repos_by_subdomain, calculate_criticality, extract_user_name_from_email, validate_user_role
 import logging
 import datetime
 
@@ -41,7 +41,8 @@ ERROR: {error_msg}
     
     logging.error(error_entry)
 
-SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
+AUTOLINK_DEPLOYMENT_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
+SERVICE_LOOKUP_SIMILARITY_THRESHOLD = 0.99 # Levenshtein ratio for comparing service name with existing services, in case service was not found by exact match
 ASSET_NAME_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
 ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with similar name that will trigger component creation
 
@@ -146,7 +147,7 @@ def create_environment(environment, headers):
         )
         print(f"└─ Error: {error_msg}")
         if DEBUG:
-            print(f"└─ Response content: {response.content}")
+            print(f"└─ Response content: {error_details}")
 
 def update_environment(environment, existing_environment, headers):
     payload = {}
@@ -253,8 +254,10 @@ def add_environment_services(repos, subdomains, environments, application_enviro
     for environment in environments:
         env_name = environment['Name']
         env_id = get_environment_id(application_environments, env_name)
-
-        print(f"[Services] for {env_name}")
+        if not env_id:
+            print(f"[Services] Environment {env_name} doesn't have ID! Skipping service and rule creation")
+            continue
+        print(f"[Services] for {env_name}:{env_id}")
 
         if environment['Services']:
             for service in environment['Services']:
@@ -262,16 +265,16 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                 service_name = service['Service']
                 
                 # First verify if service exists with thorough check
-                exists, service_id = verify_service_exists(env_name, service_name, headers)
+                exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
                 
                 if not exists:
                     print(f" > Service {service_name} does not exist, attempting to create...")
                     creation_success = False
                     try:
                         if team_name:
-                            creation_success = add_service(env_name, service, service['Tier'], team_name, headers)
+                            creation_success = add_service(env_name, env_id, service, service['Tier'], team_name, headers)
                         else:
-                            creation_success = add_service(env_name, service, service['Tier'], headers)
+                            creation_success = add_service(env_name, env_id, service, service['Tier'], headers)
                     except NotImplementedError as e:
                         print(f"Error adding service {service_name} for environment {env_name}: {e}")
                         continue
@@ -281,7 +284,7 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                         continue
                         
                     # Re-verify after creation
-                    exists, service_id = verify_service_exists(env_name, service_name, headers)
+                    exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
                     if not exists:
                         print(f" ! Service {service_name} creation verified failed, skipping rule creation")
                         continue
@@ -290,7 +293,7 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                 
                 print(f" > Service {service_name} verified, updating rules...")
                 # Always update rules if service exists and is verified
-                add_service_rule_batch(environment, service, headers)
+                add_service_rule_batch(application_environments, environment, service, service_id, headers)
                 time.sleep(1)  # Add small delay between operations
 
 # AddContainerRule Function
@@ -309,12 +312,15 @@ def add_container_rule(image, subdomain, environment_name, access_token):
         "rules": rules
     }
 
-def add_service_rule_batch(environment, service, headers):
+def add_service_rule_batch(application_environments, environment, service, service_id, headers):
     serviceName = service['Service']
     environmentName = environment['Name']
-
+    env_id = get_environment_id(application_environments, environmentName)
     # First verify that the service exists and get its ID
-    exists, service_id = verify_service_exists(environmentName, serviceName, headers)
+    if not service_id:
+        exists, service_id = verify_service_exists(environmentName, env_id, serviceName, headers)
+    else:
+        exists = True
     
     if not exists:
         print(f" ! Service {serviceName} not found, cannot create rules")
@@ -342,8 +348,18 @@ def add_service_rule_batch(environment, service, headers):
                     if delete_response.status_code == 200:
                         print(f" - Deleted existing rule for {serviceName}")
     except requests.exceptions.RequestException as e:
-        print(f"Warning: Could not clean up existing rules: {e}")
-
+        error_msg = f"Failed cleaning existing rules: {str(e)}"
+        error_details = f'Response: {getattr(response, "content", "No response content")}'
+        log_error(
+            'Existing Rules Cleanup',
+            serviceName,
+            environmentName,
+            error_msg,
+            error_details
+        )
+        print(f"└─ Error: {error_msg}")
+        if DEBUG:
+            print(f"└─ Response content: {error_details}")
     # Now proceed with creating new rules
     success = True
 
@@ -397,17 +413,17 @@ def add_service_rule_batch(environment, service, headers):
                 success = False
 
     # Handle other rules
-    for rule_type, rule_value in [
-        ('Tag', service.get('Tag')),
-        ('SearchName', service.get('SearchName')),
-        ('Fqdn', service.get('Fqdn')),
-        ('Netbios', service.get('Netbios')),
-        ('OsNames', service.get('OsNames')),
-        ('Hostnames', service.get('Hostnames')),
-        ('ProviderAccountId', service.get('ProviderAccountId')),
-        ('ProviderAccountName', service.get('ProviderAccountName')),
-        ('ResourceGroup', service.get('ResourceGroup')),
-        ('AssetType', service.get('AssetType'))
+    for rule_type, rule_key, rule_value in [
+        ('Tag', 'tags', service.get('Tag')),
+        ('SearchName', 'keyLike', service.get('SearchName')),
+        ('Fqdn', 'fqdn', service.get('Fqdn')),
+        ('Netbios', 'netbios', service.get('Netbios')),
+        ('OsNames', 'osNames', service.get('OsNames')),
+        ('Hostnames', 'hostnames', service.get('Hostnames')),
+        ('ProviderAccountId', 'providerAccountId', service.get('ProviderAccountId')),
+        ('ProviderAccountName', 'providerAccountName', service.get('ProviderAccountName')),
+        ('ResourceGroup', 'resourceGroup', service.get('ResourceGroup')),
+        ('AssetType', 'assetType', service.get('AssetType'))
     ]:
         if rule_value:
             try:
@@ -444,7 +460,7 @@ def add_service_rule_batch(environment, service, headers):
                     rule_result = create_component_rule(
                         environmentName, 
                         serviceName, 
-                        rule_type, 
+                        rule_key, 
                         rule_value, 
                         f"Rule for {rule_type} for {serviceName}", 
                         headers
@@ -460,7 +476,15 @@ def add_service_rule_batch(environment, service, headers):
             try:
                 create_multicondition_service_rules(environmentName, serviceName, service.get(rule_type), headers)
             except Exception as e:
-                print(f"Error creating multicondition rule: {e}")
+                print(f"  └─ Error creating multicondition rule: {e}")
+                error_msg = f"Failed to create multicondition rule for service: {str(e)}"
+                log_error(
+                    "Service Rule Creation",
+                    serviceName,
+                    environmentName,
+                    error_msg,
+                    f" Multicondition rule info from {rule_type} is {service.get(rule_type)}"
+                )
                 success = False
 
     return success
@@ -993,6 +1017,18 @@ def update_component(application, component, existing_component, headers):
             print(f"└─ Error: {error_msg}")
             if DEBUG:
                 print(f"└─ Response content: {response.content}")
+    
+    try:
+        create_component_rules(application['AppName'], component, headers)
+    except Exception as e:
+        error_msg = f"Failed to create component rules: {str(e)}"
+        log_error(
+            'Component Rules Creation',
+            f"{application['AppName']} -> {component['ComponentName']}",
+            'N/A',
+            error_msg
+        )
+        print(f"└─ Warning: {error_msg}")
 
 def update_application_teams(existing_app, application, headers):
     for team in filter(lambda tag: tag.get('key') == 'pteam', existing_app.get('tags')):
@@ -1193,84 +1229,85 @@ def create_multicondition_component_rules(applicationName, componentName, multic
     for multicondition in multiconditionRules:
         rule = {'name': f'MC-R {componentName}'}  # Shortened name format
         rule['filter'] = {}
-        if multicondition.get('SearchName'):
-            keylike = multicondition.get('SearchName')
-            # Start with full keylike value
-            rule['filter']['keyLike'] = keylike
-            max_retries = 3
-            current_try = 0
+        
+        max_retries = 3
+        current_try = 0
             
-            while current_try < max_retries:
-                try:
-                    if multicondition.get('RepositoryName'):
-                        repository_names = multicondition.get('RepositoryName')
-                        if isinstance(repository_names, str):
-                            repository_names = [repository_names]
-                        rule['filter']['repository'] = repository_names
-                    if multicondition.get('Tags'):
-                        rule['filter']['tags'] = []
-                        for tag in multicondition.get('Tags'):
-                            rule['filter']['tags'].append({"value": tag})
-                    if multicondition.get('Cidr'):
-                        rule['filter']['cidr'] = multicondition.get('Cidr')
-                    if multicondition.get('Fqdn'):
-                        rule['filter']['fqdn'] = multicondition.get('Fqdn')
-                    if multicondition.get('Netbios'):
-                        rule['filter']['netbios'] = multicondition.get('Netbios')
-                    if multicondition.get('OsNames'):
-                        rule['filter']['osNames'] = multicondition.get('OsNames')
-                    if multicondition.get('Hostnames'):
-                        rule['filter']['hostnames'] = multicondition.get('Hostnames')
-                    if multicondition.get('ProviderAccountId'):
-                        rule['filter']['providerAccountId'] = multicondition.get('ProviderAccountId')
-                    if multicondition.get('ProviderAccountName'):
-                        rule['filter']['providerAccountName'] = multicondition.get('ProviderAccountName')
-                    if multicondition.get('ResourceGroup'):
-                        rule['filter']['resourceGroup'] = multicondition.get('ResourceGroup')
-                    if multicondition.get('AssetType'):
-                        rule['filter']['assetType'] = multicondition.get('AssetType')
+        while current_try < max_retries:
+            try:
+                if multicondition.get('SearchName'):
+                    keylike = multicondition.get('SearchName')
+                    # Start with full keylike value
+                    rule['filter']['keyLike'] = keylike
+                if multicondition.get('RepositoryName'):
+                    repository_names = multicondition.get('RepositoryName')
+                    if isinstance(repository_names, str):
+                        repository_names = [repository_names]
+                    rule['filter']['repository'] = repository_names
+                if multicondition.get('Tags'):
+                    rule['filter']['tags'] = []
+                    for tag in multicondition.get('Tags'):
+                        rule['filter']['tags'].append({"value": tag})
+                if multicondition.get('Cidr'):
+                    rule['filter']['cidr'] = multicondition.get('Cidr')
+                if multicondition.get('Fqdn'):
+                    rule['filter']['fqdn'] = multicondition.get('Fqdn')
+                if multicondition.get('Netbios'):
+                    rule['filter']['netbios'] = multicondition.get('Netbios')
+                if multicondition.get('OsNames'):
+                    rule['filter']['osNames'] = multicondition.get('OsNames')
+                if multicondition.get('Hostnames'):
+                    rule['filter']['hostnames'] = multicondition.get('Hostnames')
+                if multicondition.get('ProviderAccountId'):
+                    rule['filter']['providerAccountId'] = multicondition.get('ProviderAccountId')
+                if multicondition.get('ProviderAccountName'):
+                    rule['filter']['providerAccountName'] = multicondition.get('ProviderAccountName')
+                if multicondition.get('ResourceGroup'):
+                    rule['filter']['resourceGroup'] = multicondition.get('ResourceGroup')
+                if multicondition.get('AssetType'):
+                    rule['filter']['assetType'] = multicondition.get('AssetType')
 
-                    if not rule['filter']:
-                        return
+                if not rule['filter']:
+                    return
 
-                    payload = {
-                        "selector": {
-                            "applicationSelector": {"name": applicationName, "caseSensitive": False},
-                            "componentSelector": {"name": componentName, "caseSensitive": False}
-                        },
-                        "rules": [rule]
-                    }
+                payload = {
+                    "selector": {
+                        "applicationSelector": {"name": applicationName, "caseSensitive": False},
+                        "componentSelector": {"name": componentName, "caseSensitive": False}
+                    },
+                    "rules": [rule]
+                }
 
-                    if DEBUG:
-                        print(f"\nSending payload for {componentName}:")
-                        print(json.dumps(payload, indent=2))
+                if DEBUG:
+                    print(f"\nSending payload for {componentName}:")
+                    print(json.dumps(payload, indent=2))
 
-                    api_url = construct_api_url("/v1/components/rules")
-                    response = requests.post(api_url, headers=headers, json=payload)
-                    response.raise_for_status()
-                    print(f"MC-R {componentName} created.")
-                    break  # Success, exit the retry loop
+                api_url = construct_api_url("/v1/components/rules")
+                response = requests.post(api_url, headers=headers, json=payload)
+                response.raise_for_status()
+                print(f"MC-R {componentName} created.")
+                break  # Success, exit the retry loop
                     
-                except requests.exceptions.RequestException as e:
-                    if response.status_code == 409:
-                        filter_str = json.dumps(rule['filter'])
-                        print(f" > MC-R {componentName} with filter {filter_str} already exists.")
-                        break
-                    elif response.status_code == 400 and 'keyLike' in str(response.content):
-                        # If error is related to keyLike length, shorten it
-                        current_try += 1
-                        if current_try < max_retries:
-                            # Shorten the keyLike value by 25% each try
-                            reduction = int(len(keylike) * 0.75)
-                            keylike = keylike[:reduction]
-                            rule['filter']['keyLike'] = keylike
-                            if DEBUG:
-                                print(f"Retrying with shortened keyLike: {keylike}")
-                            continue
-                    if DEBUG:
-                        print(f"Error: {e}")
-                        print(f"Response content: {response.content}")
-                    break  # Exit on other errors
+            except requests.exceptions.RequestException as e:
+                if response.status_code == 409:
+                    filter_str = json.dumps(rule['filter'])
+                    print(f" > MC-R {componentName} with filter {filter_str} already exists.")
+                    break
+                elif response.status_code == 400 and 'keyLike' in str(response.content):
+                    # If error is related to keyLike length, shorten it
+                    current_try += 1
+                    if current_try < max_retries:
+                        # Shorten the keyLike value by 25% each try
+                        reduction = int(len(keylike) * 0.75)
+                        keylike = keylike[:reduction]
+                        rule['filter']['keyLike'] = keylike
+                        if DEBUG:
+                            print(f"Retrying with shortened keyLike: {keylike}")
+                        continue
+                if DEBUG:
+                    print(f"Error: {e}")
+                    print(f"Response content: {response.content}")
+                break  # Exit on other errors
 
 def create_multicondition_service_rules(environmentName, serviceName, multiconditionRules, headers):
     # Helper function to validate value
@@ -1578,7 +1615,8 @@ def create_teams(teams, pteams, access_token):
         
         # If the team is not found and has a valid name, proceed to add it
         if not found and team['TeamName']:
-            print(f"Going to add {team['TeamName']} team.")
+            print("[Team]")
+            print(f"└─ Creating: {team['TeamName']}")
             
             # Prepare the payload for creating the team
             payload = {
@@ -1587,8 +1625,8 @@ def create_teams(teams, pteams, access_token):
             }
 
             api_url = construct_api_url("/v1/teams")
-            if DEBUG:
-                print(f"Payload being sent to /v1teams: {json.dumps(payload, indent=2)}")
+            print("└─ Sending payload:")
+            print(f"  └─ {json.dumps(payload, indent=2)}")
 
             try:
                 # Make the POST request to add the team
@@ -1596,13 +1634,23 @@ def create_teams(teams, pteams, access_token):
                 response.raise_for_status()
                 team['id'] = response.json()['id']
                 new_pteams.append(response.json())
-                print(f"+ Team {team['TeamName']} added.")
-            
+                print(f"└─ Team created successfully: {team['TeamName']}")
             except requests.exceptions.RequestException as e:
                 if response.status_code == 400:
-                    print(f" > Team {team['TeamName']} already exists")
+                    print(f"└─ Team {team['TeamName']} already exists")
                 else:
-                    print(f"Error: {e}")
+                    error_msg = f"Failed to create team: {str(e)}"
+                    error_details = f"Response: {getattr(response, 'content', 'No response content')}\nPayload: {json.dumps(payload)}"
+                    log_error(
+                        'Team Creation',
+                        team['TeamName'],
+                        'N/A',
+                        error_msg,
+                        error_details
+                    )
+                    print(f"Error: {error_msg}")
+                    if DEBUG:
+                        print(f"└─ Response content: {response.content}")
                     exit(1)
     return new_pteams
 
@@ -1673,18 +1721,18 @@ def create_team_rules(teams, pteams, access_token):
     - teams: List of team objects.
     - pteams: List of pre-existing teams to check if a team already exists.
     - access_token: Access token for API authentication.
-    """
-    headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
-    
+    """    
     for team in teams:
         found = False
 
         # Check if the team already exists in pteams
         for pteam in pteams:
             if pteam['name'] == team['TeamName']:
+                print("[Team Rules]")
+                print(f"└─ Team: {team['TeamName']}")
                 # override logic for creating team associations
                 if team.get('RecreateTeamAssociations'):
-                    print(f" > recreating pteam association for {team['TeamName']}")
+                    print(f"└─ recreating pteam association")
                     create_team_rule("pteam", team['TeamName'], pteam['id'], access_token)
                 found = True
                 break
@@ -1720,16 +1768,29 @@ def create_team_rule(tag_name, tag_value, team_id, access_token):
     api_url = construct_api_url(f"/v1/teams/{team_id}/components/auto-link/tags")
     
     try:
+        print(f"└─ Creating team rule")
         # Make the POST request to create the team rule
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
+
         print(f" + {tag_name} Component rule added for: {tag_value}")
     
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f" > {tag_name} Component Rule {tag_value} already exists")
         else:
-            print(f"Error: {e}")
+            error_msg = f"Failed to add team rule: {str(e)}"
+            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload {json.dumps(payload)}'
+            log_error(
+                'Team Rule Creation',
+                f'TeamId: {team_id}',
+                'N/A',
+                error_msg,
+                error_details
+            )
+            print(f"└─ Error: {error_msg}")
+            if DEBUG:
+                print(f"└─ {error_details}")
             exit(1)
 
     api_url = construct_api_url(f"/v1/teams/{team_id}/applications/auto-link/tags")
@@ -1746,6 +1807,161 @@ def create_team_rule(tag_name, tag_value, team_id, access_token):
         else:
             print(f"Error: {e}")
             exit(1)
+
+def check_and_create_missing_users(teams, all_team_access, hive_staff, access_token):
+    """
+        This function checks whether some user from teams or hives is missing and creates them.
+
+        Args:
+        - teams: List of target teams to check users for
+        - all_team_access: list of all team access users
+        - hive_staff: list of hives. Only Lead and Product users will be managed in this function
+    """
+    p_users_emails = list(u.get("email") for u in load_users_from_phoenix(access_token))
+    print('[User Creation from Teams]')
+    for team in teams:
+        print(f'└─ Team name: {team["TeamName"]}')
+        for member in team.get('TeamMembers', []):
+            if not member.get('EmailAddress'):
+                print(f'  ! Missing email address for member {str(member)}')
+                log_error(
+                    "Create User",
+                    getattr(team, 'TeamName', "No team name available"),
+                    'N/A',
+                    f'Member does not have EmailAddress field, received: {str(member)}'
+                )
+                continue
+
+            email = member.get("EmailAddress")
+            if any(p_email.lower() == email.lower() for p_email in p_users_emails):
+                if DEBUG:
+                    print(f'  └─ User already exists with email: {email}')
+                continue
+ 
+            print(f'  └─ Creating user with email {email}')
+            name = member.get('Name', None)
+            first_name, last_name = (None, None)
+            if not name:
+                print(f'  ! "Name" field not provided, received {str(member)}')
+                print(f'  * Trying to get name from email')
+                first_name, last_name = extract_user_name_from_email(email)
+            else:
+                try:
+                    name_parts = name.split(" ")
+                    first_name = name_parts[0]
+                    last_name = name_parts[1]
+                except Exception as e:
+                    print(f'  └─ Error extracting first/last name from "Name", trying fallback to name from email, error={e}')
+                    first_name, last_name = extract_user_name_from_email(email)
+            if not first_name or not last_name:
+                print(f'  └─ Could not obtain user first/last name, please check your configuration!')
+                log_error(
+                    'Create User',
+                    email,
+                    'N/A',
+                    'Could not obtain user first/last name, please check your configuration'
+                )
+                continue
+
+            try:
+                api_call_create_user(email, first_name, last_name, "ORG_USER", access_token)
+            except Exception as e:
+                print(f'  └─ Error creating user from teams {e} ')
+                log_error(
+                    "Create User",
+                    getattr(team, 'TeamName', "No team name available"),
+                    'N/A',
+                    f'Failed creating user, received: {str(member)}, error: {e}'
+                )
+                continue
+    
+    print('[User Creation from Hives]')
+    for hive in hive_staff:
+        if hive.get('Lead'):
+            email = hive.get("Lead")
+            if any(p_email.lower() == email.lower() for p_email in p_users_emails):
+                if DEBUG:
+                    print(f'  └─ User already exists with email: {email}')
+            else:
+                print(f'└─ Hive Lead: {email}')
+                first_name, last_name = extract_user_name_from_email(email)
+                if not first_name or not last_name:
+                    print(f'  ! Could not extract first/last name, unable to create user {email}')
+                    log_error(
+                        'Create User',
+                        email,
+                        'N/A',
+                        'Could not extract first/last name, unable to create user'
+                    )
+
+                try:
+                    api_call_create_user(email, first_name, last_name, "ORG_USER", access_token)
+                except Exception as e:
+                    print(f'  └─ Error creating user from hives Lead {e} ')
+                    log_error(
+                        "Create User",
+                        email,
+                        'N/A',
+                        f'Failed creating user, error: {e}'
+                    )
+
+        if hive.get('Product'):
+            for email in hive.get('Product'):
+                if any(p_email.lower() == email.lower() for p_email in p_users_emails):
+                    if DEBUG:
+                        print(f'  └─ User already exists with email: {email}')
+                else:
+                    print(f'└─ Hive Product: {email}')
+                    first_name, last_name = extract_user_name_from_email(email)
+                    if not first_name or not last_name:
+                        print(f'  ! Could not extract first/last name, unable to create user {email}')
+                        log_error(
+                            'Create User',
+                            email,
+                            'N/A',
+                            f'Could not extract first/last name, unable to create user {email}'
+                        )
+
+                    try:
+                        api_call_create_user(email, first_name, last_name, "ORG_USER", access_token)
+                    except Exception as e:
+                        print(f'  └─ Error creating user from hives Product {e} ')
+                        log_error(
+                            "Create User",
+                            email,
+                            'N/A',
+                            f'Failed creating user, error: {e}'
+                        )
+
+    
+    print('[User Creation for All Access Accounts]')
+    for all_access_email in all_team_access:
+        if any(p_email.lower() == all_access_email.lower() for p_email in p_users_emails):
+            if DEBUG:
+                print(f'  └─ User already exists with email: {all_access_email}')
+            continue
+        print(f'└─ All access email: {all_access_email}')
+        first_name, last_name = extract_user_name_from_email(all_access_email)
+        if not first_name or not last_name:
+            print(f'  ! Could not extract first/last name, unable to create user {all_access_email}')
+            log_error(
+                'Create User',
+                all_access_email,
+                'N/A',
+                'Could not extract first/last name, unable to create user'
+            )
+            continue
+
+        try:
+            api_call_create_user(all_access_email, first_name, last_name, "ORG_USER", access_token)
+        except Exception as e:
+            print(f'  └─ Error creating user with all access account {e} ')
+            log_error(
+                "Create User",
+                all_access_email,
+                'N/A',
+                f'Failed creating user, error: {e}'
+            )
 
 
 @dispatch(list,list,list,list,list,str)
@@ -1765,38 +1981,44 @@ def assign_users_to_team(p_teams, new_pteams, teams, all_team_access, hive_staff
     for pteam in all_pteams:
         # Fetch current team members from the Phoenix platform
         team_members = get_phoenix_team_members(pteam['id'], headers)
-
+        print(f"[Assign Users To Team]")
+        print(f"└─ Team name: {pteam['name']}")
         for team in teams:
             if team['TeamName'] == pteam['name']:
-                print(f"[Team] {pteam['name']}")
 
                 # Assign users from AllTeamAccess that are not part of the current team members
+                print("  └─ Check and assign all team access users")
                 for user_email in all_team_access:
                     found = any(member['email'].lower() == user_email.lower() for member in team_members)
                     if not found:
                         api_call_assign_users_to_team(pteam['id'], user_email, access_token)
 
                 # Assign team members from the team if they are not part of the current team members
+                print("  └─ Check and Assign team members")
                 for team_member in team['TeamMembers']:
                     found = any(member['email'].lower() == team_member['EmailAddress'].lower() for member in team_members)
                     if not found:
+                        print(f"    └─ Assign team member: {team_member['EmailAddress']}")
                         api_call_assign_users_to_team(pteam['id'], team_member['EmailAddress'], access_token)
 
                 # Remove users who no longer exist in the team members
+                print("  └─ Check members to remove")
                 for member in team_members:
                     found = does_member_exist(member['email'], team, hive_staff, all_team_access)
                     if not found:
-                        delete_team_member(member['email'], pteam['id'], headers)
+                        print(f"    └─ Removing member: {member['email']}")
+                        delete_team_member(member['email'], pteam['id'], access_token)
 
         # Assign Hive team lead and product owners to the team
         hive_team = next((hs for hs in hive_staff if hs['Team'].lower() == pteam['name'].lower()), None)
 
         if hive_team:
-            print(f"> Adding team lead {hive_team['Lead']} to team {pteam['name']}")
+            print("  └─ Hive")
+            print(f"    └─ Adding team lead {hive_team['Lead']} to team {pteam['name']}")
             api_call_assign_users_to_team(pteam['id'], hive_team['Lead'], access_token)
 
             for product_owner in hive_team['Product']:
-                print(f"> Adding Product Owner {product_owner} to team {pteam['name']}")
+                print(f"    └─ Adding Product Owner {product_owner} to team {pteam['name']}")
                 api_call_assign_users_to_team(pteam['id'], product_owner, access_token)
 
 
@@ -1830,27 +2052,39 @@ def api_call_assign_users_to_team(team_id, email, access_token):
     # Construct the payload with the user email
     payload = {
         "users": [
-            {"email": email}
-        ],
-        "autoCreateUsers": True
+            {"email": email.lower()}
+        ]
     }
     
     # Construct the full API URL
     api_url = construct_api_url(f"/v1/teams/{team_id}/users")
     
     try:
+        print(f"    └─ Assign user: {email}")
         # Make the PUT request to assign the user to the team
         response = requests.put(api_url, headers=headers, json=payload)
+        print(f"    └─ Sending payload:")
+        print(f"      └─ {json.dumps(payload, indent=2)}")
         response.raise_for_status()
-        print(f" + User {email} added to team {team_id}")
-    
+        print(f"    + User {email} added to team {team_id}")
     except requests.exceptions.RequestException as e:
         if response.status_code == 400:
-            print(f" ? Team Member assignment {email} user hasn't logged in yet")
+            print(f"    ? Team Member assignment {email} user hasn't logged in yet")
         elif response.status_code == 409:
-            print(f" - Team Member {email} already assigned")
+            print(f"    ! Team Member {email} already assigned")
         else:
-            print(f"Error: {e}")
+            error_msg = f"Failed to assign user: {str(e)}"
+            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+            log_error(
+                'Team Assignment',
+                email,
+                'N/A',
+                error_msg,
+                error_details
+            )
+            print(f"    └─ Error: {error_msg}")
+            if DEBUG:
+                print(f"    └─ Response content: {error_details}")
             exit(1)
 
 
@@ -1869,14 +2103,27 @@ def delete_team_member(email, team_id, access_token):
     # Construct the full API URL
     api_url = construct_api_url(f"/v1/teams/{team_id}/users/{email}")
     
+    print(f' * Sending remove team member ({email}) from team ({team_id}) request...')
+    
     try:
         # Make the DELETE request to remove the user from the team
         response = requests.delete(api_url, headers=headers)
         response.raise_for_status()
-        print(f"- Removed {email} from team {team_id}")
+        print(f" - Removed {email} from team {team_id}")
     
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
+        error_msg = f"Failed to remove member {str(e)}"
+        error_details = f'Response: {getattr(response, "content", "No response content")}'
+        log_error(
+            'Removing member',
+            email,
+            'N/A',
+            error_msg,
+            error_details
+        )
+        print(f"└─ Error: {error_msg}")
+        if DEBUG:
+            print(f"└─ Response content: {response.content}")
 
 @dispatch(str)
 def get_phoenix_components(access_token):
@@ -1930,7 +2177,7 @@ def get_phoenix_components(headers):
             # Print components from this page if in debug mode
             if DEBUG:
                 for comp in page_components:
-                    env_name = comp.get('applicationName', 'Unknown')
+                    env_name = comp.get('applicationId', 'Unknown')
                     print(f"   - [{env_name}] {comp.get('name', 'Unknown')}")
             
             page_number += 1
@@ -1965,6 +2212,11 @@ def get_phoenix_components(headers):
     print(f" * Total components fetched: {len(components)}")
     return components
 
+
+def get_phoenix_components_in_environment(env_id, access_token):
+    return list(x for x in get_phoenix_components(access_token) if x.get('applicationId', None) == env_id)
+
+
 def environment_service_exist(env_id, phoenix_components, service_name):
     """
     Check if a service exists in an environment with case-insensitive comparison.
@@ -1992,7 +2244,7 @@ def environment_service_exist(env_id, phoenix_components, service_name):
         print(f" * Service {service_name} not found in cached components")
     return False
 
-def verify_service_exists(env_name, service_name, headers, max_retries=5):
+def verify_service_exists(env_name, env_id, service_name, headers, max_retries=5):
     """
     Verify if a service exists in an environment with thorough checking and pagination.
     """
@@ -2006,7 +2258,6 @@ def verify_service_exists(env_name, service_name, headers, max_retries=5):
     try:
         # Get all services in one go with a larger page size
         params = {
-            "applicationSelector": {"name": env_name, "caseSensitive": False},
             "pageSize": 1000,  # Use larger page size to reduce pagination
             "sort": "name,asc"  # Consistent sorting
         }
@@ -2030,19 +2281,21 @@ def verify_service_exists(env_name, service_name, headers, max_retries=5):
             all_services.extend(response.json().get('content', []))
             print(f" * Fetched page {page + 1}/{total_pages}")
         
+        # filter out services that are not part of the given environment
+        all_services = list(x for x in all_services if x.get('applicationId', None) == env_id)
         # First try exact case-insensitive match
         for service in all_services:
             if service['name'].lower() == service_name_lower:
                 print(f" + Service found: {service['name']} (ID: {service.get('id')})")
                 if DEBUG:
-                    print(f"   └─ Application: {service.get('applicationName')}")
+                    print(f"   └─ Application: {service.get('applicationId')}")
                 return True, service.get('id')
         
         # If not found, look for similar services
         similar_services = []
         for service in all_services:
             ratio = Levenshtein.ratio(service['name'].lower(), service_name_lower)
-            if ratio > 0.8:  # 80% similarity threshold
+            if ratio > SERVICE_LOOKUP_SIMILARITY_THRESHOLD:  # 80% similarity threshold
                 similar_services.append((service['name'], ratio, service.get('id')))
         
         if similar_services:
@@ -2265,21 +2518,17 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers):
     except requests.exceptions.RequestException as e:
         print(f"Error adding tag: {e}")
 
-# Helper function to delete team members
-def delete_team_member(user_email, team_id, access_token):
-    headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
-    api_url = construct_api_url(f"/v1/teams/{team_id}/users/{user_email}")
-
-    response = requests.delete(api_url, headers=headers)
-    response.raise_for_status()
-    print(f"- Removed {user_email} from team {team_id}")
-
 # Helper function to check if a member exists
 @dispatch(str,dict,list,list)
 def does_member_exist(user_email, team, hive_staff, all_team_access):
     """
     Checks if a team member exists in the provided lists (team, hive_staff, or all_team_access).
     """
+    print(f"\n[Team member Verification]")
+    print(f" └─ Team member: {user_email}")
+    print(f" └─ Team: {team.get('TeamName', '')}")
+    print(f" └─ Hive staff: {hive_staff}")
+    print(f" └─ All team access: {all_team_access}")
     return any(user_email.lower() == member['EmailAddress'].lower() for member in team['TeamMembers']) or \
            user_email.lower() in (lc_all_team_access.lower() for lc_all_team_access in all_team_access) or \
            any(user_email.lower() == staff_member['Lead'].lower() or user_email.lower() in staff_member['Product'] for staff_member in hive_staff)
@@ -2306,13 +2555,21 @@ def populate_applications_and_environments(headers):
             response = requests.get(api_url, headers=headers)
             components += response.json().get('content', [])
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
+        error_msg = f"Failed to fetch apps/envs. Response: {response.content if hasattr(response, 'content') else 'N/A'}"
+        log_error(
+            'Fetching all apps/envs',
+            'None',
+            'N/A',
+            error_msg,
+            f'Response status: {response.status_code}'
+        )
+        print(f"└─ Error: {error_msg}")
         exit(1)
 
     return components
 
-@dispatch(str, dict, int, dict)
-def add_service(applicationSelectorName, service, tier, headers):
+@dispatch(str, str, dict, int, dict)
+def add_service(applicationSelectorName, env_id, service, tier, headers):
     service_name = service['Service']
 
     criticality = calculate_criticality(tier)
@@ -2346,16 +2603,7 @@ def add_service(applicationSelectorName, service, tier, headers):
         # Even if we get a 409, we need to verify the service exists in the correct environment
         if response.status_code == 409:
             print(f" * Service creation returned 409 (conflict), verifying correct environment...")
-            verify_url = construct_api_url("/v1/components")
-            params = {
-                "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                "componentSelector": {"name": service_name, "caseSensitive": False}
-            }
-            
-            verify_response = requests.get(verify_url, headers=headers, params=params)
-            verify_response.raise_for_status()
-            components = verify_response.json().get('content', [])
-            
+            components = get_phoenix_components_in_environment(env_id, headers)
             service_exists = any(
                 comp['name'].lower() == service_name.lower() 
                 for comp in components
@@ -2380,14 +2628,7 @@ def add_service(applicationSelectorName, service, tier, headers):
             time.sleep(delay)
             
             try:
-                verify_url = construct_api_url("/v1/components")
-                params = {
-                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                    "componentSelector": {"name": service_name, "caseSensitive": False}
-                }
-                verify_response = requests.get(verify_url, headers=headers, params=params)
-                verify_response.raise_for_status()
-                components = verify_response.json().get('content', [])
+                components = get_phoenix_components_in_environment(env_id, headers)
                 
                 service_exists = any(
                     comp['name'].lower() == service_name.lower() 
@@ -2399,7 +2640,6 @@ def add_service(applicationSelectorName, service, tier, headers):
                     return True
                 else:
                     print(f" ! Service {service_name} not found in verification attempt {attempt + 1}")
-                    
                     if attempt == max_retries - 1:
                         print(f" ! Service {service_name} could not be verified after {max_retries} attempts")
                         return False
@@ -2418,8 +2658,8 @@ def add_service(applicationSelectorName, service, tier, headers):
             print(f"Response content: {response.content}")
         return False
 
-@dispatch(str, dict, int, str, dict)
-def add_service(applicationSelectorName, service, tier, team, headers):
+@dispatch(str, str, dict, int, str, dict)
+def add_service(applicationSelectorName, env_id, service, tier, team, headers):
     service_name = service['Service']
     criticality = calculate_criticality(tier)
     print(f"\n[Service Creation]")
@@ -2427,17 +2667,9 @@ def add_service(applicationSelectorName, service, tier, team, headers):
     print(f" └─ Service: {service_name}")
     print(f" └─ Team: {team}")
     
-    # First verify if service exists in the target environment
-    verify_url = construct_api_url("/v1/components")
-    params = {
-        "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-        "componentSelector": {"name": service_name, "caseSensitive": False}
-    }
-    
     try:
-        verify_response = requests.get(verify_url, headers=headers, params=params)
-        verify_response.raise_for_status()
-        components = verify_response.json().get('content', [])
+        # First verify if service exists in the target environment
+        components = get_phoenix_components_in_environment(env_id, headers)
         
         if any(comp['name'].lower() == service_name.lower() for comp in components):
             print(f" + Service {service_name} already exists in {applicationSelectorName}")
@@ -2502,50 +2734,7 @@ def add_service(applicationSelectorName, service, tier, team, headers):
             time.sleep(delay)
             
             try:
-                # Try direct lookup first
-                params = {
-                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                    "componentSelector": {"name": created_service_name, "caseSensitive": False}
-                }
-                verify_response = requests.get(verify_url, headers=headers, params=params)
-                verify_response.raise_for_status()
-                components = verify_response.json().get('content', [])
-                
-                if any(comp['name'].lower() == created_service_name.lower() for comp in components):
-                    print(f" + Service {created_service_name} verified successfully")
-                    return True
-                
-                # If not found with direct lookup, try getting all components with proper pagination
-                print(f" * Service not found in direct lookup, checking all components...")
-                params = {
-                    "applicationSelector": {"name": applicationSelectorName, "caseSensitive": False},
-                    "pageSize": 1000,
-                    "sort": "name,asc"
-                }
-                
-                all_components = []
-                page = 0
-                while True:
-                    params['pageNumber'] = page
-                    verify_response = requests.get(verify_url, headers=headers, params=params)
-                    verify_response.raise_for_status()
-                    data = verify_response.json()
-                    
-                    page_components = data.get('content', [])
-                    all_components.extend(page_components)
-                    
-                    if page == 0:
-                        total_pages = data.get('totalPages', 1)
-                        total_elements = data.get('totalElements', 0)
-                        print(f" * Found {total_elements} total components across {total_pages} pages")
-                    
-                    print(f" * Fetched page {page + 1}/{total_pages} ({len(page_components)} components)")
-                    
-                    if page + 1 >= total_pages:
-                        break
-                        
-                    page += 1
-                    time.sleep(0.5)  # Small delay between pages
+                all_components = get_phoenix_components_in_environment(env_id, headers)
                 
                 print(f" * Total components fetched: {len(all_components)}")
                 print(" * Available components:")
@@ -2665,7 +2854,7 @@ def add_thirdparty_services(phoenix_components, application_environments, subdom
 
     for service in services:
         if not environment_service_exist(env_id, phoenix_components, service):
-            add_service(env_name, {"Service": service}, 5, "Thirdparty", subdomain_owners, headers)
+            add_service(env_name, env_id, {"Service": service}, 5, "Thirdparty", subdomain_owners, headers)
 
 def get_environment_id(application_environments, env_name):
     for environment in application_environments:
@@ -2682,15 +2871,6 @@ def get_phoenix_team_members(team_id, headers):
         print(f"Error: {e}")
         return []
 
-def delete_team_member(email, team_id, access_token):
-    try:
-        api_url = construct_api_url(f"/v1/teams/{team_id}/users/{email}")
-        response = requests.delete(api_url, headers=headers)
-        response.raise_for_status()
-        print(f"- Removed {email} from team")
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-
 def create_deployments(applications, environments, phoenix_apps_envs, headers):
     application_services = []
     # Track all available apps and services for validation
@@ -2703,44 +2883,11 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
     print(f"└─ Found {len(phoenix_apps_envs)} Phoenix apps/envs")
     
     # Get all services for each environment with proper pagination
+    all_services = get_phoenix_components(headers)
     for env in phoenix_apps_envs:
         if env.get('type') == "ENVIRONMENT":
-            try:
-                api_url = construct_api_url("/v1/components")
-                all_services = []
-                page = 0
-                total_pages = 1  # Will be updated in first response
-                
-                while page < total_pages:
-                    params = {
-                        "applicationSelector": {"name": env['name'], "caseSensitive": False},
-                        "pageSize": 1000,  # Increased page size
-                        "pageNumber": page,
-                        "sort": "name,asc"  # Consistent sorting
-                    }
-                    
-                    response = requests.get(api_url, headers=headers, params=params)
-                    response.raise_for_status()
-                    data = response.json()
-                    
-                    if page == 0:
-                        total_pages = data.get('totalPages', 1)
-                        total_elements = data.get('totalElements', 0)
-                        print(f"└─ Environment '{env['name']}' has {total_elements} total services across {total_pages} pages")
-                    
-                    services = data.get('content', [])
-                    all_services.extend(services)
-                    print(f"   └─ Fetched page {page + 1}/{total_pages} ({len(services)} services)")
-                    
-                    page += 1
-                    time.sleep(0.5)  # Small delay between pages
-                
-                available_services[env['name']] = {svc['name']: svc['id'] for svc in all_services}
-                print(f"└─ Total services loaded for '{env['name']}': {len(available_services[env['name']])}")
-                
-            except requests.exceptions.RequestException as e:
-                print(f"└─ Error fetching services for environment {env['name']}: {e}")
-                continue
+            available_services[env['name']] = {svc['name']: svc['id'] for svc in all_services if svc['applicationId'] == env['id']}
+            print(f"└─ Total services loaded for '{env['name']}': {len(available_services[env['name']])}")
     
     # Process each application
     for app in applications:
@@ -2960,7 +3107,7 @@ def check_app_name_matches_service_name(app_name, service_name):
     if app_name.lower() == service_name.lower():
         return True
     similarity_ratio = Levenshtein.ratio(app_name, service_name)
-    if similarity_ratio > SIMILARITY_THRESHOLD:
+    if similarity_ratio > AUTOLINK_DEPLOYMENT_SIMILARITY_THRESHOLD:
         print(f'Similarity ratio {similarity_ratio} between {app_name} and {service_name} is within threshold, adding deployment')
         return True
     else:
@@ -3000,7 +3147,7 @@ def create_autolink_deployments(applications, environments, headers):
                     api_url = construct_api_url(f"/v1/applications/deploy")
                     response = requests.patch(api_url, headers=headers, json=deployment)
                     response.raise_for_status()
-                    print(f" + Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']}")
+                    print(f" + Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']} successful")
                     break  # Exit the retry loop if successful
                 except requests.exceptions.RequestException as e:
                     if response.status_code == 409:
@@ -3258,7 +3405,7 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
             
             response = requests.post(api_url, headers=request_headers, json=payload, timeout=timeout)
             
-            if response.status_code == 200:
+            if response.status_code == 201:
                 if consecutive_timeouts > 0:
                     print(f" + Success after {consecutive_timeouts} retries")
                 print(f"└─ Rule created: {descriptive_rule_name}")
@@ -3371,7 +3518,8 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     )
     return False
 
-def create_user_for_application(existing_users_emails, newly_created_users_emails, email, headers, verify_only=False):
+def create_user_for_application(existing_users_emails, newly_created_users_emails, email, access_token):
+    email = email.lower()
     # try to get first and last name from email
     if email in existing_users_emails:
         print(f"User with email already registered: {email}")
@@ -3382,61 +3530,115 @@ def create_user_for_application(existing_users_emails, newly_created_users_email
             print(f"User with email already created: {email}")
         return
 
-    try:
-        email_parts = email.split("@")
-    except Exception as e:
-        print(f'Failed creating user for application with email {email}, error {e}')
+    user_first_name, user_last_name = extract_user_name_from_email(email)
+    if not user_first_name or not user_last_name:
+        print(f'  ! Missing either first or last name, skipping user creation. \
+              First Name: {user_first_name}. Last Name: {user_last_name}')
         return
-    
-    if len(email_parts) < 2:
-        print(f'Failed creating user for application with email {email}, @ sign not found in email')
-        return
-    
-    user_full_name = email_parts[0]
-    user_first_name = user_full_name
-    user_last_name = user_full_name
     try:
-        user_full_name_parts = user_full_name.split(".")
-        if len(user_full_name_parts) > 1:
-            user_first_name = user_full_name_parts[0]
-            user_last_name = user_full_name_parts[1]
+        created_user = api_call_create_user(email, user_first_name, user_last_name, "ORG_USER", access_token)
+        if created_user:
+            return email
     except Exception as e:
-        print(f"Unable to detect user's first and last name in {email}, using {user_full_name} as both first and last name")
+        print(f'  ! Error creating user for application: {e}')
+        log_error(
+            'Create user for application',
+            email,
+            'N/A',
+            f'Error creating user for application, error: {e}'
+        )
+        return
+
+
+def api_call_create_user(email, first_name, last_name, role, access_token):
+    """
+    API call to create user in Phoenix
+    
+    Args:
+        email (str): Email of a user
+        first_name (str): First name of a user
+        last_name (str): Last name of a user
+        role (str): Role of a user. Allowed values ("ORG_ADMIN", "ORG_APP_ADMIN", "ORG_USER", 
+                    "ORG_ADMIN_LITE", "ORG_SEC_ADMIN", "ORG_SEC_DEV")
+        access_token: Access token
+        
+    Returns:
+        str: Created user's email
+    """
+    validate_user_role(role)
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
 
     payload = {
         "email": email, 
-        "firstName": user_first_name, 
-        "lastName": user_last_name, 
-        "role": "ORG_USER" 
+        "firstName": first_name, 
+        "lastName": last_name, 
+        "role": role
     }
-
-    if verify_only:
-        return payload
-
+    
     if DEBUG:
         print(f'Payload sent to create user {json.dumps(payload, indent=2)}')
 
-    try:
-        api_url = construct_api_url(f"/v1/users")
-        response = requests.post(api_url, headers=headers, json=payload)
-        response.raise_for_status()
-        print(f" + User {email} added")
-        return payload
-    except requests.exceptions.RequestException as e:
-        if response.status_code == 400:
-            print(f" ? Bad request when creating user for application, email {email}")
-        elif response.status_code == 409:
-            print(f" - User already exists in platfrom with email: {email}, please choose another email")
-        else:
-            print(f"Error: {e}")
-            exit(1)
+    current_try = 0
+    max_retries = 3
 
-def load_users_from_phoenix(headers):
+    while current_try < max_retries:
+        try:
+            api_url = construct_api_url(f"/v1/users")
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            print(f" + User {email} added")
+            return payload
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 400:
+                log_error(
+                    'Create user for application',
+                    email,
+                    'N/A',
+                    f'Bad request when creating user, error: {e}'
+                )
+                print(f" ? Bad request when creating user for application, email {email}")
+                break
+            elif response.status_code == 409:
+                log_error(
+                    'Create user for application',
+                    email,
+                    'N/A',
+                    'User already exists in platform with that email, please define another email'
+                )
+                print(f" - User already exists in platfrom with email: {email}, please choose another email")
+                break
+            elif response.status_code in [429, 503]: # Rate limit or service unavailable
+                retry_after = int(response.headers.get('Retry-After', 5))
+                print(f" * Rate limited, waiting {retry_after} seconds...")
+                time.sleep(retry_after)
+                current_try += 1
+                continue
+            elif response.status_code >= 500:  # Server error
+                print(" * Server error, retrying after 5 seconds...")
+                time.sleep(5)
+                current_try += 1
+                continue
+            else:
+                log_error(
+                    'Create user for application',
+                    email,
+                    'N/A',
+                    'Error when creating user, error: {e}'
+                )
+                print(f" ! Error creating user: {e}")
+                break
+    return
+
+def load_users_from_phoenix(access_token):
     """
     Load all users from Phoenix with proper pagination and error handling.
     
     Args:
-        headers: Request headers containing authorization
+        access_token: API access token
         
     Returns:
         list: Complete list of all users across all pages
@@ -3449,6 +3651,11 @@ def load_users_from_phoenix(headers):
     page_number = 0
     total_pages = None
     
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
     print("\n[User Listing]")
     print(" * Fetching all users with pagination...")
     
@@ -3511,3 +3718,113 @@ def load_users_from_phoenix(headers):
     
     print(f" * Total users fetched: {len(users)}")
     return users
+
+def get_user_info(email, headers):
+    """
+    Get user information from Phoenix.
+    
+    Args:
+        email: User's email address
+        headers: Request headers containing authorization
+        
+    Returns:
+        dict: User information if found, None otherwise
+    """
+    try:
+        api_url = construct_api_url(f"/v1/users/{email}")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 404:
+            return None
+            
+        response.raise_for_status()
+        return response.json()
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting user info for {email}: {str(e)}")
+        return None
+
+def clean_user_name(name):
+    """
+    Clean user name by removing the User suffix if present.
+    
+    Args:
+        name: User's name that might have User suffix
+        
+    Returns:
+        str: Clean name without User suffix
+    """
+    if name and name.endswith(" User"):
+        return name[:-5].strip()
+    return name
+
+def create_user_with_role(email, first_name, last_name, role, headers):
+    """
+    Create a user with a specific role.
+    
+    Args:
+        email: User's email address
+        first_name: User's first name
+        last_name: User's last name
+        role: User's role (SECURITY_CHAMPION, ENGINEERING_USER, APPLICATION_ADMIN, or ORG_USER)
+        headers: Request headers containing authorization
+    """
+    if not email or not first_name or not last_name:
+        print(f"⚠️ Error: Missing required user information for {email}")
+        return None
+
+    # Clean names to remove User suffix if present
+    first_name = clean_user_name(first_name)
+    last_name = clean_user_name(last_name)
+
+    payload = {
+        "email": email,
+        "firstName": first_name,
+        "lastName": last_name,
+        "role": role
+    }
+
+    if DEBUG:
+        print(f"\nCreating user:")
+        print(f"└─ Email: {email}")
+        print(f"└─ Name: {first_name} {last_name}")
+        print(f"└─ Role: {role}")
+
+    try:
+        api_url = construct_api_url("/v1/users")
+        response = requests.post(api_url, headers=headers, json=payload)
+        
+        if response.status_code == 409:
+            print(f" * User {email} already exists")
+            # Check if we need to update the user's name
+            existing_user = get_user_info(email, headers)
+            if existing_user and (existing_user.get('firstName', '').endswith(' User') or 
+                                existing_user.get('lastName', '').endswith(' User')):
+                # Update user to remove User suffix
+                update_payload = {
+                    "firstName": first_name,
+                    "lastName": last_name
+                }
+                update_response = requests.patch(api_url + f"/{email}", headers=headers, json=update_payload)
+                if update_response.status_code == 200:
+                    print(f" * Updated user name format for {email}")
+            return None
+        
+        response.raise_for_status()
+        print(f" + Created user: {email} with role {role}")
+        return payload
+        
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Failed to create user {email}: {str(e)}"
+        error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+        log_error(
+            'User Creation',
+            email,
+            'N/A',
+            error_msg,
+            error_details
+        )
+        print(f"⚠️ {error_msg}")
+        if DEBUG:
+            print(f"Response content: {response.content}")
+        return None

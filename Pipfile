@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 multipledispatch = "*"
+cerberus = "*"
 
 [dev-packages]
 
