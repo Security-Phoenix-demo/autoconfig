@@ -1,0 +1,14 @@
+.DS_Store
+Power Shell script/.DS_Store
+Python script/.DS_Store
+Python script/errors.log
+Python script/debug.q2
+*.pyc
+*.pyc
+Python script/providers/__pycache__/Phoenix.cpython-310.pyc
+Python script/providers/__pycache__/Utils.cpython-310.pyc
+Python script/providers/__pycache__/YamlHelper.cpython-310.pyc
+/Python script/providers
+/Python script/providers
+Python script/tests/.DS_Store
+Python script/Resources/.DS_Store

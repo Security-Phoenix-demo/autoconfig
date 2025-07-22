@@ -2,26 +2,99 @@ import time
 import os
 import argparse
 import traceback
+import stat
+from git import Repo
+from datetime import datetime, timedelta
+from threading import Thread, Event
 from itertools import chain
 from providers.Phoenix import get_phoenix_components, populate_phoenix_teams, get_auth_token , create_teams, create_team_rules, assign_users_to_team, populate_applications_and_environments, create_environment, add_environment_services, add_cloud_asset_rules, add_thirdparty_services, create_applications, create_deployments, create_autolink_deployments, create_teams_from_pteams, create_components_from_assets, create_user_for_application, load_users_from_phoenix, update_environment, check_and_create_missing_users, create_user_with_role
 import providers.Phoenix as phoenix_module
-from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access
-from providers.YamlHelper import populate_repositories_from_config, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups_from_config, populate_all_access_emails_from_config, populate_applications_from_config, load_flag_for_create_users_from_config, load_run_config
+from providers.Utils import populate_domains, get_subdomains, populate_users_with_all_team_access, add_PAT_to_github_repo_url
+from providers.YamlHelper import populate_repositories_from_config, populate_teams, populate_hives, populate_subdomain_owners, populate_environments_from_env_groups_from_config, populate_all_access_emails_from_config, populate_applications_from_config, load_flag_for_create_users_from_config, load_run_config, load_remote_configuration_locations, load_github_repo_folder, load_github_config_file_name
 
 # Global Variables
 resource_folder = os.path.join(os.path.dirname(__file__), 'Resources')
+access_token = None
+headers = {}
+CLIENT_ID = None
+CLIENT_SECRET = None
 
 
 def get_config_files_to_use():
     """
-        Return list of config file names to use for processing apps/environments
+        Return list of config file names to load from Resources folder
     """
     config = load_run_config(resource_folder)
 
     return config['ConfigFiles']
 
 
-def get_config_files():
+def get_config_files_from_github_repos(github_pat):
+    """
+        If github repos aren't configured in run-config.yaml, return empty list.
+
+        Otherwise, try to checkout each repo, try to find the config file named as 'ConfigFileName' in run-config.yaml and return the files
+    """
+    config_files = []
+    repositories = load_remote_configuration_locations(resource_folder)
+
+    if not repositories or not len(repositories):
+        print("No GitHub repos configured to use")
+        return config_files
+    
+    if not github_pat:
+        print("GitHub Personal Access token not provided via CLI, unable to use github configurations")
+        return config_files
+    
+    gh_config_file_name = load_github_config_file_name(resource_folder)
+    local_gh_repo_folder = load_github_repo_folder(resource_folder)
+        
+    for repository in repositories:
+        try:
+            local_folder = repository.rsplit("/")[4]
+            local_folder_path = os.path.join(local_gh_repo_folder, local_folder)
+            print(f'Pulling latest config for {local_folder}')
+            if not os.path.exists(local_folder_path):
+                print(f'Cloning repo for {local_folder}')
+                repository = add_PAT_to_github_repo_url(github_pat, repository)
+                repo = Repo.clone_from(repository, local_folder_path)
+                os.chmod(local_folder_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+            repo = Repo.init(local_folder_path).remote()
+            repo.pull()
+            print(f'Pulled latest config for {local_folder}')
+            gh_config_file = find_config_file_in_github_repo(local_folder_path, gh_config_file_name)
+            if gh_config_file:
+                config_files.append(gh_config_file)
+            else:
+                print(f"{gh_config_file_name} not found in {local_folder_path}")
+        except Exception as e:
+            print(f'Error occurred while pulling latest changes for repository {repository}')
+            print(e)
+            continue
+
+    return config_files
+
+
+def find_config_file_in_github_repo(folder, gh_config_file_name):
+    if os.path.exists(os.path.join(folder, gh_config_file_name)):
+        return os.path.join(folder, gh_config_file_name)
+    return None
+
+def get_config_files(github_pat):
+    """
+        Returns list of config files from Resources folder.
+
+        Optionally, if GitHub repos are configured, it will checkout those repos
+        and try to load config files from those repos, and return them as well
+    """
+    config_files = get_config_files_from_resources_folder()
+
+    config_files.extend(get_config_files_from_github_repos(github_pat))
+
+    return config_files
+
+
+def get_config_files_from_resources_folder():
     """
         Returns list of config files containing apps/environment data.
         Files are first loaded from Resources folder.
@@ -32,16 +105,42 @@ def get_config_files():
     config_files_to_use = get_config_files_to_use()
     if phoenix_module.DEBUG:
         print(f"Scanning detected config files: {files} at {resource_folder}")
+
+    if not config_files_to_use:
+        print(f"No config files to use from Resources folder")
+        return []
     files = list(file for file in files if file in config_files_to_use)
     
     print(f"Using config files for processing: {files}")
 
     return list(os.path.join(resource_folder, file) for file in files if '.yaml' in file or '.yml' in file)
 
+def refresh_access_token(stop_event):
+    global access_token
+    global headers
+    refresh_period_in_minutes = 10
+    next_refresh = datetime.now()
+    while not stop_event.is_set():
+        if datetime.now() > next_refresh:
+            access_token = get_auth_token(CLIENT_ID, CLIENT_SECRET)
+            headers['Authorization'] = f'Bearer {access_token}'
+            phoenix_module.access_token = access_token
+            phoenix_module.headers = headers
+            print(f"Refreshed access token")
+            next_refresh = datetime.now() + timedelta(minutes=refresh_period_in_minutes)
+            time.sleep(5)
+
+
 def perform_actions(args, config_file_path):  
 
     client_id = args.client_id
+    global CLIENT_ID
+    CLIENT_ID = client_id
     client_secret = args.client_secret
+    global CLIENT_SECRET
+    CLIENT_SECRET = client_secret
+    global access_token
+    global headers
     if (args.api_domain):
         phoenix_module.APIdomain = args.api_domain
     action_teams = args.action_teams == 'true'
@@ -53,6 +152,11 @@ def perform_actions(args, config_file_path):
     action_autocreate_teams_from_pteam = args.action_autocreate_teams_from_pteam == 'true'
     action_create_components_from_assets = args.action_create_components_from_assets == 'true'
 
+
+    # Start refresh token process
+    stop_event = Event()
+    thread = Thread(target=refresh_access_token, args=(stop_event,))
+    thread.start()
     # Populate data from various resources
     teams = populate_teams(resource_folder)
     hive_staff = populate_hives(resource_folder)  # List of Hive team staff
@@ -192,6 +296,7 @@ def perform_actions(args, config_file_path):
 
         # Then handle services
         print("\n[Service Updates]")
+        app_environments = populate_applications_and_environments(headers)
         add_environment_services(repos, subdomains, environments, app_environments, phoenix_components, subdomain_owners, teams, access_token)
         print("[Diagnostic] [Cloud] Time Taken:", time.time() - start_time)
         print("Starting Cloud Asset Rules")
@@ -251,6 +356,11 @@ def perform_actions(args, config_file_path):
         create_components_from_assets(app_environments, phoenix_components, headers)
         print(f"[Diagnostic] [Create components/services from assets] Time Taken: {time.time() - start_time}")
 
+    print("Waiting for refresh access token thread to stop")
+    stop_event.set()
+    thread.join()
+    print("Refresh access token thread stopped")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process input arguments.")
@@ -258,6 +368,7 @@ if __name__ == "__main__":
     # Add arguments
     parser.add_argument("client_id", type=str, help="Client ID")
     parser.add_argument("client_secret", type=str, help="Client Secret")
+    parser.add_argument("--github_pat", type=str, help="GitHub Personal Access Token")
     parser.add_argument("--api_domain", type=str, default=phoenix_module.APIdomain, required=False, help="Phoenix API domain")
     parser.add_argument("--action_teams", type=str, default="false", 
                         required=False, help="Flag triggering teams action")
@@ -286,7 +397,7 @@ if __name__ == "__main__":
         import providers.YamlHelper as yaml_helper_module
         yaml_helper_module.DEBUG = True
 
-    for config_file in get_config_files():
+    for config_file in get_config_files(args.github_pat):
         try:
             print(f"Started processing config file {config_file}")
             perform_actions(args, config_file)

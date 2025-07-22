@@ -123,9 +123,17 @@ def extract_user_name_from_email(email):
         print(f"Unable to detect user's first and last name in {email}, using {user_full_name} as both first and last name")
     return (user_first_name, user_last_name)
 
+
 def validate_user_role(user_role):
     allowed_roles = ["ORG_ADMIN", "ORG_APP_ADMIN", "ORG_USER", 
                     "ORG_ADMIN_LITE", "ORG_SEC_ADMIN", "ORG_SEC_DEV"]
     
     if not any(allowed_role == user_role for allowed_role in allowed_roles):
         raise Exception(f"Invalid user role, received {user_role}, allowed roles: {allowed_roles}")
+    
+
+def add_PAT_to_github_repo_url(pat, repo_url):
+    # update the repo_url to contain the PAT right after https://
+    # only for github repos
+    if "https://github.com" in repo_url:
+        return repo_url[:8] + pat + "@" + repo_url[8:]

@@ -48,6 +48,8 @@ ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with 
 
 APIdomain = "https://api.demo.appsecphx.io/" #change this with your specific domain
 DEBUG = False #debug settings to trigger debug output 
+access_token = None
+headers = {}
 
 def get_auth_token(clientID, clientSecret, retries=3):
     credentials = f"{clientID}:{clientSecret}".encode('utf-8')
@@ -75,7 +77,10 @@ def get_auth_token(clientID, clientSecret, retries=3):
 def construct_api_url(endpoint):
     return f"{APIdomain}{endpoint}"
 
-def create_environment(environment, headers):
+def create_environment(environment, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print("[Environment]")
     print(f"└─ Creating: {environment['Name']}")
 
@@ -149,7 +154,11 @@ def create_environment(environment, headers):
         if DEBUG:
             print(f"└─ Response content: {error_details}")
 
-def update_environment(environment, existing_environment, headers):
+
+def update_environment(environment, existing_environment, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     payload = {}
     has_errors = False
 
@@ -247,8 +256,12 @@ def update_environment(environment, existing_environment, headers):
             print(f"Response content: {response.content}")
         # Don't raise the exception, just log it and continue
 
+
 # Function to add services and process rules for the environment
-def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token):
+def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
     for environment in environments:
@@ -296,8 +309,12 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                 add_service_rule_batch(application_environments, environment, service, service_id, headers)
                 time.sleep(1)  # Add small delay between operations
 
+
 # AddContainerRule Function
-def add_container_rule(image, subdomain, environment_name, access_token):
+def add_container_rule(image, subdomain, environment_name, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
     rules = [{
@@ -312,7 +329,10 @@ def add_container_rule(image, subdomain, environment_name, access_token):
         "rules": rules
     }
 
-def add_service_rule_batch(application_environments, environment, service, service_id, headers):
+def add_service_rule_batch(application_environments, environment, service, service_id, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     serviceName = service['Service']
     environmentName = environment['Name']
     env_id = get_environment_id(application_environments, environmentName)
@@ -415,6 +435,8 @@ def add_service_rule_batch(application_environments, environment, service, servi
     # Handle other rules
     for rule_type, rule_key, rule_value in [
         ('Tag', 'tags', service.get('Tag')),
+        ('Tag_rule', 'tags', service.get('Tag_rule')),
+        ('Tags_rule', 'tags', service.get('Tags_rule')),
         ('SearchName', 'keyLike', service.get('SearchName')),
         ('Fqdn', 'fqdn', service.get('Fqdn')),
         ('Netbios', 'netbios', service.get('Netbios')),
@@ -427,7 +449,7 @@ def add_service_rule_batch(application_environments, environment, service, servi
     ]:
         if rule_value:
             try:
-                if rule_type == 'Tag':
+                if rule_type in ['Tag', 'Tag_rule', 'Tags_rule']:
                     tag_value = rule_value
                     if isinstance(tag_value, list):
                         for tag_item in tag_value:
@@ -439,7 +461,7 @@ def add_service_rule_batch(application_environments, environment, service, servi
                                         serviceName, 
                                         'tags', 
                                         [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
-                                        f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
+                                        f"Rule for {rule_type} {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
                                         headers
                                     )
                                     success = success and (rule_result if rule_result is not None else False)
@@ -452,7 +474,7 @@ def add_service_rule_batch(application_environments, environment, service, servi
                                     serviceName, 
                                     'tags', 
                                     [{"key": tag_parts[0].strip(), "value": tag_parts[1].strip()}],
-                                    f"Rule for tag {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
+                                    f"Rule for {rule_type} {tag_parts[0]}:{tag_parts[1]} for {serviceName}", 
                                     headers
                                 )
                                 success = success and (rule_result if rule_result is not None else False)
@@ -490,7 +512,10 @@ def add_service_rule_batch(application_environments, environment, service, servi
     return success
 
 # AddServiceRule Function
-def add_service_rule(environment, service, tag_name, tag_value, access_token):
+def add_service_rule(environment, service, tag_name, tag_value, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
 
@@ -514,16 +539,49 @@ def add_service_rule(environment, service, tag_name, tag_value, access_token):
             print(f"Payload being sent to /v1rule: {json.dumps(payload, indent=2)}")
 
 
-def create_applications(applications, application_environments, phoenix_components, headers):
+def create_applications(applications, application_environments, phoenix_components, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print('[Applications]')
+    print(f'└─ Processing {len(applications)} applications from config')
+    
+    # Debug: Show existing applications
+    existing_apps = [env for env in application_environments if env.get('type') == "APPLICATION"]
+    print(f'└─ Found {len(existing_apps)} existing applications in Phoenix:')
+    for app in existing_apps:
+        print(f'   └─ {app.get("name", "Unknown")}')
+    
     for application in applications:
-        if not any(env['name'] == application['AppName'] and env['type'] == "APPLICATION" for env in application_environments):
+        app_name = application['AppName']
+        print(f'\n└─ Processing application: {app_name}')
+        
+        # Check if application exists
+        existing_app = next((env for env in application_environments if env['name'] == app_name and env['type'] == "APPLICATION"), None)
+        
+        if not existing_app:
+            print(f'   └─ Application does not exist, creating...')
             create_application(application, headers)
         else:
-            update_application(application, application_environments, phoenix_components, headers)
+            print(f'   └─ Application exists (ID: {existing_app.get("id", "Unknown")}), updating...')
+            try:
+                update_application(application, application_environments, phoenix_components, headers)
+            except Exception as e:
+                error_msg = f"Failed to update application {app_name}: {str(e)}"
+                log_error(
+                    'Application Update Failed',
+                    app_name,
+                    'N/A',
+                    error_msg,
+                    f'Exception during update: {e}'
+                )
+                print(f'   └─ Error: {error_msg}')
+                continue
 
-
-def create_application(app, headers):
+def create_application(app, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Application Creation]")
     print(f"└─ Creating: {app['AppName']}")
     
@@ -534,6 +592,10 @@ def create_application(app, headers):
         "tags": [],
         "owner": {"email": app['Responsable']}
     }
+    
+    print(f"└─ Debug - Criticality value: {app['Criticality']} (type: {type(app['Criticality'])})")
+    print(f"└─ Debug - Owner email: '{app['Responsable']}' (type: {type(app['Responsable'])})")
+    print(f"└─ Debug - App name: '{app['AppName']}' (length: {len(app['AppName'])})")
 
     # Handle ticketing configuration
     if app.get('Ticketing'):
@@ -602,10 +664,10 @@ def create_application(app, headers):
     # Add team tags
     for team in app['TeamNames']:
         payload['tags'].append({"key": "pteam", "value": team})
-                    
-    if DEBUG:
-        print(f"└─ Final payload:")
-        print(json.dumps(payload, indent=2))
+        print(f"└─ Debug - Adding team tag: pteam={team}")
+    
+    print(f"└─ Final payload:")
+    print(json.dumps(payload, indent=2))
 
     try:
         api_url = construct_api_url("/v1/applications")
@@ -627,8 +689,8 @@ def create_application(app, headers):
                 error_details
             )
             print(f"└─ Error: {error_msg}")
-            if DEBUG:
-                print(f"└─ Response content: {response.content}")
+            print(f"└─ Response content: {getattr(response, 'content', 'No response content')}")
+            print(f"└─ Payload sent: {json.dumps(payload, indent=2)}")
             return
     
     # Create components if any
@@ -637,7 +699,10 @@ def create_application(app, headers):
         for component in app['Components']:
             create_custom_component(app['AppName'], component, headers)
 
-def create_custom_component(applicationName, component, headers):
+def create_custom_component(applicationName, component, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Component Creation]")
     print(f"└─ Application: {applicationName}")
     print(f"└─ Component: {component['ComponentName']}")
@@ -660,6 +725,54 @@ def create_custom_component(applicationName, component, headers):
         tags.append({"key": "domain", "value": component['Domain']})
     if component.get('SubDomain'):
         tags.append({"key": "subdomain", "value": component['SubDomain']})
+    
+    # Add tags from the Tag_label and Tags_label fields in YAML configuration
+    if component.get('Tag_label'):
+        tag_label = component.get('Tag_label')
+        if isinstance(tag_label, str):
+            # Handle string tags like "Environment: Production"
+            if ':' in tag_label:
+                tag_parts = tag_label.split(':', 1)  # Split only on first colon
+                key = tag_parts[0].strip()
+                value = tag_parts[1].strip()
+                tags.append({"key": key, "value": value})
+            else:
+                # Handle tags without key:value format
+                tags.append({"value": tag_label})
+        elif isinstance(tag_label, list):
+            for tag in tag_label:
+                if isinstance(tag, str):
+                    if ':' in tag:
+                        tag_parts = tag.split(':', 1)
+                        key = tag_parts[0].strip()
+                        value = tag_parts[1].strip()
+                        tags.append({"key": key, "value": value})
+                    else:
+                        tags.append({"value": tag})
+                elif isinstance(tag, dict):
+                    if 'key' in tag and 'value' in tag:
+                        tags.append({"key": tag['key'], "value": tag['value']})
+                    elif 'value' in tag:
+                        tags.append({"value": tag['value']})
+    
+    if component.get('Tags_label'):
+        for tag in component.get('Tags_label'):
+            if isinstance(tag, str):
+                # Handle string tags like "Environment: Production"
+                if ':' in tag:
+                    tag_parts = tag.split(':', 1)  # Split only on first colon
+                    key = tag_parts[0].strip()
+                    value = tag_parts[1].strip()
+                    tags.append({"key": key, "value": value})
+                else:
+                    # Handle tags without key:value format
+                    tags.append({"value": tag})
+            elif isinstance(tag, dict):
+                # Handle dict tags that already have key/value structure
+                if 'key' in tag and 'value' in tag:
+                    tags.append({"key": tag['key'], "value": tag['value']})
+                elif 'value' in tag:
+                    tags.append({"value": tag['value']})
 
     payload = {
         "applicationSelector": {
@@ -739,7 +852,11 @@ def create_custom_component(applicationName, component, headers):
         )
         print(f"└─ Warning: {error_msg}")
 
-def update_application(application, existing_apps_envs, existing_components, headers):
+
+def update_application(application, existing_apps_envs, existing_components, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Application Update]")
     print(f"└─ Processing: {application['AppName']}")
     
@@ -903,7 +1020,10 @@ def update_application(application, existing_apps_envs, existing_components, hea
 
     print(f"└─ Completed processing application: {application['AppName']}")
 
-def update_component(application, component, existing_component, headers):
+def update_component(application, component, existing_component, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Component Update]")
     print(f"└─ Application: {application['AppName']}")
     print(f"└─ Component: {component['ComponentName']}")
@@ -923,10 +1043,72 @@ def update_component(application, component, existing_component, headers):
         )
         print(f"└─ Warning: {error_msg}")
 
+    # Build tags for the update
+    tags = []
+    
+    # Add team tags
+    for team in component.get('TeamNames', []):
+        if team:  # Only add non-empty team names
+            tags.append({"key": "pteam", "value": team})
+    
+    # Add domain and subdomain tags only if they are not None or empty
+    if component.get('Domain'):
+        tags.append({"key": "domain", "value": component['Domain']})
+    if component.get('SubDomain'):
+        tags.append({"key": "subdomain", "value": component['SubDomain']})
+    
+    # Add tags from the Tag_label and Tags_label fields in YAML configuration
+    if component.get('Tag_label'):
+        tag_label = component.get('Tag_label')
+        if isinstance(tag_label, str):
+            # Handle string tags like "Environment: Production"
+            if ':' in tag_label:
+                tag_parts = tag_label.split(':', 1)  # Split only on first colon
+                key = tag_parts[0].strip()
+                value = tag_parts[1].strip()
+                tags.append({"key": key, "value": value})
+            else:
+                # Handle tags without key:value format
+                tags.append({"value": tag_label})
+        elif isinstance(tag_label, list):
+            for tag in tag_label:
+                if isinstance(tag, str):
+                    if ':' in tag:
+                        tag_parts = tag.split(':', 1)
+                        key = tag_parts[0].strip()
+                        value = tag_parts[1].strip()
+                        tags.append({"key": key, "value": value})
+                    else:
+                        tags.append({"value": tag})
+                elif isinstance(tag, dict):
+                    if 'key' in tag and 'value' in tag:
+                        tags.append({"key": tag['key'], "value": tag['value']})
+                    elif 'value' in tag:
+                        tags.append({"value": tag['value']})
+    
+    if component.get('Tags_label'):
+        for tag in component.get('Tags_label'):
+            if isinstance(tag, str):
+                # Handle string tags like "Environment: Production"
+                if ':' in tag:
+                    tag_parts = tag.split(':', 1)  # Split only on first colon
+                    key = tag_parts[0].strip()
+                    value = tag_parts[1].strip()
+                    tags.append({"key": key, "value": value})
+                else:
+                    # Handle tags without key:value format
+                    tags.append({"value": tag})
+            elif isinstance(tag, dict):
+                # Handle dict tags that already have key/value structure
+                if 'key' in tag and 'value' in tag:
+                    tags.append({"key": tag['key'], "value": tag['value']})
+                elif 'value' in tag:
+                    tags.append({"value": tag['value']})
+
     payload = {
         "name": component['ComponentName'],
         "criticality": component.get('Criticality', 5),  # Default to criticality 5
-        "tags": []
+        "tags": tags
     }
 
     # Handle ticketing configuration
@@ -1030,7 +1212,10 @@ def update_component(application, component, existing_component, headers):
         )
         print(f"└─ Warning: {error_msg}")
 
-def update_application_teams(existing_app, application, headers):
+def update_application_teams(existing_app, application, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     for team in filter(lambda tag: tag.get('key') == 'pteam', existing_app.get('tags')):
         if team.get('value') not in application.get('TeamNames'):
             remove_tag_from_application(team.get('id'), team.get('key'), team.get('value'), existing_app.get('id'), headers)
@@ -1039,7 +1224,10 @@ def update_application_teams(existing_app, application, headers):
         if not next(filter(lambda team: team.get('key') == 'pteam' and team['value'] == new_team, existing_app.get('tags')), None):
             add_tag_to_application('pteam', new_team, existing_app.get('id'), headers)
 
-def update_application_crit_owner(application, existing_application, headers):
+def update_application_crit_owner(application, existing_application, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Application Configuration Update]")
     print(f"└─ Application: {application['AppName']}")
     
@@ -1146,7 +1334,10 @@ def update_application_crit_owner(application, existing_application, headers):
         if DEBUG:
             print(f"└─ Response content: {getattr(response, 'content', 'No response content')}")
 
-def create_component_rules(applicationName, component, headers):
+def create_component_rules(applicationName, component, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     # Helper function to validate value
     def is_valid_value(value):
         if value is None:
@@ -1155,43 +1346,15 @@ def create_component_rules(applicationName, component, headers):
             return False
         return True
 
-    def is_valid_tag(tag):
-        if not is_valid_value(tag):
-            return False
-        # Tag must be between 3 and 255 characters
-        tag_str = str(tag).strip()
-        return 3 <= len(tag_str) <= 255
+    # Note: Tag validation is now handled in create_custom_component and update_component
 
     # SearchName rule
     if component.get('SearchName') and is_valid_value(component.get('SearchName')):
         create_component_rule(applicationName, component['ComponentName'], 'keyLike', component['SearchName'], f"Rule for keyLike for {component['ComponentName']}", headers)
 
-    # Tags rule
-    if component.get('Tags'):
-        tags_to_add = []
-        for tag in component.get('Tags'):
-            if isinstance(tag, dict) and 'value' in tag:
-                # If tag is already in correct format, validate the value
-                if is_valid_tag(tag['value']):
-                    tags_to_add.append(tag)
-                elif DEBUG:
-                    print(f" ! Skipping invalid tag value: '{tag['value']}' (must be between 3 and 255 characters)")
-            else:
-                # If tag is a string, validate and convert to correct format
-                if is_valid_tag(tag):
-                    tags_to_add.append({'value': tag})
-                elif DEBUG:
-                    print(f" ! Skipping invalid tag: '{tag}' (must be between 3 and 255 characters)")
-        
-        if tags_to_add:
-            try:
-                create_component_rule(applicationName, component['ComponentName'], 'tags', tags_to_add, f"Rule for tags for {component['ComponentName']}", headers)
-            except Exception as e:
-                if DEBUG:
-                    print(f" ! Error creating tag rule for {component['ComponentName']}: {str(e)}")
-                    print(f" ! Tags attempted: {json.dumps(tags_to_add, indent=2)}")
-        elif DEBUG:
-            print(f" ! No valid tags found for {component['ComponentName']}")
+    # Tags rule - create asset matching rules for Tags field
+    if component.get('Tags') and is_valid_value(component.get('Tags')):
+        create_component_rule(applicationName, component['ComponentName'], 'tags', component['Tags'], f"Rule for tags for {component['ComponentName']}", headers)
 
     # Repository rule - using get_repositories_from_component helper
     repository_names = get_repositories_from_component(component)
@@ -1218,14 +1381,21 @@ def create_component_rules(applicationName, component, headers):
     if component.get('AssetType') and is_valid_value(component.get('AssetType')):
         create_component_rule(applicationName, component['ComponentName'], 'assetType', component['AssetType'], f"Rule for assetType for {component['ComponentName']}", headers)
 
-    # MultiCondition rules
+    # MultiCondition rules - process after all other rules including tags
     if component.get('MultiConditionRule') and is_valid_value(component.get('MultiConditionRule')):
         create_multicondition_component_rules(applicationName, component['ComponentName'], [component.get('MultiConditionRule')], headers)    
 
     if component.get('MultiConditionRules') and is_valid_value(component.get('MultiConditionRules')):
         create_multicondition_component_rules(applicationName, component['ComponentName'], component.get('MultiConditionRules'), headers)
+    
+    # Handle MULTI_MultiConditionRules (the main variant used in YAML)
+    if component.get('MULTI_MultiConditionRules') and is_valid_value(component.get('MULTI_MultiConditionRules')):
+        create_multicondition_component_rules(applicationName, component['ComponentName'], component.get('MULTI_MultiConditionRules'), headers)
 
-def create_multicondition_component_rules(applicationName, componentName, multiconditionRules, headers):
+def create_multicondition_component_rules(applicationName, componentName, multiconditionRules, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     for multicondition in multiconditionRules:
         rule = {'name': f'MC-R {componentName}'}  # Shortened name format
         rule['filter'] = {}
@@ -1243,7 +1413,15 @@ def create_multicondition_component_rules(applicationName, componentName, multic
                     repository_names = multicondition.get('RepositoryName')
                     if isinstance(repository_names, str):
                         repository_names = [repository_names]
-                    rule['filter']['repository'] = repository_names
+                    
+                    # Extract last 2 parts of each repository path
+                    shortened_repository_names = []
+                    for repo_name in repository_names:
+                        if repo_name and isinstance(repo_name, str):
+                            shortened_repo = extract_last_two_path_parts(repo_name)
+                            shortened_repository_names.append(shortened_repo)
+                    
+                    rule['filter']['repository'] = shortened_repository_names
                 if multicondition.get('Tags'):
                     rule['filter']['tags'] = []
                     for tag in multicondition.get('Tags'):
@@ -1266,6 +1444,39 @@ def create_multicondition_component_rules(applicationName, componentName, multic
                     rule['filter']['resourceGroup'] = multicondition.get('ResourceGroup')
                 if multicondition.get('AssetType'):
                     rule['filter']['assetType'] = multicondition.get('AssetType')
+                # Handle Tag_rule and Tags_rule fields for asset matching
+                if multicondition.get('Tag_rule'):
+                    tag_rule_value = multicondition.get('Tag_rule')
+                    if isinstance(tag_rule_value, str):
+                        # Single tag rule
+                        if ':' in tag_rule_value:
+                            tag_parts = tag_rule_value.split(':', 1)
+                            key = tag_parts[0].strip()
+                            value = tag_parts[1].strip()
+                            rule['filter']['tags'] = [{"key": key, "value": value}]
+                        else:
+                            rule['filter']['tags'] = [{"value": tag_rule_value}]
+                    elif isinstance(tag_rule_value, list):
+                        # Multiple tag rules
+                        rule['filter']['tags'] = []
+                        for tag in tag_rule_value:
+                            if ':' in tag:
+                                tag_parts = tag.split(':', 1)
+                                key = tag_parts[0].strip()
+                                value = tag_parts[1].strip()
+                                rule['filter']['tags'].append({"key": key, "value": value})
+                            else:
+                                rule['filter']['tags'].append({"value": tag})
+                if multicondition.get('Tags_rule'):
+                    rule['filter']['tags'] = []
+                    for tag in multicondition.get('Tags_rule'):
+                        if ':' in tag:
+                            tag_parts = tag.split(':', 1)
+                            key = tag_parts[0].strip()
+                            value = tag_parts[1].strip()
+                            rule['filter']['tags'].append({"key": key, "value": value})
+                        else:
+                            rule['filter']['tags'].append({"value": tag})
 
                 if not rule['filter']:
                     return
@@ -1309,7 +1520,10 @@ def create_multicondition_component_rules(applicationName, componentName, multic
                     print(f"Response content: {response.content}")
                 break  # Exit on other errors
 
-def create_multicondition_service_rules(environmentName, serviceName, multiconditionRules, headers):
+def create_multicondition_service_rules(environmentName, serviceName, multiconditionRules, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     # Helper function to validate value
     def is_valid_value(value):
         if value is None:
@@ -1337,7 +1551,14 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
             repository_names = multicondition.get('RepositoryName')
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
-            valid_repos = [repo for repo in repository_names if is_valid_value(repo)]
+            
+            # Extract last 2 parts of each repository path and validate
+            valid_repos = []
+            for repo in repository_names:
+                if is_valid_value(repo):
+                    shortened_repo = extract_last_two_path_parts(repo)
+                    valid_repos.append(shortened_repo)
+            
             if valid_repos:
                 rule['filter']['repository'] = valid_repos
                 filter_details.append(f"REPO:{','.join(valid_repos)}")
@@ -1356,6 +1577,51 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
                 # Handle tag without key:value format, preserving exact pattern including wildcards
                 rule['filter']['tags'] = [{"value": tag_value}]
                 filter_details.append(f"TAG:{tag_value}")
+                
+        # Handle Tag_rule and Tags_rule fields for asset matching
+        if multicondition.get('Tag_rule') and is_valid_value(multicondition.get('Tag_rule')):
+            tag_rule_value = multicondition.get('Tag_rule')
+            if isinstance(tag_rule_value, str):
+                # Single tag rule
+                if ':' in tag_rule_value:
+                    tag_parts = tag_rule_value.split(':', 1)
+                    key = tag_parts[0].strip()
+                    value = tag_parts[1].strip()
+                    rule['filter']['tags'] = [{"key": key, "value": value}]
+                    filter_details.append(f"TAG_RULE:{key}={value}")
+                else:
+                    rule['filter']['tags'] = [{"value": tag_rule_value}]
+                    filter_details.append(f"TAG_RULE:{tag_rule_value}")
+            elif isinstance(tag_rule_value, list):
+                # Multiple tag rules
+                rule['filter']['tags'] = []
+                tag_rule_details = []
+                for tag in tag_rule_value:
+                    if ':' in tag:
+                        tag_parts = tag.split(':', 1)
+                        key = tag_parts[0].strip()
+                        value = tag_parts[1].strip()
+                        rule['filter']['tags'].append({"key": key, "value": value})
+                        tag_rule_details.append(f"{key}={value}")
+                    else:
+                        rule['filter']['tags'].append({"value": tag})
+                        tag_rule_details.append(tag)
+                filter_details.append(f"TAG_RULE:{','.join(tag_rule_details)}")
+                
+        if multicondition.get('Tags_rule') and is_valid_value(multicondition.get('Tags_rule')):
+            rule['filter']['tags'] = []
+            tag_rule_details = []
+            for tag in multicondition.get('Tags_rule'):
+                if ':' in tag:
+                    tag_parts = tag.split(':', 1)
+                    key = tag_parts[0].strip()
+                    value = tag_parts[1].strip()
+                    rule['filter']['tags'].append({"key": key, "value": value})
+                    tag_rule_details.append(f"{key}={value}")
+                else:
+                    rule['filter']['tags'].append({"value": tag})
+                    tag_rule_details.append(tag)
+            filter_details.append(f"TAGS_RULE:{','.join(tag_rule_details)}")
                 
         if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
             rule['filter']['assetType'] = str(multicondition.get('AssetType'))
@@ -1416,15 +1682,36 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
 
     return True  # Return success if we get here
 
+def extract_last_two_path_parts(repo_path):
+    """
+    Extract the last 2 parts of a repository path.
+    
+    Args:
+        repo_path (str): Full repository path like "gitlab.com/q2e/development/helix/io-code-review-assistant"
+        
+    Returns:
+        str: Last 2 parts like "helix/io-code-review-assistant"
+    """
+    if not repo_path or not isinstance(repo_path, str):
+        return repo_path
+    
+    # Split by '/' and get the last 2 parts
+    parts = repo_path.strip().split('/')
+    if len(parts) >= 2:
+        return '/'.join(parts[-2:])
+    else:
+        return repo_path  # Return original if less than 2 parts
+
 def get_repositories_from_component(component):
     """
     Get repository names from a component, handling all edge cases.
+    Repository paths are shortened to show only the last 2 parts.
     
     Args:
         component (dict): The component dictionary that may contain repository information
         
     Returns:
-        list: A list of valid repository names, or an empty list if none are found
+        list: A list of valid repository names (shortened to last 2 parts), or an empty list if none are found
     """
     if DEBUG:
         print("\nProcessing repositories from component:")
@@ -1455,12 +1742,16 @@ def get_repositories_from_component(component):
             if DEBUG:
                 print(f"Repository is empty or 'null': {repository}")
             return []
-        if len(repository) >= 3:  # Only return if length requirement is met
+        
+        # Extract last 2 parts of the path
+        shortened_repo = extract_last_two_path_parts(repository)
+        
+        if len(shortened_repo) >= 3:  # Only return if length requirement is met
             if DEBUG:
-                print(f"Valid repository found: {repository}")
-            return [repository]
+                print(f"Valid repository found: {repository} -> {shortened_repo}")
+            return [shortened_repo]
         if DEBUG:
-            print(f"Repository too short: {repository}")
+            print(f"Repository too short: {shortened_repo}")
         return []
     
     # Handle list case
@@ -1471,10 +1762,16 @@ def get_repositories_from_component(component):
         for repo in repository:
             if repo and isinstance(repo, str):
                 repo = repo.strip()
-                if repo and repo.lower() != 'null' and len(repo) >= 3:
-                    if DEBUG:
-                        print(f"Valid repository found in list: {repo}")
-                    valid_repos.append(repo)
+                if repo and repo.lower() != 'null':
+                    # Extract last 2 parts of the path
+                    shortened_repo = extract_last_two_path_parts(repo)
+                    
+                    if len(shortened_repo) >= 3:
+                        if DEBUG:
+                            print(f"Valid repository found in list: {repo} -> {shortened_repo}")
+                        valid_repos.append(shortened_repo)
+                    elif DEBUG:
+                        print(f"Repository too short in list: {repo} -> {shortened_repo}")
                 elif DEBUG:
                     print(f"Invalid repository in list: {repo}")
         return valid_repos
@@ -1485,27 +1782,37 @@ def get_repositories_from_component(component):
     return []
 
 # CreateRepositories Function
-def create_repositories(repos, access_token):
+def create_repositories(repos, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     # Iterate over the list of repositories and call the create_repo function
     for repo in repos:
         create_repo(repo, access_token)
 
 # CreateRepo Function
-def create_repo(repo, access_token):
+def create_repo(repo, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     # Calculate criticality (assuming a function `calculate_criticality` exists)
     criticality = calculate_criticality(repo['Tier'])
     
+    # Extract last 2 parts of repository path for cleaner names
+    original_repo_name = repo['RepositoryName']
+    shortened_repo_name = extract_last_two_path_parts(original_repo_name)
+    
     # Create the payload, the function assume 1 repo per component with the component name being the repository this can be edited
     payload = {
-        "repository": f"{repo['RepositoryName']}",
+        "repository": f"{shortened_repo_name}",
         "applicationSelector": {
             "name": repo['Subdomain'],
             "caseSensitive": False
         },
         "component": {
-            "name": repo['RepositoryName'],
+            "name": shortened_repo_name,
             "criticality": criticality,
             "tags": [
                 {"key": "pteam", "value": repo['Team']},
@@ -1524,22 +1831,27 @@ def create_repo(repo, access_token):
         # Make POST request to create the repository
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
-        print(f" + {repo['RepositoryName']} added.")
+        print(f" + {shortened_repo_name} added (original: {original_repo_name}).")
     
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f" > Repo {repo['RepositoryName']} already exists")
+            print(f" > Repo {shortened_repo_name} already exists (original: {original_repo_name})")
         else:
             print(f"Error: {e}")
             exit(1)
 
 # AddCloudAssetRules Function
-def add_cloud_asset_rules(repos, access_token):
+def add_cloud_asset_rules(repos, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     # Loop through each repository and modify domain if needed
     for repo in repos:
-        search_term = f"*{repo['RepositoryName']}(*"
+        # Extract last 2 parts of repository path for cleaner search terms
+        shortened_repo_name = extract_last_two_path_parts(repo['RepositoryName'])
+        search_term = f"*{shortened_repo_name}(*"
         cloud_asset_rule(repo['Subdomain'], search_term, "Production", access_token)
 
     # Adding rules for PowerPlatform with different environments
@@ -1549,7 +1861,10 @@ def add_cloud_asset_rules(repos, access_token):
     #cloud_asset_rule("PowerPlatform", "powerplatform_dev", "Development", access_token)
 
 # CloudAssetRule Function
-def cloud_asset_rule(name, search_term, environment_name, access_token):
+def cloud_asset_rule(name, search_term, environment_name, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     # Create the payload
@@ -1591,7 +1906,7 @@ def cloud_asset_rule(name, search_term, environment_name, access_token):
             print(f"Error: {e}")
             print(f"Error details: {response.content}")
 
-def create_teams(teams, pteams, access_token):
+def create_teams(teams, pteams, access_token2):
     """
     This function iterates through a list of teams and adds new teams if they are not already present in `pteams`.
 
@@ -1600,6 +1915,9 @@ def create_teams(teams, pteams, access_token):
     - pteams: List of existing team objects to check if a team already exists.
     - access_token: Access token for API authentication.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     new_pteams = []
     
@@ -1655,7 +1973,10 @@ def create_teams(teams, pteams, access_token):
     return new_pteams
 
 
-def create_teams_from_pteams(applications, environments, pteams, access_token):
+def create_teams_from_pteams(applications, environments, pteams, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     existing_teams = set([pteam['name'] for pteam in pteams ])
     teams_to_add = set()
     for env in environments:
@@ -1684,7 +2005,7 @@ def create_teams_from_pteams(applications, environments, pteams, access_token):
         create_team_rules(teams_to_add, pteams, access_token)
 
 
-def populate_phoenix_teams(access_token):
+def populate_phoenix_teams(access_token2):
     """
     This function retrieves the list of Phoenix teams by making a GET request to the /v1/teams endpoint.
 
@@ -1694,6 +2015,9 @@ def populate_phoenix_teams(access_token):
     Returns:
     - List of teams if the request is successful, otherwise exits with an error message.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     api_url = construct_api_url("/v1/teams")
 
@@ -1712,7 +2036,7 @@ def populate_phoenix_teams(access_token):
 
 
 # CreateTeamRules Function
-def create_team_rules(teams, pteams, access_token):
+def create_team_rules(teams, pteams, access_token2):
     """
     This function iterates through a list of teams and creates team rules for teams
     that do not already exist in `pteams`.
@@ -1721,7 +2045,10 @@ def create_team_rules(teams, pteams, access_token):
     - teams: List of team objects.
     - pteams: List of pre-existing teams to check if a team already exists.
     - access_token: Access token for API authentication.
-    """    
+    """   
+    global access_token
+    if not access_token:
+        access_token = access_token2 
     for team in teams:
         found = False
 
@@ -1742,7 +2069,7 @@ def create_team_rules(teams, pteams, access_token):
             print(f"Team: {team['TeamName']}")
             create_team_rule("pteam", team['TeamName'], team['id'], access_token)
 
-def create_team_rule(tag_name, tag_value, team_id, access_token):
+def create_team_rule(tag_name, tag_value, team_id, access_token2):
     """
     This function creates a team rule by adding tags to a team.
 
@@ -1752,6 +2079,9 @@ def create_team_rule(tag_name, tag_value, team_id, access_token):
     - team_id: ID of the team.
     - access_token: API authentication token.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     # Create the payload with the tags
@@ -1808,7 +2138,7 @@ def create_team_rule(tag_name, tag_value, team_id, access_token):
             print(f"Error: {e}")
             exit(1)
 
-def check_and_create_missing_users(teams, all_team_access, hive_staff, access_token):
+def check_and_create_missing_users(teams, all_team_access, hive_staff, access_token2):
     """
         This function checks whether some user from teams or hives is missing and creates them.
 
@@ -1817,6 +2147,9 @@ def check_and_create_missing_users(teams, all_team_access, hive_staff, access_to
         - all_team_access: list of all team access users
         - hive_staff: list of hives. Only Lead and Product users will be managed in this function
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     p_users_emails = list(u.get("email") for u in load_users_from_phoenix(access_token))
     print('[User Creation from Teams]')
     for team in teams:
@@ -1965,7 +2298,7 @@ def check_and_create_missing_users(teams, all_team_access, hive_staff, access_to
 
 
 @dispatch(list,list,list,list,list,str)
-def assign_users_to_team(p_teams, new_pteams, teams, all_team_access, hive_staff, access_token):
+def assign_users_to_team(p_teams, new_pteams, teams, all_team_access, hive_staff, access_token2):
     """
     This function assigns users to teams by checking if users are already part of the team, and adds or removes them accordingly.
     
@@ -1976,6 +2309,9 @@ def assign_users_to_team(p_teams, new_pteams, teams, all_team_access, hive_staff
     - hive_staff: List of Hive team staff.
     - access_token: API authentication token.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     all_pteams = p_teams + new_pteams
     for pteam in all_pteams:
@@ -2038,7 +2374,7 @@ def construct_api_url(endpoint):
 
 
 # APICallAssignUsersToTeam Function
-def api_call_assign_users_to_team(team_id, email, access_token):
+def api_call_assign_users_to_team(team_id, email, access_token2):
     """
     Assigns a user to a team by making a PUT request to the API.
 
@@ -2047,6 +2383,9 @@ def api_call_assign_users_to_team(team_id, email, access_token):
     - email: The email address of the user to be added to the team.
     - access_token: API authentication token.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     # Construct the payload with the user email
@@ -2089,7 +2428,7 @@ def api_call_assign_users_to_team(team_id, email, access_token):
 
 
 # DeleteTeamMember Function
-def delete_team_member(email, team_id, access_token):
+def delete_team_member(email, team_id, access_token2):
     """
     Removes a user from a team by making a DELETE request to the API.
 
@@ -2098,6 +2437,9 @@ def delete_team_member(email, team_id, access_token):
     - team_id: The ID of the team.
     - access_token: API authentication token.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     
     # Construct the full API URL
@@ -2125,13 +2467,18 @@ def delete_team_member(email, team_id, access_token):
         if DEBUG:
             print(f"└─ Response content: {response.content}")
 
+
 @dispatch(str)
-def get_phoenix_components(access_token):
+def get_phoenix_components(access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     return get_phoenix_components(headers)
 
+
 @dispatch(dict)
-def get_phoenix_components(headers):
+def get_phoenix_components(headers2):
     """
     Fetches all Phoenix components with proper pagination handling.
     
@@ -2141,6 +2488,9 @@ def get_phoenix_components(headers):
     Returns:
         list: Complete list of all components across all pages
     """
+    global headers
+    if not headers:
+        headers = headers2
     components = []
     page_size = 100
     page_number = 0
@@ -2213,7 +2563,10 @@ def get_phoenix_components(headers):
     return components
 
 
-def get_phoenix_components_in_environment(env_id, access_token):
+def get_phoenix_components_in_environment(env_id, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     return list(x for x in get_phoenix_components(access_token) if x.get('applicationId', None) == env_id)
 
 
@@ -2244,10 +2597,14 @@ def environment_service_exist(env_id, phoenix_components, service_name):
         print(f" * Service {service_name} not found in cached components")
     return False
 
-def verify_service_exists(env_name, env_id, service_name, headers, max_retries=5):
+
+def verify_service_exists(env_name, env_id, service_name, headers2, max_retries=5):
     """
     Verify if a service exists in an environment with thorough checking and pagination.
     """
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Service Verification]")
     print(f" └─ Environment: {env_name}")
     print(f" └─ Service: {service_name}")
@@ -2332,8 +2689,12 @@ def verify_service_exists(env_name, env_id, service_name, headers, max_retries=5
         print(f" ! {error_msg}")
         return False, None
 
+
 # Helper function to get team members
-def get_phoenix_team_members(team_id, access_token):
+def get_phoenix_team_members(team_id, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
     api_url = construct_api_url(f"/v1/teams/{team_id}/users")
     
@@ -2360,13 +2721,17 @@ def remove_old_tags(phoenix_components, repos, override_list):
             if repo['RepositoryName'] == repo_override['Key']:
                 repo['Subdomain'] = repo_override['Value']
         
+        # Extract last 2 parts of repository path for comparison
+        shortened_repo_name = extract_last_two_path_parts(repo['RepositoryName'])
+        
         # Check and remove old tags in phoenix_components
         for component in phoenix_components:
-            if repo['RepositoryName'] == component['name']:
-                print(f"Repo: {repo['RepositoryName']}")
+            if shortened_repo_name == component['name']:
+                print(f"Repo: {shortened_repo_name} (original: {repo['RepositoryName']})")
                 #get_tag_value("domain", component['tags'], repo['Domain'])
                 #get_tag_value("subdomain", component['tags'], repo['Subdomain'])
                 get_tag_value("pteam", component['tags'], repo['Team'])
+
 
 def get_tag_value(tag_name, source_tags, expected_value):
     """
@@ -2386,7 +2751,8 @@ def get_tag_value(tag_name, source_tags, expected_value):
                 except Exception as e:
                     print(f"Error removing tag for {tag_name}: {e}")
 
-def remove_tag(tag_id, tag_key, tag_value,access_token):
+
+def remove_tag(tag_id, tag_key, tag_value,access_token2):
     """
     Removes the specified tag by making a DELETE or PATCH API call.
 
@@ -2395,6 +2761,9 @@ def remove_tag(tag_id, tag_key, tag_value,access_token):
     - tag_key: The key of the tag.
     - tag_value: The value of the tag.
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     # Payload for removing the tag
     payload = {
         "action": "delete",
@@ -2419,7 +2788,8 @@ def remove_tag(tag_id, tag_key, tag_value,access_token):
     except requests.exceptions.RequestException as e:
         print(f"Error removing tag: {e}")
 
-def remove_tag_from_application(tag_id, tag_key, tag_value, application_id, headers):
+
+def remove_tag_from_application(tag_id, tag_key, tag_value, application_id, headers2):
     """
     Removes the specified tag by making a DELETE or PATCH API call.
 
@@ -2429,6 +2799,9 @@ def remove_tag_from_application(tag_id, tag_key, tag_value, application_id, head
     - tag_value: The value of the tag.
     - application_id: The ID of the application having the tag
     """
+    global headers
+    if not headers:
+        headers = headers2
     # Payload for removing the tag
     payload = {
         "action": "delete",
@@ -2453,7 +2826,8 @@ def remove_tag_from_application(tag_id, tag_key, tag_value, application_id, head
     except requests.exceptions.RequestException as e:
         print(f"Error removing tag: {e}")
 
-def remove_tag_from_component(tag_id, tag_key, tag_value, component_id, headers):
+
+def remove_tag_from_component(tag_id, tag_key, tag_value, component_id, headers2):
     """
     Removes the specified tag by making a PATCH API call.
 
@@ -2463,6 +2837,9 @@ def remove_tag_from_component(tag_id, tag_key, tag_value, component_id, headers)
     - tag_value: The value of the tag.
     - component_id: The ID of the component having the tag
     """
+    global headers
+    if not headers:
+        headers = headers2
     # Payload for removing the tag
     payload = {
         "action": "delete",
@@ -2487,7 +2864,8 @@ def remove_tag_from_component(tag_id, tag_key, tag_value, component_id, headers)
     except requests.exceptions.RequestException as e:
         print(f"Error removing tag: {e}")
 
-def add_tag_to_application(tag_key, tag_value, application_id, headers):
+
+def add_tag_to_application(tag_key, tag_value, application_id, headers2):
     """
     Add the specified tag by making a PUT API call.
 
@@ -2496,6 +2874,9 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers):
     - tag_value: The value of the tag.
     - application_id: The application to tag
     """
+    global headers
+    if not headers:
+        headers = headers2
     # Payload for removing the tag
     payload = {
         "tags": [
@@ -2518,6 +2899,7 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers):
     except requests.exceptions.RequestException as e:
         print(f"Error adding tag: {e}")
 
+
 # Helper function to check if a member exists
 @dispatch(str,dict,list,list)
 def does_member_exist(user_email, team, hive_staff, all_team_access):
@@ -2534,10 +2916,11 @@ def does_member_exist(user_email, team, hive_staff, all_team_access):
            any(user_email.lower() == staff_member['Lead'].lower() or user_email.lower() in staff_member['Product'] for staff_member in hive_staff)
 
 
-
 #other supporting functions 
-
-def populate_applications_and_environments(headers):
+def populate_applications_and_environments(headers2):
+    global headers
+    if not headers:
+        headers = headers2
     components = []
 
     try:
@@ -2569,7 +2952,10 @@ def populate_applications_and_environments(headers):
     return components
 
 @dispatch(str, str, dict, int, dict)
-def add_service(applicationSelectorName, env_id, service, tier, headers):
+def add_service(applicationSelectorName, env_id, service, tier, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     service_name = service['Service']
 
     criticality = calculate_criticality(tier)
@@ -2659,7 +3045,10 @@ def add_service(applicationSelectorName, env_id, service, tier, headers):
         return False
 
 @dispatch(str, str, dict, int, str, dict)
-def add_service(applicationSelectorName, env_id, service, tier, team, headers):
+def add_service(applicationSelectorName, env_id, service, tier, team, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     service_name = service['Service']
     criticality = calculate_criticality(tier)
     print(f"\n[Service Creation]")
@@ -2763,8 +3152,12 @@ def add_service(applicationSelectorName, env_id, service, tier, team, headers):
         if hasattr(response, 'content'):
             print(f"Response content: {response.content}")
         return False
-    
-def update_service(service, existing_service_id, headers):
+
+
+def update_service(service, existing_service_id, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     payload = {}
     
     # Handle ticketing configuration first
@@ -2840,7 +3233,11 @@ def update_service(service, existing_service_id, headers):
     
     time.sleep(1)  # Small delay between updates
 
-def add_thirdparty_services(phoenix_components, application_environments, subdomain_owners, headers):
+
+def add_thirdparty_services(phoenix_components, application_environments, subdomain_owners, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     services = [
         "Salesforce", #example of 3rd party app to add components and findings to 3rd parties
     ]
@@ -2862,7 +3259,11 @@ def get_environment_id(application_environments, env_name):
             return environment["id"]
     return None
 
-def get_phoenix_team_members(team_id, headers):
+
+def get_phoenix_team_members(team_id, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     try:
         api_url = construct_api_url(f"/v1/teams/{team_id}/users")
         response = requests.get(api_url, headers=headers)
@@ -2871,7 +3272,11 @@ def get_phoenix_team_members(team_id, headers):
         print(f"Error: {e}")
         return []
 
-def create_deployments(applications, environments, phoenix_apps_envs, headers):
+
+def create_deployments(applications, environments, phoenix_apps_envs, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     application_services = []
     # Track all available apps and services for validation
     available_apps = {app['name']: app['id'] for app in phoenix_apps_envs if app.get('type') == "APPLICATION"}
@@ -2881,6 +3286,18 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
     print(f"└─ Found {len(applications)} applications to process")
     print(f"└─ Found {len(environments)} environments to process")
     print(f"└─ Found {len(phoenix_apps_envs)} Phoenix apps/envs")
+    
+    # Debug: Show available applications
+    print(f"└─ Available applications in Phoenix:")
+    for app_name, app_id in available_apps.items():
+        print(f"   └─ {app_name} (ID: {app_id})")
+    
+    # Debug: Show applications to process
+    print(f"└─ Applications from config to process:")
+    for app in applications:
+        app_name = app.get('AppName', 'Unknown')
+        deployment_set = app.get('Deployment_set', 'None')
+        print(f"   └─ {app_name} (Deployment_set: {deployment_set})")
     
     # Get all services for each environment with proper pagination
     all_services = get_phoenix_components(headers)
@@ -3103,6 +3520,7 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers):
     print(f"└─ Successful deployments: {successful_deployments}")
     print(f"└─ Failed deployments: {failed_deployments}")
 
+
 def check_app_name_matches_service_name(app_name, service_name):
     if app_name.lower() == service_name.lower():
         return True
@@ -3116,7 +3534,11 @@ def check_app_name_matches_service_name(app_name, service_name):
 
     return False
 
-def create_autolink_deployments(applications, environments, headers):
+
+def create_autolink_deployments(applications, environments, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     deployments = []
 
     for app in applications:
@@ -3166,7 +3588,11 @@ def create_autolink_deployments(applications, environments, headers):
                             exit(1)
         time.sleep(1)  # Wait for 1 second after processing each batch
 
-def get_assets(applicationEnvironmentId, type, headers):
+
+def get_assets(applicationEnvironmentId, type, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     asset_request = {
         "requests": [
             {
@@ -3196,6 +3622,7 @@ def get_assets(applicationEnvironmentId, type, headers):
         print(f"Error: {e}")
         exit(1)
 
+
 def group_assets_by_similar_name(assets):
     asset_groups = []
     for asset in assets:
@@ -3215,7 +3642,11 @@ def group_assets_by_similar_name(assets):
             continue
     return asset_groups
 
-def create_components_from_assets(applicationEnvironments, phoenix_components, headers):
+
+def create_components_from_assets(applicationEnvironments, phoenix_components, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     types = ["CONTAINER", "CLOUD"]
     phoenix_component_names = [pcomponent.get('name') for pcomponent in phoenix_components]
     for type in types:
@@ -3244,6 +3675,7 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                         }
                         create_custom_component(appEnv['name'], component_to_create, headers)
                         print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
+
 
 # Handle Repository Rule Creation for Components
 def generate_descriptive_rule_name(component_name, filter_name, filter_value):
@@ -3304,7 +3736,11 @@ def generate_descriptive_rule_name(component_name, filter_name, filter_value):
     
     return f"R-{method} for {component_name} ({value_str})"
 
-def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers):
+
+def create_component_rule(applicationName, componentName, filterName, filterValue, ruleName, headers2):
+    global headers
+    if not headers:
+        headers = headers2
     print(f"\n[Rule Operation]")
     print(f"└─ Application: {applicationName}")
     print(f"└─ Component: {componentName}")
@@ -3518,7 +3954,11 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
     )
     return False
 
-def create_user_for_application(existing_users_emails, newly_created_users_emails, email, access_token):
+
+def create_user_for_application(existing_users_emails, newly_created_users_emails, email, access_token2):
+    global access_token
+    if not access_token:
+        access_token = access_token2
     email = email.lower()
     # try to get first and last name from email
     if email in existing_users_emails:
@@ -3550,7 +3990,7 @@ def create_user_for_application(existing_users_emails, newly_created_users_email
         return
 
 
-def api_call_create_user(email, first_name, last_name, role, access_token):
+def api_call_create_user(email, first_name, last_name, role, access_token2):
     """
     API call to create user in Phoenix
     
@@ -3565,6 +4005,9 @@ def api_call_create_user(email, first_name, last_name, role, access_token):
     Returns:
         str: Created user's email
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     validate_user_role(role)
 
     headers = {
@@ -3633,7 +4076,8 @@ def api_call_create_user(email, first_name, last_name, role, access_token):
                 break
     return
 
-def load_users_from_phoenix(access_token):
+
+def load_users_from_phoenix(access_token2):
     """
     Load all users from Phoenix with proper pagination and error handling.
     
@@ -3646,6 +4090,9 @@ def load_users_from_phoenix(access_token):
     Raises:
         requests.exceptions.RequestException: If there's an error fetching users
     """
+    global access_token
+    if not access_token:
+        access_token = access_token2
     users = []
     page_size = 100
     page_number = 0
@@ -3719,7 +4166,8 @@ def load_users_from_phoenix(access_token):
     print(f" * Total users fetched: {len(users)}")
     return users
 
-def get_user_info(email, headers):
+
+def get_user_info(email, headers2):
     """
     Get user information from Phoenix.
     
@@ -3730,6 +4178,9 @@ def get_user_info(email, headers):
     Returns:
         dict: User information if found, None otherwise
     """
+    global headers
+    if not headers:
+        headers = headers2
     try:
         api_url = construct_api_url(f"/v1/users/{email}")
         response = requests.get(api_url, headers=headers)
@@ -3743,6 +4194,7 @@ def get_user_info(email, headers):
     except requests.exceptions.RequestException as e:
         print(f"Error getting user info for {email}: {str(e)}")
         return None
+
 
 def clean_user_name(name):
     """
@@ -3758,7 +4210,7 @@ def clean_user_name(name):
         return name[:-5].strip()
     return name
 
-def create_user_with_role(email, first_name, last_name, role, headers):
+def create_user_with_role(email, first_name, last_name, role, headers2):
     """
     Create a user with a specific role.
     
@@ -3769,6 +4221,9 @@ def create_user_with_role(email, first_name, last_name, role, headers):
         role: User's role (SECURITY_CHAMPION, ENGINEERING_USER, APPLICATION_ADMIN, or ORG_USER)
         headers: Request headers containing authorization
     """
+    global headers
+    if not headers:
+        headers = headers2
     if not email or not first_name or not last_name:
         print(f"⚠️ Error: Missing required user information for {email}")
         return None

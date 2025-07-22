@@ -1,7 +1,67 @@
 ## Versioning
 
-V 4.5
-Date - 9 May 2025
+V 4.3
+Date - 25 March 2025
+
+# Introduction
+
+This [repo](xxx) provides a method of getting data from your organization's repos, teams, and domains to [Phoenix](https://demo2.appsecphx.io/) using
+** [Python] (https://github.com/Security-Phoenix-demo/autoconfig/tree/main/Python%20script) 
+** [Powershell] (https://github.com/Security-Phoenix-demo/autoconfig/tree/main/Power%20Shell%20script)
+
+The following API credentials are required:
+
+1. Phoenix  API Client ID and Client Secret.
+
+## How to run
+
+For Powershell, use [this.](https://github.com/Security-Phoenix-demo/autoconfig/tree/main/Power%20Shell%20script)
+
+For Python, there is [legacy mode](https://github.com/Security-Phoenix-demo/autoconfig-priv/blob/main/README.md#basic-usage) and [new mode.](https://github.com/Security-Phoenix-demo/autoconfig-priv/blob/main/README.md#using-run-phxpy-new-version)
+
+
+
+## Customization
+
+The API and @company.com present in various parts of the script for override should be changed with your company name and domain. 
+this parameters is parametrizable 
+
+## Schedule
+
+The service support flags run key functions to help avoid exceeding the 60 min cron limit.
+
+- teams - Creates new teams, assigns members to teams, removes members from teams they should no longer have access to (Defaults to true)
+- code - Creates applications (subdomains) and the associated components (repos) and rules (Defaults to true)
+- cloud - Create Cloud Environments and services (Subdomains) along with associated rules (Defaults to false)
+
+As the job typically takes between 50 and 59 minutes to complete (depending on the size of your org, it might take less), it is only run once a day to prevent blocking other pipelines using the release agent.
+
+## Obtaining Phoenix API Credentials
+
+**Note:** This is for testing, hence the use of separate credentials; for BAU, the Credentials Called "API" in Phoenix are used.
+
+When you run Run.ps1 locally, it will prompt you for the
+
+- ClientID
+- Client Secret
+
+**Never check in to code the credentials.**
+
+1. Logon to [Phoenix] *your Phoenix Domain using SSO/Direct auth
+2. Click Settings.
+3. Click Organization.
+4. Click API Access.
+5. Click Create API credential.
+6. Take a copy of the key and keep it secret.
+
+## API endpoint
+
+The Phoenix-based endpoint for API requests is: [https://api.YOURDOMAIN.securityphoenix.cloud](https://api.YOURDOMAIN.securityphoenix.cloud)
+
+## Versioning
+
+V 4.3
+Date - 25 Mar 2025
 
 # Quick Start Guide
 
@@ -16,15 +76,6 @@ cd autoconfig/Python\ script
 2. Install dependencies:
 ```bash
 pip install -r providers/requirements.txt
-```
-
-3. Setup run-config.yaml in resources folder:
-Define list of configuration files that hold application/environment data, like:
-
-```
-ConfigFiles:
-  - core-structure.yaml
-  - some_other_config.yaml
 ```
 
 ## Basic Usage
@@ -67,16 +118,14 @@ python run-phx.py <client_id> <client_secret> [options]
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|----------|
 | `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
-| `--verify` | Run in simulation mode without making changes | False | `--verify=True` |
-| `--action_teams` | Create and manage teams | False | `--action_teams=True` |
-| `--action_create_users_from_teams` | Automatically create users from team configuration | False | `--action_create_users_from_teams=True` |
-| `--action_code` | Create applications and components | False | `--action_code=True` |
-| `--action_cloud` | Create environments and services | False | `--action_cloud=True` |
-| `--action_deployment` | Create deployments | False | `--action_deployment=True` |
-| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | False | `--action_autolink_deploymentset=True` |
-| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=true` |
-| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=true` |
-| `--verbose` | Enable verbose debug output (sets DEBUG=True in all modules) | `false` | `--verbose` |
+| `--action_teams` | Create and manage teams | false | `--action_teams=true` |
+| `--action_create_users_from_teams` | Automatically create users from team configuration | false | `--action_create_users_from_teams=true` |
+| `--action_code` | Create applications and components | false | `--action_code=true` |
+| `--action_cloud` | Create environments and services | false | `--action_cloud=true` |
+| `--action_deployment` | Create deployments | false | `--action_deployment=true` |
+| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | false | `--action_autolink_deploymentset=true` |
+| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | false | `--action_autocreate_teams_from_pteam=true` |
+| `--action_create_components_from_assets` | Create components from discovered assets | false | `--action_create_components_from_assets=true` |
 
 ### Team Configuration and User Management
 
@@ -110,14 +159,13 @@ The following `EmployeeRole` values are mapped to Phoenix roles:
 ```bash
 # Create teams and users
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_create_users_from_teams=True
+  --action_teams=true \
+  --action_create_users_from_teams=true
 
 # Verify user creation first
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_create_users_from_teams=True \
-  --verify=True
+  --action_teams=true \
+  --action_create_users_from_teams=true \
 ```
 
 #### User Creation Process
@@ -218,7 +266,7 @@ python run-phx.py your_client_id your_client_secret \
 
 ### Best Practices
 
-2. **Incremental Updates**
+1. **Incremental Updates**
    - Run specific actions rather than all at once
    - Makes troubleshooting easier
    ```bash
@@ -226,7 +274,7 @@ python run-phx.py your_client_id your_client_secret \
    python run-phx.py your_client_id your_client_secret --action_code=true
    ```
 
-3. **Regular Maintenance**
+2. **Regular Maintenance**
    - Schedule regular runs for team updates
    - Keep deployments in sync
    ```bash
@@ -236,7 +284,7 @@ python run-phx.py your_client_id your_client_secret \
      --action_deployment=true
    ```
 
-4. **Error Handling**
+3. **Error Handling**
    - Monitor the error log file
    - Check specific action results
 
@@ -1187,28 +1235,20 @@ Environment Groups:
 
 ~~~
 
-## Applications
 
-Applications are groupings of code that provide functionality for a service. As per environment services the `subdomain` in `core-structure.yaml`.
 The function for Component creation is [CreateRepositories](Phoenix.ps1).
 
-For python the application and component are created: in `core-structure.yaml`.
 ## Deployed Applications
 
-The function is called [CreateApplications](Phoenix.ps1)
 Deployed applications is the association of Applications to the Service.
 
-If you want to create users from DeploymentGroups.Responsable field, set the variable in core-structure.yaml file
 This is based on the logic that Applications (subdomains) are the same as the Service(subdomain).
 
-``
-CreateUsersForApplications: True 
-``
 This association is achieved via `Deployment_set` element in Application and Service.
 Application and Service that have the same value of `Deployment_set` element will be included in the deployment. 
 Deployment is done by application and service names.
 
-Example core-structure.yaml file
+Example:
 
 ```
 DeploymentGroups:
@@ -1447,6 +1487,54 @@ DeploymentGroups:
 
 
 The function for Component creation is [CreateRepositories](Phoenix.ps1).
+
+## Ticketing integration
+
+Any environment/application/service/component can have a Ticketing integration. Just add this configuration to the respected item that you want to integrate:
+``
+Ticketing:
+  - TIntegrationName: IAS-Jira # optional
+    Backlog: abinitio - mandatory
+``
+
+Example config for application:
+``
+DeploymentGroups:
+  - AppName: TST_TestApp10915 #name of the application
+    Domain: Security  #domain = component or application can be used to group by bysiness unit
+    SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+    ReleaseDefinitions: []
+    Responsable: ciso4.test@company.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
+    Deployment_set: Service1
+    Ticketing:
+      - TIntegrationName: IAS-Jira
+        Backlog: abinitio
+``
+
+## Messaging integration
+
+Any environment/application/service/component can have a Messaging integration. Just add this configuration to the respected item that you want to integrate:
+``
+Messaging:
+  - MIntegrationName: IAS-Slack # optional
+    Channel: abinitio # mandatory
+``
+
+Example config for application:
+``
+DeploymentGroups:
+  - AppName: TST_TestApp10915 #name of the application
+    Domain: Security  #domain = component or application can be used to group by bysiness unit
+    SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+    ReleaseDefinitions: []
+    Responsable: ciso4.test@company.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
+    Deployment_set: Service1
+    Messaging:
+      - MIntegrationName: IAS-Slack
+        Channel: abinitio
+``
 
 ## Deployed Applications
 
@@ -1694,15 +1782,11 @@ The `errors.log` file is created in the same directory as the script. Each run a
 
 ### Debug Mode
 
-You can enable verbose debug output for troubleshooting and development by using the `--verbose` flag:
-
-```bash
-python run-phx.py your_client_id your_client_secret --verbose
-```
-
-This will set `DEBUG = True` in all relevant modules (including Phoenix.py and YamlHelper.py), enabling detailed logging, API payloads, and response content for failed requests.
-
-**Note:** Setting `DEBUG = True` directly in the code is no longer necessary; use `--verbose` for convenience.
+Set `DEBUG = True` in `Phoenix.py` to enable additional logging:
+- Detailed API request payloads
+- Response content for failed requests
+- Verification attempt details
+- Rule creation debugging information
 
 ### Common Error Types and Solutions
 
@@ -1773,3 +1857,7 @@ This will set `DEBUG = True` in all relevant modules (including Phoenix.py and Y
    - Monitor response headers for rate limits
    - Implement exponential backoff
    - Batch operations when possible 
+- group assets per name similarity (similarity is configurable through ASSET_NAME_SIMILARITY_THRESHOLD variable in Phoenix.py)
+- for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
+    - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
+- if user confirms the component creation, component is created in that environment
