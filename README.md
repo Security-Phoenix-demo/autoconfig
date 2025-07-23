@@ -1,7 +1,34 @@
 ## Versioning
 
-V 4.3
-Date - 25 March 2025
+V 4.5.1
+Date - 23 July 2025
+
+## 🎉 Recent Updates & Improvements
+
+### **📋 New Documentation**
+- **[YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md)** - Comprehensive 500+ line guide with examples, validation, and troubleshooting
+- **[YAML Quick Reference](YAML_QUICK_REFERENCE.md)** - Concise reference card for quick lookups during configuration
+
+### **🔧 Critical Fixes Applied**
+- ✅ **YAML Parsing Errors**: Fixed structural issues with multi-condition rules causing parsing failures
+- ✅ **AssetType Validation**: Added missing `CLOUD`, `WEB`, `FOSS`, `SAST` support (now synchronized with Phoenix Security API)
+- ✅ **Linter Improvements**: Enhanced validation with multi-condition rule checking and better error reporting
+- ✅ **API Compatibility**: All AssetType values now match Phoenix Security API requirements
+
+### **🛠️ Validation & Linter**
+To validate your YAML configuration:
+```bash
+cd "Python script"
+python3 -c "
+from providers.Linter import *
+import yaml
+with open('Resources/core-structure.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+for app in config.get('DeploymentGroups', []):
+    valid, errors = validate_application(app)
+    print(f'{app.get(\"AppName\")}: {\"✅\" if valid else \"❌\" + str(errors)}')
+"
+```
 
 # Introduction
 
@@ -57,6 +84,25 @@ When you run Run.ps1 locally, it will prompt you for the
 ## API endpoint
 
 The Phoenix-based endpoint for API requests is: [https://api.YOURDOMAIN.securityphoenix.cloud](https://api.YOURDOMAIN.securityphoenix.cloud)
+
+## Supported AssetType Values
+
+The following AssetType values are supported and validated by the Phoenix Security API:
+
+| AssetType | Purpose | Use Cases |
+|-----------|---------|-----------|
+| `REPOSITORY` | Source code repositories | GitHub repos, GitLab repos |
+| `SOURCE_CODE` | Source code assets | Code files, source artifacts |
+| `BUILD` | Build artifacts | JAR files, executables |
+| `WEBSITE_API` | Web applications & APIs | REST APIs, web services |
+| `CONTAINER` | Container images/instances | Docker, Kubernetes pods |
+| `INFRA` | Infrastructure components | Servers, networks |
+| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
+| `WEB` | Web assets | Websites, web applications |
+| `FOSS` | Open source components | Third-party libraries |
+| `SAST` | Static analysis assets | Security scan results |
+
+**Note**: These values are case-sensitive and must be used exactly as shown. For detailed usage examples, see the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md).
 
 ## Versioning
 
@@ -1857,7 +1903,33 @@ Set `DEBUG = True` in `Phoenix.py` to enable additional logging:
    - Monitor response headers for rate limits
    - Implement exponential backoff
    - Batch operations when possible 
-- group assets per name similarity (similarity is configurable through ASSET_NAME_SIMILARITY_THRESHOLD variable in Phoenix.py)
-- for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
-    - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
-- if user confirms the component creation, component is created in that environment
+
+### Asset Grouping and Component Creation
+
+For automated component creation from assets:
+- Group assets per name similarity (configurable through `ASSET_NAME_SIMILARITY_THRESHOLD` variable in Phoenix.py)
+- For each asset group containing more than 5 assets, suggest creating a component (component name can be overridden in console)
+- Number of assets in group is configurable through `ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION` variable in Phoenix.py
+- If user confirms the component creation, component is created in that environment
+
+## 📚 Additional Resources
+
+### **Documentation Files**
+- **[YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md)** - Complete guide with examples, validation, and troubleshooting
+- **[YAML Quick Reference](YAML_QUICK_REFERENCE.md)** - Quick lookup reference for common patterns and validation
+- **[CHANGELOG.md](CHANGELOG.md)** - Detailed version history and recent improvements
+
+### **Configuration Validation**
+- Use the built-in linter to validate your YAML before deployment
+- Check the [supported AssetType values](#supported-assettype-values) for proper configuration
+- Review error logs for troubleshooting failed operations
+
+### **Best Practices**
+- Start with small configurations and incrementally add complexity
+- Test configurations in development environments first
+- Keep backup copies of working configurations
+- Review and update team configurations regularly
+
+---
+
+**Questions or Need Help?** Check the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md) for detailed examples and troubleshooting, or consult the [YAML Quick Reference](YAML_QUICK_REFERENCE.md) for immediate guidance.

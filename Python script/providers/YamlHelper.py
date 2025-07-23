@@ -374,6 +374,15 @@ def populate_applications_from_config(config_file_path):
 def load_multi_condition_rule(mcr):
     if not mcr:
         return None
+    
+    # Validate the multi-condition rule format
+    from providers.Linter import validate_multi_condition_rule
+    is_valid, error_msg = validate_multi_condition_rule(mcr)
+    if not is_valid:
+        print(f'Multi-condition rule validation failed: {error_msg}')
+        print(f'Skipping invalid multi-condition rule: {mcr}')
+        return None
+    
     rule = {
         "RepositoryName": mcr.get("RepositoryName", None),
         "SearchName": mcr.get("SearchName", None),
@@ -394,8 +403,8 @@ def load_multi_condition_rule(mcr):
         "AssetType": mcr.get("AssetType", None)
     }
 
-    if not rule['RepositoryName'] and not rule['SearchName'] and not rule['Tags'] and not rule['Tag'] and not rule['Tag_rule'] and not rule['Tags_rule'] and not rule['Cidr']:
-        print(f'Multicondition rule is missing any of (RepositoryName, SearchName, Tags, Tag, Tag_rule, Tags_rule, Cidr), skipping multicondition rule. Received MultiConditionRule: {mcr}')
+    if all(value is None for value in rule.values()):
+        print(f'Multicondition rule is missing values, skipping multicondition rule. Received MultiConditionRule: {mcr}')
         return None
     return rule
 

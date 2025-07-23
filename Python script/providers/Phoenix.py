@@ -1626,6 +1626,14 @@ def create_multicondition_service_rules(environmentName, serviceName, multicondi
         if multicondition.get('AssetType') and is_valid_value(multicondition.get('AssetType')):
             rule['filter']['assetType'] = str(multicondition.get('AssetType'))
             filter_details.append(f"ASSET:{multicondition.get('AssetType')}")
+        
+        provider_account_ids = []
+        if multicondition.get('ProviderAccountId'):
+            for providerAccountId in multicondition.get('ProviderAccountId', []):
+                if is_valid_value(providerAccountId):
+                    provider_account_ids.append(str(providerAccountId))
+            rule['filter']['providerAccountId'] = provider_account_ids
+            filter_details.append(f"PROVIDER_ACCOUNT_IDS:{provider_account_ids}")
 
         if not rule['filter']:
             print(f" ! No valid filters found in rule for {serviceName}, skipping")
