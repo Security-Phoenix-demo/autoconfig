@@ -1,7 +1,236 @@
 ## Versioning
 
-V 4.5
-Date - 9 May 2025
+V 4.5.1
+Date - 23 July 2025
+
+# 🔧 Autoconfig – Developer-First CMDB-as-Code
+
+**Autoconfig** is a YAML-based automation framework that flips the legacy CMDB model on its head.
+
+Instead of forcing developers to submit tickets to update outdated configuration management databases, **Autoconfig enables teams to define ownership, application structure, environments, and cloud-service mappings directly in their own repositories**—where infrastructure and code already live.
+
+This configuration is automatically synced with the **Phoenix Security platform** to ensure:
+- 🔍 Accurate ownership attribution
+- ⚡ Contextual vulnerability triage
+- 🚀 Faster remediation through team-level accountability
+
+ # 🤝 Philosophy
+
+Let devs *own* what they build.  
+Let security *see* what’s at risk.  
+All through Git.
+
+Autoconfig brings configuration, ownership, and attribution into the developer workflow — replacing stale CMDBs with YAML-defined truth.
+
+# 🧠 Best Practices
+
+- Use **incremental YAML definitions**
+- Validate with linter before pushing
+- Schedule **daily CI/CD runs**
+- Keep teams and ownership up to date
+- Use meaningful `Tier` values to prioritize critical components
+
+---
+
+## 🧠 Why It Matters
+
+| Legacy CMDB | Autoconfig |
+|-------------|------------|
+| Manual and outdated | Git-driven and always current |
+| Lives outside the Dev workflow | Lives in your repo |
+| Requires ticketing and change boards | CI/CD-native automation |
+| No context for risk | Full code-to-cloud visibility |
+
+---
+
+## 🛠️ How It Works
+
+1. **Developers define**:
+   - Apps, services, components, teams in YAML
+   - Ownership using real team emails and roles
+   - Rules to associate code and cloud to the right owners
+
+2. **Autoconfig parses and validates** your YAML
+
+3. **It syncs to Phoenix Security via API**, configuring:
+   - Applications and components
+   - Cloud environments and services
+   - Team membership and user roles
+   - Code-to-cloud mappings
+
+### 🧪 Example
+
+```yaml
+DeploymentGroups:
+  - AppName: MyWebApp
+    TeamNames: [WebTeam]
+    Responsable: lead@company.com
+    Tier: 2
+    Components:
+      - ComponentName: Backend
+        TeamNames: [BackendTeam]
+        RepositoryName: myorg/backend-service
+        Type: API
+        AssetType: REPOSITORY
+
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Responsable: ops@company.com
+    Services:
+      - Service: DBCluster
+        Type: Infra
+        TeamName: DBA
+        MultiConditionRules:
+          - RepositoryName: db-schema
+            Tag: env:prod
+            AssetType: CLOUD
+```
+
+# 🔐 Security Best Practices
+
+- **Do NOT** hardcode API credentials
+- Use environment variables or secrets
+- Rotate tokens regularly
+- Review user and team roles frequently
+
+---
+
+---
+
+## 🧾 4. `COMMANDS.md`
+
+
+# 🚦 Command Line Usage
+
+## Common Flags
+
+| Task | Flag |
+|------|------|
+| Create teams | `--action_teams=true` |
+| Configure apps & repos | `--action_code=true` |
+| Configure cloud & services | `--action_cloud=true` |
+| Link deployments | `--action_deployment=true` |
+| Auto-create teams from tags | `--action_autocreate_teams_from_pteam=true` |
+| Auto-link apps and services | `--action_autolink_deploymentset=true` |
+| Suggest components from cloud assets | `--action_create_components_from_assets=true` |
+
+## Full Setup
+
+```bash
+python run-phx.py <client_id> <client_secret> \
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
+```
+
+
+## 🎉 Recent Updates & Improvements
+
+### **📋 New Documentation**
+- **[YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md)** - Comprehensive 500+ line guide with examples, validation, and troubleshooting
+- **[YAML Quick Reference](YAML_QUICK_REFERENCE.md)** - Concise reference card for quick lookups during configuration
+
+### **🔧 Critical Fixes Applied**
+- ✅ **YAML Parsing Errors**: Fixed structural issues with multi-condition rules causing parsing failures
+- ✅ **AssetType Validation**: Added missing `CLOUD`, `WEB`, `FOSS`, `SAST` support (now synchronized with Phoenix Security API)
+- ✅ **Linter Improvements**: Enhanced validation with multi-condition rule checking and better error reporting
+- ✅ **API Compatibility**: All AssetType values now match Phoenix Security API requirements
+
+### **🛠️ Validation & Linter**
+To validate your YAML configuration:
+```bash
+cd "Python script"
+python3 -c "
+from providers.Linter import *
+import yaml
+with open('Resources/core-structure.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+for app in config.get('DeploymentGroups', []):
+    valid, errors = validate_application(app)
+    print(f'{app.get(\"AppName\")}: {\"✅\" if valid else \"❌\" + str(errors)}')
+"
+```
+
+# Introduction
+
+This [repo](xxx) provides a method of getting data from your organization's repos, teams, and domains to [Phoenix](https://demo2.appsecphx.io/) using
+** [Python] (https://github.com/Security-Phoenix-demo/autoconfig/tree/main/Python%20script) 
+** [Powershell] (https://github.com/Security-Phoenix-demo/autoconfig/tree/main/Power%20Shell%20script)
+
+The following API credentials are required:
+
+1. Phoenix  API Client ID and Client Secret.
+
+## How to run
+
+For Powershell, use [this.](https://github.com/Security-Phoenix-demo/autoconfig/tree/main/Power%20Shell%20script)
+
+For Python, there is [legacy mode](https://github.com/Security-Phoenix-demo/autoconfig-priv/blob/main/README.md#basic-usage) and [new mode.](https://github.com/Security-Phoenix-demo/autoconfig-priv/blob/main/README.md#using-run-phxpy-new-version)
+
+
+
+## Customization
+
+The API and @company.com present in various parts of the script for override should be changed with your company name and domain. 
+this parameters is parametrizable 
+
+## Schedule
+
+The service support flags run key functions to help avoid exceeding the 60 min cron limit.
+
+- teams - Creates new teams, assigns members to teams, removes members from teams they should no longer have access to (Defaults to true)
+- code - Creates applications (subdomains) and the associated components (repos) and rules (Defaults to true)
+- cloud - Create Cloud Environments and services (Subdomains) along with associated rules (Defaults to false)
+
+As the job typically takes between 50 and 59 minutes to complete (depending on the size of your org, it might take less), it is only run once a day to prevent blocking other pipelines using the release agent.
+
+## Obtaining Phoenix API Credentials
+
+**Note:** This is for testing, hence the use of separate credentials; for BAU, the Credentials Called "API" in Phoenix are used.
+
+When you run Run.ps1 locally, it will prompt you for the
+
+- ClientID
+- Client Secret
+
+**Never check in to code the credentials.**
+
+1. Logon to [Phoenix] *your Phoenix Domain using SSO/Direct auth
+2. Click Settings.
+3. Click Organization.
+4. Click API Access.
+5. Click Create API credential.
+6. Take a copy of the key and keep it secret.
+
+## API endpoint
+
+The Phoenix-based endpoint for API requests is: [https://api.YOURDOMAIN.securityphoenix.cloud](https://api.YOURDOMAIN.securityphoenix.cloud)
+
+## Supported AssetType Values
+
+The following AssetType values are supported and validated by the Phoenix Security API:
+
+| AssetType | Purpose | Use Cases |
+|-----------|---------|-----------|
+| `REPOSITORY` | Source code repositories | GitHub repos, GitLab repos |
+| `SOURCE_CODE` | Source code assets | Code files, source artifacts |
+| `BUILD` | Build artifacts | JAR files, executables |
+| `WEBSITE_API` | Web applications & APIs | REST APIs, web services |
+| `CONTAINER` | Container images/instances | Docker, Kubernetes pods |
+| `INFRA` | Infrastructure components | Servers, networks |
+| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
+| `WEB` | Web assets | Websites, web applications |
+| `FOSS` | Open source components | Third-party libraries |
+| `SAST` | Static analysis assets | Security scan results |
+
+**Note**: These values are case-sensitive and must be used exactly as shown. For detailed usage examples, see the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md).
+
+## Versioning
+
+V 4.3
+Date - 25 Mar 2025
 
 # Quick Start Guide
 
@@ -16,15 +245,6 @@ cd autoconfig/Python\ script
 2. Install dependencies:
 ```bash
 pip install -r providers/requirements.txt
-```
-
-3. Setup run-config.yaml in resources folder:
-Define list of configuration files that hold application/environment data, like:
-
-```
-ConfigFiles:
-  - core-structure.yaml
-  - some_other_config.yaml
 ```
 
 ## Basic Usage
@@ -67,16 +287,14 @@ python run-phx.py <client_id> <client_secret> [options]
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|----------|
 | `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
-| `--verify` | Run in simulation mode without making changes | False | `--verify=True` |
-| `--action_teams` | Create and manage teams | False | `--action_teams=True` |
-| `--action_create_users_from_teams` | Automatically create users from team configuration | False | `--action_create_users_from_teams=True` |
-| `--action_code` | Create applications and components | False | `--action_code=True` |
-| `--action_cloud` | Create environments and services | False | `--action_cloud=True` |
-| `--action_deployment` | Create deployments | False | `--action_deployment=True` |
-| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | False | `--action_autolink_deploymentset=True` |
-| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=true` |
-| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=true` |
-| `--verbose` | Enable verbose debug output (sets DEBUG=True in all modules) | `false` | `--verbose` |
+| `--action_teams` | Create and manage teams | false | `--action_teams=true` |
+| `--action_create_users_from_teams` | Automatically create users from team configuration | false | `--action_create_users_from_teams=true` |
+| `--action_code` | Create applications and components | false | `--action_code=true` |
+| `--action_cloud` | Create environments and services | false | `--action_cloud=true` |
+| `--action_deployment` | Create deployments | false | `--action_deployment=true` |
+| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | false | `--action_autolink_deploymentset=true` |
+| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | false | `--action_autocreate_teams_from_pteam=true` |
+| `--action_create_components_from_assets` | Create components from discovered assets | false | `--action_create_components_from_assets=true` |
 
 ### Team Configuration and User Management
 
@@ -110,14 +328,13 @@ The following `EmployeeRole` values are mapped to Phoenix roles:
 ```bash
 # Create teams and users
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_create_users_from_teams=True
+  --action_teams=true \
+  --action_create_users_from_teams=true
 
 # Verify user creation first
 python run-phx.py your_client_id your_client_secret \
-  --action_teams=True \
-  --action_create_users_from_teams=True \
-  --verify=True
+  --action_teams=true \
+  --action_create_users_from_teams=true \
 ```
 
 #### User Creation Process
@@ -218,7 +435,7 @@ python run-phx.py your_client_id your_client_secret \
 
 ### Best Practices
 
-2. **Incremental Updates**
+1. **Incremental Updates**
    - Run specific actions rather than all at once
    - Makes troubleshooting easier
    ```bash
@@ -226,7 +443,7 @@ python run-phx.py your_client_id your_client_secret \
    python run-phx.py your_client_id your_client_secret --action_code=true
    ```
 
-3. **Regular Maintenance**
+2. **Regular Maintenance**
    - Schedule regular runs for team updates
    - Keep deployments in sync
    ```bash
@@ -236,7 +453,7 @@ python run-phx.py your_client_id your_client_secret \
      --action_deployment=true
    ```
 
-4. **Error Handling**
+3. **Error Handling**
    - Monitor the error log file
    - Check specific action results
 
@@ -1187,28 +1404,20 @@ Environment Groups:
 
 ~~~
 
-## Applications
 
-Applications are groupings of code that provide functionality for a service. As per environment services the `subdomain` in `core-structure.yaml`.
 The function for Component creation is [CreateRepositories](Phoenix.ps1).
 
-For python the application and component are created: in `core-structure.yaml`.
 ## Deployed Applications
 
-The function is called [CreateApplications](Phoenix.ps1)
 Deployed applications is the association of Applications to the Service.
 
-If you want to create users from DeploymentGroups.Responsable field, set the variable in core-structure.yaml file
 This is based on the logic that Applications (subdomains) are the same as the Service(subdomain).
 
-``
-CreateUsersForApplications: True 
-``
 This association is achieved via `Deployment_set` element in Application and Service.
 Application and Service that have the same value of `Deployment_set` element will be included in the deployment. 
 Deployment is done by application and service names.
 
-Example core-structure.yaml file
+Example:
 
 ```
 DeploymentGroups:
@@ -1447,6 +1656,54 @@ DeploymentGroups:
 
 
 The function for Component creation is [CreateRepositories](Phoenix.ps1).
+
+## Ticketing integration
+
+Any environment/application/service/component can have a Ticketing integration. Just add this configuration to the respected item that you want to integrate:
+``
+Ticketing:
+  - TIntegrationName: IAS-Jira # optional
+    Backlog: abinitio - mandatory
+``
+
+Example config for application:
+``
+DeploymentGroups:
+  - AppName: TST_TestApp10915 #name of the application
+    Domain: Security  #domain = component or application can be used to group by bysiness unit
+    SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+    ReleaseDefinitions: []
+    Responsable: ciso4.test@company.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
+    Deployment_set: Service1
+    Ticketing:
+      - TIntegrationName: IAS-Jira
+        Backlog: abinitio
+``
+
+## Messaging integration
+
+Any environment/application/service/component can have a Messaging integration. Just add this configuration to the respected item that you want to integrate:
+``
+Messaging:
+  - MIntegrationName: IAS-Slack # optional
+    Channel: abinitio # mandatory
+``
+
+Example config for application:
+``
+DeploymentGroups:
+  - AppName: TST_TestApp10915 #name of the application
+    Domain: Security  #domain = component or application can be used to group by bysiness unit
+    SubDomain: Simplified Access Management  #sub-domain = component or application can be used to group by busienss unit
+    ReleaseDefinitions: []
+    Responsable: ciso4.test@company.com #owner of the application mandatory, needs to be one of the user already created in the phoenix security
+    Tier: 4 #importance from 1-10 higher -> more critical , 5 default = neutral
+    Deployment_set: Service1
+    Messaging:
+      - MIntegrationName: IAS-Slack
+        Channel: abinitio
+``
 
 ## Deployed Applications
 
@@ -1694,15 +1951,11 @@ The `errors.log` file is created in the same directory as the script. Each run a
 
 ### Debug Mode
 
-You can enable verbose debug output for troubleshooting and development by using the `--verbose` flag:
-
-```bash
-python run-phx.py your_client_id your_client_secret --verbose
-```
-
-This will set `DEBUG = True` in all relevant modules (including Phoenix.py and YamlHelper.py), enabling detailed logging, API payloads, and response content for failed requests.
-
-**Note:** Setting `DEBUG = True` directly in the code is no longer necessary; use `--verbose` for convenience.
+Set `DEBUG = True` in `Phoenix.py` to enable additional logging:
+- Detailed API request payloads
+- Response content for failed requests
+- Verification attempt details
+- Rule creation debugging information
 
 ### Common Error Types and Solutions
 
@@ -1773,3 +2026,33 @@ This will set `DEBUG = True` in all relevant modules (including Phoenix.py and Y
    - Monitor response headers for rate limits
    - Implement exponential backoff
    - Batch operations when possible 
+
+### Asset Grouping and Component Creation
+
+For automated component creation from assets:
+- Group assets per name similarity (configurable through `ASSET_NAME_SIMILARITY_THRESHOLD` variable in Phoenix.py)
+- For each asset group containing more than 5 assets, suggest creating a component (component name can be overridden in console)
+- Number of assets in group is configurable through `ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION` variable in Phoenix.py
+- If user confirms the component creation, component is created in that environment
+
+## 📚 Additional Resources
+
+### **Documentation Files**
+- **[YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md)** - Complete guide with examples, validation, and troubleshooting
+- **[YAML Quick Reference](YAML_QUICK_REFERENCE.md)** - Quick lookup reference for common patterns and validation
+- **[CHANGELOG.md](CHANGELOG.md)** - Detailed version history and recent improvements
+
+### **Configuration Validation**
+- Use the built-in linter to validate your YAML before deployment
+- Check the [supported AssetType values](#supported-assettype-values) for proper configuration
+- Review error logs for troubleshooting failed operations
+
+### **Best Practices**
+- Start with small configurations and incrementally add complexity
+- Test configurations in development environments first
+- Keep backup copies of working configurations
+- Review and update team configurations regularly
+
+---
+
+**Questions or Need Help?** Check the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md) for detailed examples and troubleshooting, or consult the [YAML Quick Reference](YAML_QUICK_REFERENCE.md) for immediate guidance.

@@ -1,0 +1,17 @@
+ConfigFiles:  # list of config files in Resources folder, to load into autoconfig scripts (for apps and environments)
+  - core-structure.yaml
+
+## Config for GitHub repos that will serve the config
+
+# List of GitHub repositories that have the config file, to load into autoconfig scripts (for apps and environments)
+GitHubRepositories:
+  #- https://github.com/stefanpetrovic/test_config5
+  #- https://github.com/Security-Phoenix-demo/stefan_test_gh_autoconfig
+
+
+# Folder to save the cloned repos to:
+GitHubRepoFolder: C:/Users/Administrator/Projects/autoconfig-GitHubRepos
+
+# Name of the config file in GitHub repository to load into autoconfig script
+ConfigFileName: assetconfig.phoenix
+promptOnDuplicate: False # In case a duplicate application or environment is detected, prompt the user to decide whether to include that duplicate config

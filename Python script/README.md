@@ -1,7 +1,7 @@
 ## Versioning
 
-V 4.5
-Date - 9 May 2025
+V 4.6
+Date - 29 May 2025
 
 # Quick Start Guide
 
@@ -26,6 +26,25 @@ ConfigFiles:
   - core-structure.yaml
   - some_other_config.yaml
 ```
+
+4. GitHub configurations
+
+To configure using github repos as source of autoconfig configuration, set following in run-config.yaml:
+1. GitHubRepositories -> list of github URLs like (https://github.com/<org_name>/<repo_name>)
+2. GitHubRepoFolder -> full path of a folder on local machine, that will store the cloned repos
+3. ConfigFileName -> name of the configuration file in root of the GitHub repo e.g. assetconfig.phoenix
+
+If GitHubRepositories property is defined, then the command line expects the following variable: 
+``"--github_pat=<classic personal access token from Github, with Repo scope checked >"``
+
+Script will pick up applications and environments from each of the specified repos and run the entire process on each of those configs.
+
+
+## Linting
+
+The script will utilize schemas defined in Linter.py file, to automatically validate any app/env and service/component  that is loaded from yaml configuration.
+Linter will print analysis results to the console, logging any detected configuration errors. 
+Linter is not blocking the script, even if some element has invalid config.
 
 ## Basic Usage
 
@@ -66,16 +85,16 @@ python run-phx.py <client_id> <client_secret> [options]
 
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|----------|
+| `--github_pat` | classic personal access token from Github, with Repo scope checked | none | `--github_pat=ghp_6thXJ....` |
 | `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
-| `--verify` | Run in simulation mode without making changes | False | `--verify=True` |
-| `--action_teams` | Create and manage teams | False | `--action_teams=True` |
-| `--action_create_users_from_teams` | Automatically create users from team configuration | False | `--action_create_users_from_teams=True` |
-| `--action_code` | Create applications and components | False | `--action_code=True` |
-| `--action_cloud` | Create environments and services | False | `--action_cloud=True` |
-| `--action_deployment` | Create deployments | False | `--action_deployment=True` |
-| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | False | `--action_autolink_deploymentset=True` |
-| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | False | `--action_autocreate_teams_from_pteam=true` |
-| `--action_create_components_from_assets` | Create components from discovered assets | False | `--action_create_components_from_assets=true` |
+| `--action_teams` | Create and manage teams | `false` | `--action_teams=true` |
+| `--action_create_users_from_teams` | Automatically create users from team configuration | `false` | `--action_create_users_from_teams=true` |
+| `--action_code` | Create applications and components | `false` | `--action_code=true` |
+| `--action_cloud` | Create environments and services | `false` | `--action_cloud=true` |
+| `--action_deployment` | Create deployments | `false` | `--action_deployment=true` |
+| `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | `false` | `--action_autolink_deploymentset=true` |
+| `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | `false` | `--action_autocreate_teams_from_pteam=true` |
+| `--action_create_components_from_assets` | Create components from discovered assets | `false` | `--action_create_components_from_assets=true` |
 | `--verbose` | Enable verbose debug output (sets DEBUG=True in all modules) | `false` | `--verbose` |
 
 ### Team Configuration and User Management

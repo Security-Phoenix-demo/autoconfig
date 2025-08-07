@@ -3,6 +3,8 @@ import yaml
 from pathlib import Path
 from providers.Utils import calculate_criticality
 from email_validator import validate_email, EmailNotValidError
+from .Linter import validate_component, validate_application, validate_environment, validate_service
+from .Phoenix import extract_last_two_path_parts
 
 # Check if PyYAML module exists
 try:
@@ -52,9 +54,11 @@ def populate_repositories_from_config(core_structure):
                 continue
 
             for repositoryName in repositoryNames:
-                print(f'Created repository {repositoryName}')
+                # Extract last 2 parts of repository path for cleaner names
+                shortened_repo_name = extract_last_two_path_parts(repositoryName)
+                print(f'Created repository {shortened_repo_name} (original: {repositoryName})')
                 item = {
-                    'RepositoryName': repositoryName,
+                    'RepositoryName': shortened_repo_name,
                     'Domain': row['Domain'],
                     'Tier': row.get('Tier', 5),
                     'Subdomain': row['SubDomain'],
@@ -87,6 +91,7 @@ def populate_environments_from_env_groups_from_config(config_file_path):
         return envs
 
     for row in repos_yaml['Environment Groups']:
+        print_linter_result(row.get('Name', 'N/A'), validate_environment(row))
         # Define the environment item
         item = {
             'Name': row['Name'],
@@ -104,6 +109,7 @@ def populate_environments_from_env_groups_from_config(config_file_path):
         # Now process the services under the "Team" or "Services" key
         if 'Services' in row:
             for service in row['Services']:
+                print_linter_result(service.get('Service', 'N/A'), validate_service(service))
                 repository_names = service.get('RepositoryName', [])
                 if isinstance(repository_names, str):
                     repository_names = [repository_names]
@@ -122,6 +128,10 @@ def populate_environments_from_env_groups_from_config(config_file_path):
                     'RepositoryName': repository_names,  # Properly handle missing 'RepositoryName'
                     'SearchName': service.get('SearchName', None),
                     "Tag": service.get("Tag", None),
+                    "Tag_rule": service.get("Tag_rule", None),
+                    "Tags_rule": service.get("Tags_rule", None),
+                    "Tag_label": service.get("Tag_label", None),
+                    "Tags_label": service.get("Tags_label", None),
                     "Cidr": service.get("Cidr", None),
                     "Fqdn": service.get("Fqdn", None),
                     "Netbios": service.get("Netbios", None),
@@ -285,6 +295,7 @@ def populate_applications_from_config(config_file_path):
         
 
     for row in apps_yaml['DeploymentGroups']:
+        print_linter_result(row.get("AppName", "N/A"), validate_application(row))
         app = {
             'AppName': row['AppName'],
             'Status': row.get('Status', None),
@@ -303,6 +314,7 @@ def populate_applications_from_config(config_file_path):
 
         for component in row['Components']:
             # Handle RepositoryName properly
+            print_linter_result(component.get("ComponentName", "N/A"), validate_component(component))
             repository_names = component.get('RepositoryName', [])
             if isinstance(repository_names, str):
                 repository_names = [repository_names]
@@ -321,6 +333,8 @@ def populate_applications_from_config(config_file_path):
                 'RepositoryName': repository_names,
                 'SearchName': component.get('SearchName', None),
                 'Tags': component.get('Tags', None),
+                'Tag_label': component.get('Tag_label', None),
+                'Tags_label': component.get('Tags_label', None),
                 'Cidr': component.get('Cidr', None),
                 'Fqdn': component.get('Fqdn', None),
                 'Netbios': component.get('Netbios', None),
@@ -360,11 +374,24 @@ def populate_applications_from_config(config_file_path):
 def load_multi_condition_rule(mcr):
     if not mcr:
         return None
+    
+    # Validate the multi-condition rule format
+    from providers.Linter import validate_multi_condition_rule
+    is_valid, error_msg = validate_multi_condition_rule(mcr)
+    if not is_valid:
+        print(f'Multi-condition rule validation failed: {error_msg}')
+        print(f'Skipping invalid multi-condition rule: {mcr}')
+        return None
+    
     rule = {
         "RepositoryName": mcr.get("RepositoryName", None),
         "SearchName": mcr.get("SearchName", None),
         "Tags": mcr.get("Tags", None),
         "Tag": mcr.get("Tag", None),
+        "Tag_rule": mcr.get("Tag_rule", None),
+        "Tags_rule": mcr.get("Tags_rule", None),
+        "Tag_label": mcr.get("Tag_label", None),
+        "Tags_label": mcr.get("Tags_label", None),
         "Cidr": mcr.get("Cidr", None),
         "Fqdn": mcr.get("Fqdn", None),
         "Netbios": mcr.get("Netbios", None),
@@ -376,8 +403,8 @@ def load_multi_condition_rule(mcr):
         "AssetType": mcr.get("AssetType", None)
     }
 
-    if not rule['RepositoryName'] and not rule['SearchName'] and not rule['Tags'] and not rule['Tag'] and not rule['Cidr']:
-        print(f'Multicondition rule is missing any of (RepositoryName, SearchName, Tags, Tag, Cidr), skipping multicondition rule. Received MultiConditionRule: {mcr}')
+    if all(value is None for value in rule.values()):
+        print(f'Multicondition rule is missing values, skipping multicondition rule. Received MultiConditionRule: {mcr}')
         return None
     return rule
 
@@ -531,3 +558,63 @@ def load_run_config(resource_folder):
         config['ConfigFiles'] = default_config_files
     
     return config
+
+
+def print_linter_result(name, linter_result):
+    print("****************************************")
+    print("* Linter results")
+    print("*")
+    print(f"* {name} Is Valid: {linter_result[0]}")
+    if linter_result[1]:
+        print("*")
+        print(f"* Linter errors: {linter_result[1]}")
+    print("****************************************")
+
+
+def load_remote_configuration_locations(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return []
+
+    repos_file = os.path.join(resource_folder, "run-config.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    if not 'GitHubRepositories' in repos_yaml:
+        print("run-config configuration is missing 'GitHubRepositories' property, will not load GitHub configurations")
+        return []
+
+    return repos_yaml['GitHubRepositories']
+
+
+def load_github_repo_folder(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return None
+
+    repos_file = os.path.join(resource_folder, "run-config.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    if not 'GitHubRepoFolder' in repos_yaml:
+        raise Exception("run-config configuration is missing 'GitHubRepoFolder' property")
+
+    return repos_yaml['GitHubRepoFolder']
+
+
+def load_github_config_file_name(resource_folder):
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return None
+
+    repos_file = os.path.join(resource_folder, "run-config.yaml")
+
+    with open(repos_file, 'r') as stream:
+        repos_yaml = yaml.safe_load(stream)
+
+    if not 'ConfigFileName' in repos_yaml:
+        raise Exception("run-config configuration is missing 'ConfigFileName' property")
+
+    return repos_yaml['ConfigFileName']
