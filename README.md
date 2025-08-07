@@ -3,6 +3,129 @@
 V 4.5.1
 Date - 23 July 2025
 
+# 🔧 Autoconfig – Developer-First CMDB-as-Code
+
+**Autoconfig** is a YAML-based automation framework that flips the legacy CMDB model on its head.
+
+Instead of forcing developers to submit tickets to update outdated configuration management databases, **Autoconfig enables teams to define ownership, application structure, environments, and cloud-service mappings directly in their own repositories**—where infrastructure and code already live.
+
+This configuration is automatically synced with the **Phoenix Security platform** to ensure:
+- 🔍 Accurate ownership attribution
+- ⚡ Contextual vulnerability triage
+- 🚀 Faster remediation through team-level accountability
+
+ # 🤝 Philosophy
+
+Let devs *own* what they build.  
+Let security *see* what’s at risk.  
+All through Git.
+
+Autoconfig brings configuration, ownership, and attribution into the developer workflow — replacing stale CMDBs with YAML-defined truth.
+
+# 🧠 Best Practices
+
+- Use **incremental YAML definitions**
+- Validate with linter before pushing
+- Schedule **daily CI/CD runs**
+- Keep teams and ownership up to date
+- Use meaningful `Tier` values to prioritize critical components
+
+---
+
+## 🧠 Why It Matters
+
+| Legacy CMDB | Autoconfig |
+|-------------|------------|
+| Manual and outdated | Git-driven and always current |
+| Lives outside the Dev workflow | Lives in your repo |
+| Requires ticketing and change boards | CI/CD-native automation |
+| No context for risk | Full code-to-cloud visibility |
+
+---
+
+## 🛠️ How It Works
+
+1. **Developers define**:
+   - Apps, services, components, teams in YAML
+   - Ownership using real team emails and roles
+   - Rules to associate code and cloud to the right owners
+
+2. **Autoconfig parses and validates** your YAML
+
+3. **It syncs to Phoenix Security via API**, configuring:
+   - Applications and components
+   - Cloud environments and services
+   - Team membership and user roles
+   - Code-to-cloud mappings
+
+### 🧪 Example
+
+```yaml
+DeploymentGroups:
+  - AppName: MyWebApp
+    TeamNames: [WebTeam]
+    Responsable: lead@company.com
+    Tier: 2
+    Components:
+      - ComponentName: Backend
+        TeamNames: [BackendTeam]
+        RepositoryName: myorg/backend-service
+        Type: API
+        AssetType: REPOSITORY
+
+Environment Groups:
+  - Name: Production
+    Type: CLOUD
+    Responsable: ops@company.com
+    Services:
+      - Service: DBCluster
+        Type: Infra
+        TeamName: DBA
+        MultiConditionRules:
+          - RepositoryName: db-schema
+            Tag: env:prod
+            AssetType: CLOUD
+```
+
+# 🔐 Security Best Practices
+
+- **Do NOT** hardcode API credentials
+- Use environment variables or secrets
+- Rotate tokens regularly
+- Review user and team roles frequently
+
+---
+
+---
+
+## 🧾 4. `COMMANDS.md`
+
+
+# 🚦 Command Line Usage
+
+## Common Flags
+
+| Task | Flag |
+|------|------|
+| Create teams | `--action_teams=true` |
+| Configure apps & repos | `--action_code=true` |
+| Configure cloud & services | `--action_cloud=true` |
+| Link deployments | `--action_deployment=true` |
+| Auto-create teams from tags | `--action_autocreate_teams_from_pteam=true` |
+| Auto-link apps and services | `--action_autolink_deploymentset=true` |
+| Suggest components from cloud assets | `--action_create_components_from_assets=true` |
+
+## Full Setup
+
+```bash
+python run-phx.py <client_id> <client_secret> \
+  --action_teams=true \
+  --action_code=true \
+  --action_cloud=true \
+  --action_deployment=true
+```
+
+
 ## 🎉 Recent Updates & Improvements
 
 ### **📋 New Documentation**
