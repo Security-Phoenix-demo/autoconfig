@@ -35,6 +35,67 @@ Environment Groups:
     # ... environment configuration
 ```
 
+## Configuration File Organization
+
+The Phoenix Security system supports organizing configuration files using the `run-config.yaml` file, which can now reference files in subfolders for better organization.
+
+### run-config.yaml Structure
+
+```yaml
+# Configuration files to load (supports subfolders)
+ConfigFiles:
+  - core-structure.yaml                     # Direct file in Resources/
+  - /mimecast/mimecast-core-structure.yaml  # Subfolder path
+  - /q2/q2_container_services_config.yaml   # Another subfolder
+  - /client1/client1-applications.yaml      # Client-specific config
+
+# GitHub repository configurations (optional)
+GitHubRepositories:
+  - https://github.com/org/config-repo
+
+# GitHub configuration settings
+GitHubRepoFolder: /path/to/local/repos
+ConfigFileName: assetconfig.phoenix
+promptOnDuplicate: false
+```
+
+### Subfolder Organization Examples
+
+#### Multi-Client Setup
+```yaml
+ConfigFiles:
+  - /acme-corp/acme-applications.yaml
+  - /beta-inc/beta-infrastructure.yaml
+  - /gamma-ltd/gamma-services.yaml
+  - shared-resources.yaml
+```
+
+#### Environment-Based Organization
+```yaml
+ConfigFiles:
+  - /production/prod-apps.yaml
+  - /staging/staging-apps.yaml
+  - /development/dev-apps.yaml
+  - /shared/common-infrastructure.yaml
+```
+
+#### Domain-Based Structure
+```yaml
+ConfigFiles:
+  - /security/security-services.yaml
+  - /finance/finance-applications.yaml
+  - /hr/hr-systems.yaml
+  - core-infrastructure.yaml
+```
+
+### Path Syntax Rules
+
+- **Subfolder paths**: Start with `/` (e.g., `/mimecast/config.yaml`)
+- **Direct files**: No leading `/` (e.g., `core-structure.yaml`)
+- **Case sensitive**: Use exact folder and file names
+- **Supported extensions**: `.yaml` and `.yml`
+- **Relative to Resources**: All paths are relative to the `Resources/` directory
+
 ## DeploymentGroups (Applications)
 
 Applications are the top-level containers that group related components together.
@@ -582,11 +643,32 @@ If you get YAML parsing errors, check for:
 - **Required Fields**: Applications need `AppName`, `ReleaseDefinitions`, `Responsable`
 - **Email Validation**: Responsible person emails must be valid format
 
-#### **Recent Fixes Applied**
+#### **Recent Fixes Applied (v4.8.3)**
+- ✅ **Script Hanging**: Fixed teams loading path issue that caused hanging
+- ✅ **API Compatibility**: Added graceful handling for ENVIRONMENT_CLOUD enum errors
+- ✅ **User Creation**: Enhanced automatic user creation from Responsable field
+- ✅ **Hang Prevention**: Added timeout protection for user fetching operations
 - ✅ **YAML Structure**: Fixed multi-condition rule indentation issues
 - ✅ **AssetType Support**: Added `CLOUD`, `WEB`, `FOSS`, `SAST` support  
 - ✅ **Validation Sync**: Linter now matches Phoenix Security API requirements
 - ✅ **Multi-Condition Rules**: Enhanced validation and error reporting
+
+#### **Troubleshooting Common Issues**
+
+**Script Hanging Issues:**
+- ✅ **FIXED**: Teams folder path handling (leading slash issue)
+- ✅ **FIXED**: User creation hanging during API calls
+- ✅ **FIXED**: API compatibility errors causing crashes
+
+**User Creation Problems:**
+- Use `--create_users_from_responsable=true` for automatic user creation
+- Check that Responsable emails are valid format
+- Script now prevents duplicate user creation automatically
+
+**API Compatibility Issues:**
+- Script now handles ENVIRONMENT_CLOUD enum errors gracefully
+- Continues execution despite API version mismatches
+- Clear error messages explain compatibility issues
 
 ---
 

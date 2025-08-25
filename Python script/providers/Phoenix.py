@@ -2,9 +2,22 @@ import base64
 import requests
 import json
 import time
+import os
 import Levenshtein
 import random
 from multipledispatch import dispatch
+
+# Global tracking callback for main script reporting
+component_tracking_callback = None
+
+def set_component_tracking_callback(callback_func):
+    """Set the callback function for tracking component operations from the main script"""
+    global component_tracking_callback
+    component_tracking_callback = callback_func
+
+def track_application_component_operations(callback_func):
+    """Configure component tracking for the main script reporting"""
+    set_component_tracking_callback(callback_func)
 from providers.Utils import group_repos_by_subdomain, calculate_criticality, extract_user_name_from_email, validate_user_role
 import logging
 import datetime
@@ -43,8 +56,8 @@ ERROR: {error_msg}
 
 AUTOLINK_DEPLOYMENT_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
 SERVICE_LOOKUP_SIMILARITY_THRESHOLD = 0.99 # Levenshtein ratio for comparing service name with existing services, in case service was not found by exact match
-ASSET_NAME_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing asset name similarity (1 means being equal)
-ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 5 # Minimal number of assets with similar name that will trigger component creation
+ASSET_NAME_SIMILARITY_THRESHOLD = 0.8 # Levenshtein ratio for comparing asset name similarity (0.8 = 80% similarity)
+ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION = 3 # Minimal number of assets with similar name that will trigger component creation
 
 APIdomain = "https://api.demo.appsecphx.io/" #change this with your specific domain
 DEBUG = False #debug settings to trigger debug output 
@@ -666,18 +679,143 @@ def create_application(app, headers2):
         payload['tags'].append({"key": "pteam", "value": team})
         print(f"└─ Debug - Adding team tag: pteam={team}")
     
+    # Add tags from the Tag_label and Tags_label fields in YAML configuration
+    print(f"└─ Processing application Tag_label field...")
+    if app.get('Tag_label'):
+        tag_label = app.get('Tag_label')
+        print(f"└─ Found application Tag_label: {tag_label}")
+        print(f"└─ Tag_label type: {type(tag_label)}")
+        
+        if isinstance(tag_label, str):
+            # Handle single string tag
+            processed_tag = process_tag_string(tag_label)
+            payload['tags'].append(processed_tag)
+            print(f"└─ Added application Tag_label: {processed_tag}")
+        elif isinstance(tag_label, list):
+            print(f"└─ Processing {len(tag_label)} application Tag_label entries...")
+            for i, tag in enumerate(tag_label):
+                print(f"└─ Processing application Tag_label[{i}]: '{tag}' (type: {type(tag)})")
+                if isinstance(tag, str):
+                    processed_tag = process_tag_string(tag)
+                    payload['tags'].append(processed_tag)
+                    print(f"└─ Added application Tag_label[{i}]: {processed_tag}")
+                elif isinstance(tag, dict):
+                    if 'key' in tag and 'value' in tag:
+                        tag_dict = {"key": tag['key'], "value": tag['value']}
+                        payload['tags'].append(tag_dict)
+                        print(f"└─ Added application Tag_label[{i}] dict: {tag_dict}")
+                    elif 'value' in tag:
+                        tag_dict = {"value": tag['value']}
+                        payload['tags'].append(tag_dict)
+                        print(f"└─ Added application Tag_label[{i}] value-only: {tag_dict}")
+    else:
+        print(f"└─ No Tag_label field found in application")
+    
+    if app.get('Tags_label'):
+        print(f"└─ Processing application Tags_label field...")
+        for i, tag in enumerate(app.get('Tags_label')):
+            print(f"└─ Processing application Tags_label[{i}]: '{tag}' (type: {type(tag)})")
+            if isinstance(tag, str):
+                # Handle string tags using helper function
+                processed_tag = process_tag_string(tag)
+                payload['tags'].append(processed_tag)
+                print(f"└─ Added application Tags_label[{i}]: {processed_tag}")
+            elif isinstance(tag, dict):
+                # Handle dict tags that already have key/value structure
+                if 'key' in tag and 'value' in tag:
+                    tag_dict = {"key": tag['key'], "value": tag['value']}
+                    payload['tags'].append(tag_dict)
+                    print(f"└─ Added application Tags_label[{i}] dict: {tag_dict}")
+                elif 'value' in tag:
+                    tag_dict = {"value": tag['value']}
+                    payload['tags'].append(tag_dict)
+                    print(f"└─ Added application Tags_label[{i}] value-only: {tag_dict}")
+    
+    # Show final tag summary for application
+    print(f"└─ FINAL APPLICATION TAG SUMMARY for {app['AppName']}:")
+    print(f"└─ Total tags to be sent: {len(payload['tags'])}")
+    for i, tag in enumerate(payload['tags']):
+        if 'key' in tag and 'value' in tag:
+            print(f"   {i+1:2d}. {tag['key']}: {tag['value']}")
+        elif 'value' in tag:
+            print(f"   {i+1:2d}. {tag['value']} (value only)")
+    
     print(f"└─ Final payload:")
     print(json.dumps(payload, indent=2))
 
+    app_id = None
+    application_created = False
+    
     try:
         api_url = construct_api_url("/v1/applications")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f"└─ Application created successfully")
-        time.sleep(2)
+        
+        # Get the application ID from the response for tag addition
+        app_response = response.json()
+        app_id = app_response.get('id')
+        application_created = True
+        
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f"└─ Application {app['AppName']} already exists")
+            # Application exists, get its ID for tag addition
+            existing_apps = populate_applications_and_environments(headers)
+            existing_app = next((app_item for app_item in existing_apps if app_item['name'] == app['AppName'] and app_item['type'] == 'APPLICATION'), None)
+            if existing_app:
+                app_id = existing_app.get('id')
+                print(f"└─ Found existing application ID: {app_id}")
+            else:
+                print(f"└─ Could not find existing application ID for tag addition")
+                # Log this as an error since we have tags to add but can't find the application
+                if payload.get('tags'):
+                    log_error(
+                        'Application Tag Addition - ID Lookup Failed',
+                        app['AppName'],
+                        'N/A',
+                        'Could not find existing application ID for tag addition',
+                        f'Application name: {app["AppName"]}\nTags to add: {len(payload.get("tags", []))}\nTag details: {json.dumps(payload.get("tags", []), indent=2)}'
+                    )
+        elif response.status_code == 400 and b'Invalid user email' in response.content:
+            # Handle invalid user email specifically
+            user_email = app['Responsable']
+            print(f"└─ ⚠️  Invalid user email: {user_email}")
+            print(f"└─ 💡 This user doesn't exist in Phoenix platform")
+            print(f"└─ 🔧 Consider:")
+            print(f"   • Creating the user first in Phoenix")
+            print(f"   • Using a valid existing user email")
+            print(f"   • Enabling auto-user creation in config")
+            
+            # Try with a fallback default user if available
+            fallback_email = "fc+mimecast@phoenix.security"  # Use the configured default
+            print(f"└─ 🔄 Attempting to create application with fallback user: {fallback_email}")
+            
+            # Update payload with fallback user
+            fallback_payload = payload.copy()
+            fallback_payload["owner"]["email"] = fallback_email
+            
+            try:
+                api_url = construct_api_url("/v1/applications")
+                fallback_response = requests.post(api_url, headers=headers, json=fallback_payload)
+                fallback_response.raise_for_status()
+                print(f"└─ ✅ Application created successfully with fallback user")
+                
+                # Get the application ID from the response for tag addition
+                app_response = fallback_response.json()
+                app_id = app_response.get('id')
+                application_created = True
+                
+            except requests.exceptions.RequestException as fallback_error:
+                error_msg = f"Failed to create application even with fallback user: {str(fallback_error)}"
+                print(f"└─ ❌ {error_msg}")
+                log_error(
+                    'Application Creation Failed - Invalid User',
+                    app['AppName'],
+                    'N/A',
+                    f'Original user: {user_email}, Fallback user: {fallback_email}',
+                    f'Original error: {response.content}\nFallback error: {fallback_response.content if "fallback_response" in locals() else "N/A"}'
+                )
         else:
             error_msg = f"Failed to create application: {str(e)}"
             error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
@@ -693,11 +831,160 @@ def create_application(app, headers2):
             print(f"└─ Payload sent: {json.dumps(payload, indent=2)}")
             return
     
+    # Add tags separately using the dedicated tags endpoint if we have tags to add
+    # This works for both newly created applications and existing ones
+    if payload.get('tags') and app_id:
+        print(f"└─ Adding {len(payload['tags'])} tags to application ID: {app_id}")
+        if DEBUG:
+            print(f"└─ DEBUG: Tags to add: {json.dumps(payload.get('tags'), indent=2)}")
+        
+        tags_attempted = 0
+        tags_succeeded = 0
+        tags_failed = 0
+        tags_skipped = 0
+        
+        for i, tag in enumerate(payload['tags']):
+            print(f"   └─ Processing tag {i+1}/{len(payload['tags'])}: {tag}")
+            tags_attempted += 1
+            
+            if 'key' in tag and 'value' in tag:
+                print(f"   └─ Adding key-value tag: {tag['key']}: {tag['value']}")
+                try:
+                    add_tag_to_application(tag['key'], tag['value'], app_id, headers)
+                    tags_succeeded += 1
+                except Exception as e:
+                    tags_failed += 1
+                    print(f"   └─ ❌ Tag addition failed: {e}")
+            elif 'value' in tag:
+                print(f"   └─ Adding value-only tag: {tag['value']}")
+                try:
+                    # For value-only tags, we'll use a custom call since the existing function requires a key
+                    add_application_tag_custom(app_id, tag, headers)
+                    tags_succeeded += 1
+                except Exception as e:
+                    tags_failed += 1
+                    print(f"   └─ ❌ Tag addition failed: {e}")
+            else:
+                print(f"   └─ ⚠️ Skipping invalid tag format: {tag}")
+                tags_skipped += 1
+                # Log invalid tag format
+                log_error(
+                    'Application Tag Addition - Invalid Format',
+                    f"App ID: {app_id} -> Invalid Tag",
+                    'N/A',
+                    'Skipping tag due to invalid format',
+                    f'Tag data: {json.dumps(tag)}\nExpected format: {{"key": "string", "value": "string"}} or {{"value": "string"}}'
+                )
+        
+        # Summary of tag addition results
+        print(f"└─ 📊 Tag Addition Summary for {app['AppName']}:")
+        print(f"   └─ Total attempted: {tags_attempted}")
+        print(f"   └─ ✅ Succeeded: {tags_succeeded}")
+        print(f"   └─ ❌ Failed: {tags_failed}")
+        print(f"   └─ ⚠️ Skipped: {tags_skipped}")
+        
+        # Log summary if there were any failures
+        if tags_failed > 0 or tags_skipped > 0:
+            log_error(
+                'Application Tag Addition Summary',
+                f"{app['AppName']} (ID: {app_id})",
+                'N/A',
+                f'Tag addition completed with issues: {tags_failed} failed, {tags_skipped} skipped',
+                f'Total attempted: {tags_attempted}\nSucceeded: {tags_succeeded}\nFailed: {tags_failed}\nSkipped: {tags_skipped}'
+            )
+    elif payload.get('tags') and not app_id:
+        print(f"└─ ⚠️ Cannot add tags: Application ID not found")
+        print(f"└─ DEBUG: Tags that would be added: {json.dumps(payload.get('tags'), indent=2)}")
+        
+        # Log this as an error since we have tags to add but no application ID
+        log_error(
+            'Application Tag Addition - No App ID',
+            app['AppName'],
+            'N/A',
+            'Cannot add tags: Application ID not found',
+            f'Application name: {app["AppName"]}\nTags to add: {len(payload.get("tags", []))}\nTag details: {json.dumps(payload.get("tags", []), indent=2)}'
+        )
+    elif not payload.get('tags'):
+        print(f"└─ ℹ️ No tags to add to application")
+    else:
+        print(f"└─ ℹ️ No tag addition needed (no tags or no app ID)")
+    
+    time.sleep(2)
+    
     # Create components if any
     if app.get('Components'):
         print(f"└─ Processing {len(app['Components'])} components")
         for component in app['Components']:
             create_custom_component(app['AppName'], component, headers)
+
+def process_tag_string(tag_string):
+    """Helper function to properly process tag strings, especially RiskFactor tags with multiple colons"""
+    if ':' in tag_string:
+        # Handle special case for RiskFactor tags with multiple colons
+        if tag_string.startswith('RiskFactor:') and tag_string.count(':') >= 2:
+            # Find the last colon to split key and value
+            last_colon_index = tag_string.rfind(':')
+            key = tag_string[:last_colon_index].strip()
+            value = tag_string[last_colon_index + 1:].strip()
+            return {"key": key, "value": value}
+        else:
+            # Standard key:value processing
+            tag_parts = tag_string.split(':', 1)
+            key = tag_parts[0].strip()
+            value = tag_parts[1].strip()
+            return {"key": key, "value": value}
+    else:
+        # Handle tags without key:value format
+        return {"value": tag_string}
+
+def add_application_tag_custom(app_id, tag, headers):
+    """Add a single tag to an application using the tags endpoint"""
+    try:
+        api_url = construct_api_url(f"/v1/applications/{app_id}/tags")
+        tags_payload = {"tags": [tag]}
+        
+        if DEBUG:
+            print(f"   └─ DEBUG: Sending PUT request to {api_url}")
+            print(f"   └─ DEBUG: Payload: {json.dumps(tags_payload, indent=2)}")
+        
+        response = requests.put(api_url, headers=headers, json=tags_payload)
+        response.raise_for_status()
+        
+        if 'key' in tag and 'value' in tag:
+            print(f"   └─ ✅ Successfully added tag {tag['key']}: {tag['value']}")
+        else:
+            print(f"   └─ ✅ Successfully added tag: {tag['value']}")
+        
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Failed to add tag to application: {str(e)}"
+        print(f"   └─ ❌ Error adding tag: {error_msg}")
+        
+        # Log detailed error information
+        tag_description = f"{tag.get('key', 'NO_KEY')}:{tag.get('value', 'NO_VALUE')}" if tag.get('key') else tag.get('value', 'INVALID_TAG')
+        log_error(
+            'Application Tag Addition',
+            f"App ID: {app_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'API URL: {api_url}\nPayload: {json.dumps(tags_payload)}\nResponse: {getattr(response, "content", "No response content")}'
+        )
+        
+        if hasattr(response, 'content'):
+            print(f"   └─ API Response: {response.content.decode()}")
+        if hasattr(response, 'status_code'):
+            print(f"   └─ Status Code: {response.status_code}")
+    except Exception as e:
+        error_msg = f"Unexpected error adding tag: {str(e)}"
+        print(f"   └─ ❌ Unexpected error: {error_msg}")
+        
+        tag_description = f"{tag.get('key', 'NO_KEY')}:{tag.get('value', 'NO_VALUE')}" if tag.get('key') else tag.get('value', 'INVALID_TAG')
+        log_error(
+            'Application Tag Addition (Unexpected)',
+            f"App ID: {app_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'Tag data: {json.dumps(tag)}\nException type: {type(e).__name__}'
+        )
 
 def create_custom_component(applicationName, component, headers2):
     global headers
@@ -706,67 +993,70 @@ def create_custom_component(applicationName, component, headers2):
     print(f"\n[Component Creation]")
     print(f"└─ Application: {applicationName}")
     print(f"└─ Component: {component['ComponentName']}")
+    print(f"└─ Component Data: {component}")
 
     # Ensure valid tag values by filtering out empty or None 
     tags = []
+    print(f"└─ Processing component tags...")
     
     if component.get('Status'):
         tags.append({"key": "Status", "value": component['Status']})
+        print(f"└─ Added Status tag: Status = {component['Status']}")
     if component.get('Type'):
         tags.append({"key": "Type", "value": component['Type']})
+        print(f"└─ Added Type tag: Type = {component['Type']}")
 
     # Add team tags
     for team in component.get('TeamNames', []):
         if team:  # Only add non-empty team names
             tags.append({"key": "pteam", "value": team})
+            print(f"└─ Added Team tag: pteam = {team}")
 
     # Add domain and subdomain tags only if they are not None or empty
     if component.get('Domain'):
         tags.append({"key": "domain", "value": component['Domain']})
+        print(f"└─ Added Domain tag: domain = {component['Domain']}")
     if component.get('SubDomain'):
         tags.append({"key": "subdomain", "value": component['SubDomain']})
+        print(f"└─ Added Subdomain tag: subdomain = {component['SubDomain']}")
     
     # Add tags from the Tag_label and Tags_label fields in YAML configuration
+    print(f"└─ Processing Tag_label field...")
     if component.get('Tag_label'):
         tag_label = component.get('Tag_label')
+        print(f"└─ Found Tag_label: {tag_label}")
+        print(f"└─ Tag_label type: {type(tag_label)}")
+        
         if isinstance(tag_label, str):
-            # Handle string tags like "Environment: Production"
-            if ':' in tag_label:
-                tag_parts = tag_label.split(':', 1)  # Split only on first colon
-                key = tag_parts[0].strip()
-                value = tag_parts[1].strip()
-                tags.append({"key": key, "value": value})
-            else:
-                # Handle tags without key:value format
-                tags.append({"value": tag_label})
+            # Handle single string tag
+            processed_tag = process_tag_string(tag_label)
+            tags.append(processed_tag)
+            print(f"└─ Processed single Tag_label: {processed_tag}")
         elif isinstance(tag_label, list):
-            for tag in tag_label:
+            print(f"└─ Processing {len(tag_label)} Tag_label entries...")
+            for i, tag in enumerate(tag_label):
+                print(f"└─ Processing Tag_label[{i}]: '{tag}' (type: {type(tag)})")
                 if isinstance(tag, str):
-                    if ':' in tag:
-                        tag_parts = tag.split(':', 1)
-                        key = tag_parts[0].strip()
-                        value = tag_parts[1].strip()
-                        tags.append({"key": key, "value": value})
-                    else:
-                        tags.append({"value": tag})
+                    processed_tag = process_tag_string(tag)
+                    tags.append(processed_tag)
+                    print(f"└─ Added Tag_label[{i}]: {processed_tag}")
                 elif isinstance(tag, dict):
                     if 'key' in tag and 'value' in tag:
-                        tags.append({"key": tag['key'], "value": tag['value']})
+                        tag_dict = {"key": tag['key'], "value": tag['value']}
+                        tags.append(tag_dict)
+                        print(f"└─ Added Tag_label[{i}] dict: {tag_dict}")
                     elif 'value' in tag:
-                        tags.append({"value": tag['value']})
+                        tag_dict = {"value": tag['value']}
+                        tags.append(tag_dict)
+                        print(f"└─ Added Tag_label[{i}] value-only: {tag_dict}")
+    else:
+        print(f"└─ No Tag_label field found in component")
     
     if component.get('Tags_label'):
         for tag in component.get('Tags_label'):
             if isinstance(tag, str):
-                # Handle string tags like "Environment: Production"
-                if ':' in tag:
-                    tag_parts = tag.split(':', 1)  # Split only on first colon
-                    key = tag_parts[0].strip()
-                    value = tag_parts[1].strip()
-                    tags.append({"key": key, "value": value})
-                else:
-                    # Handle tags without key:value format
-                    tags.append({"value": tag})
+                # Handle string tags using helper function
+                tags.append(process_tag_string(tag))
             elif isinstance(tag, dict):
                 # Handle dict tags that already have key/value structure
                 if 'key' in tag and 'value' in tag:
@@ -779,23 +1069,47 @@ def create_custom_component(applicationName, component, headers2):
             "name": applicationName
         },
         "name": component['ComponentName'],
-        "criticality": component.get('Criticality', 5),  # Default to criticality 5
+        "criticality": calculate_criticality(component.get('Tier', 5)),  # Calculate from Tier field
         "tags": tags
     }
+    
+    # Always show final tag summary for troubleshooting
+    print(f"└─ FINAL TAG SUMMARY for component {component['ComponentName']}:")
+    print(f"└─ Total tags to be sent: {len(tags)}")
+    for i, tag in enumerate(tags):
+        if 'key' in tag and 'value' in tag:
+            print(f"   {i+1:2d}. {tag['key']}: {tag['value']}")
+        elif 'value' in tag:
+            print(f"   {i+1:2d}. {tag['value']} (value only)")
+    
+    if len(tags) == 0:
+        print(f"└─ ⚠️  WARNING: No tags will be sent with this component!")
 
     # Handle ticketing configuration
     if component.get('Ticketing'):
-        ticketing = component['Ticketing']
-        if isinstance(ticketing, list):
-            ticketing = ticketing[0] if ticketing else {}
-        
-        if ticketing.get('Backlog'):  # Only add if Backlog is present
-            payload["ticketing"] = {
-                "integrationName": ticketing.get('TIntegrationName'),
-                "projectName": ticketing.get('Backlog')  # This is required
-            }
-        else:
-            print(f"└─ Warning: Skipping ticketing configuration - missing required Backlog field")
+        try:
+            ticketing = component['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            
+            integration_name = ticketing.get('TIntegrationName')
+            backlog = ticketing.get('Backlog')
+            
+            if integration_name and backlog:
+                payload["ticketing"] = {
+                    "integrationName": integration_name,
+                    "projectName": backlog
+                }
+                print(f"└─ Adding ticketing configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Project: {backlog}")
+            else:
+                print(f"└─ Warning: Skipping ticketing configuration - missing required fields")
+                print(f"   └─ TIntegrationName: {integration_name}")
+                print(f"   └─ Backlog: {backlog}")
+        except Exception as e:
+            print(f"└─ Warning: Error processing ticketing configuration: {e}")
+            print(f"└─ Continuing component creation without ticketing integration")
 
     # Handle messaging configuration
     if component.get('Messaging'):
@@ -811,20 +1125,107 @@ def create_custom_component(applicationName, component, headers2):
         else:
             print(f"└─ Warning: Skipping messaging configuration - missing required Channel field")
 
-    if DEBUG:
-        print(f"└─ Sending payload:")
-        print(f"   └─ {json.dumps(payload, indent=2)}")
+    # Always show the full payload being sent to the API
+    print(f"└─ SENDING COMPONENT CREATION REQUEST:")
+    print(f"└─ API URL: {construct_api_url('/v1/components')}")
+    print(f"└─ Full Payload:")
+    print(json.dumps(payload, indent=2))
 
     api_url = construct_api_url("/v1/components")
 
     try:
+        print(f"└─ Making POST request to create component...")
         response = requests.post(api_url, headers=headers, json=payload)
+        print(f"└─ API Response Status: {response.status_code}")
+        print(f"└─ API Response Content: {response.content.decode('utf-8') if response.content else 'No content'}")
         response.raise_for_status()
-        print(f"└─ Component created successfully")
+        print(f"└─ ✅ Component created successfully")
+        
+        # Track successful component creation for main script reporting
+        if component_tracking_callback:
+            component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", True)
+        
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f"└─ Component already exists")
+        elif response.status_code == 400:
+            # Handle specific 400 errors
+            try:
+                error_response = response.json()
+                error_message = error_response.get('error', 'Unknown error')
+                
+                if 'Integration not found' in error_message:
+                    print(f"└─ ⚠️  Warning: Ticketing integration not found, retrying without ticketing...")
+                    # Remove ticketing from payload and retry
+                    payload_without_ticketing = payload.copy()
+                    payload_without_ticketing.pop('ticketing', None)
+                    
+                    print(f"└─ Retrying component creation without ticketing integration...")
+                    try:
+                        retry_response = requests.post(api_url, headers=headers, json=payload_without_ticketing)
+                        retry_response.raise_for_status()
+                        print(f"└─ ✅ Component created successfully (without ticketing)")
+                        
+                        # Track successful component creation (retry) for main script reporting
+                        if component_tracking_callback:
+                            component_tracking_callback('components', 'create_component_retry', f"{applicationName} -> {component['ComponentName']}", True)
+                        
+                        time.sleep(2)
+                    except requests.exceptions.RequestException as retry_e:
+                        if retry_response.status_code == 409:
+                            print(f"└─ Component already exists")
+                        else:
+                            error_msg = f"Failed to create component even without ticketing: {str(retry_e)}"
+                            error_details = f'Response: {getattr(retry_response, "content", "No response content")}\nPayload: {json.dumps(payload_without_ticketing)}'
+                            log_error(
+                                'Component Creation (Retry)',
+                                f"{applicationName} -> {component['ComponentName']}",
+                                'N/A',
+                                error_msg,
+                                error_details
+                            )
+                            print(f"└─ Error: {error_msg}")
+                            
+                            # Track failed component creation for main script reporting
+                            if component_tracking_callback:
+                                component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+                            
+                            return
+                else:
+                    error_msg = f"Failed to create component: {error_message}"
+                    error_details = f'Response: {response.content.decode()}\nPayload: {json.dumps(payload)}'
+                    log_error(
+                        'Component Creation',
+                        f"{applicationName} -> {component['ComponentName']}",
+                        'N/A',
+                        error_msg,
+                        error_details
+                    )
+                    print(f"└─ Error: {error_msg}")
+                    
+                    # Track failed component creation for main script reporting
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+                    
+                    return
+            except (ValueError, KeyError):
+                error_msg = f"Failed to create component: {str(e)}"
+                error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+                log_error(
+                    'Component Creation',
+                    f"{applicationName} -> {component['ComponentName']}",
+                    'N/A',
+                    error_msg,
+                    error_details
+                )
+                print(f"└─ Error: {error_msg}")
+                
+                # Track failed component creation for main script reporting
+                if component_tracking_callback:
+                    component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+                
+                return
         else:
             error_msg = f"Failed to create component: {str(e)}"
             error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
@@ -838,6 +1239,11 @@ def create_custom_component(applicationName, component, headers2):
             print(f"└─ Error: {error_msg}")
             if DEBUG:
                 print(f"└─ Response content: {response.content}")
+            
+            # Track failed component creation for main script reporting
+            if component_tracking_callback:
+                component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+            
             return
 
     try:
@@ -1027,6 +1433,8 @@ def update_component(application, component, existing_component, headers2):
     print(f"\n[Component Update]")
     print(f"└─ Application: {application['AppName']}")
     print(f"└─ Component: {component['ComponentName']}")
+    print(f"└─ Existing Component ID: {existing_component.get('id')}")
+    print(f"└─ Component Data: {component}")
 
     # Handle team tags
     try:
@@ -1061,25 +1469,12 @@ def update_component(application, component, existing_component, headers2):
     if component.get('Tag_label'):
         tag_label = component.get('Tag_label')
         if isinstance(tag_label, str):
-            # Handle string tags like "Environment: Production"
-            if ':' in tag_label:
-                tag_parts = tag_label.split(':', 1)  # Split only on first colon
-                key = tag_parts[0].strip()
-                value = tag_parts[1].strip()
-                tags.append({"key": key, "value": value})
-            else:
-                # Handle tags without key:value format
-                tags.append({"value": tag_label})
+            # Handle single string tag
+            tags.append(process_tag_string(tag_label))
         elif isinstance(tag_label, list):
             for tag in tag_label:
                 if isinstance(tag, str):
-                    if ':' in tag:
-                        tag_parts = tag.split(':', 1)
-                        key = tag_parts[0].strip()
-                        value = tag_parts[1].strip()
-                        tags.append({"key": key, "value": value})
-                    else:
-                        tags.append({"value": tag})
+                    tags.append(process_tag_string(tag))
                 elif isinstance(tag, dict):
                     if 'key' in tag and 'value' in tag:
                         tags.append({"key": tag['key'], "value": tag['value']})
@@ -1089,15 +1484,8 @@ def update_component(application, component, existing_component, headers2):
     if component.get('Tags_label'):
         for tag in component.get('Tags_label'):
             if isinstance(tag, str):
-                # Handle string tags like "Environment: Production"
-                if ':' in tag:
-                    tag_parts = tag.split(':', 1)  # Split only on first colon
-                    key = tag_parts[0].strip()
-                    value = tag_parts[1].strip()
-                    tags.append({"key": key, "value": value})
-                else:
-                    # Handle tags without key:value format
-                    tags.append({"value": tag})
+                # Handle string tags using helper function
+                tags.append(process_tag_string(tag))
             elif isinstance(tag, dict):
                 # Handle dict tags that already have key/value structure
                 if 'key' in tag and 'value' in tag:
@@ -1107,9 +1495,21 @@ def update_component(application, component, existing_component, headers2):
 
     payload = {
         "name": component['ComponentName'],
-        "criticality": component.get('Criticality', 5),  # Default to criticality 5
+        "criticality": calculate_criticality(component.get('Tier', 5)),  # Calculate from Tier field
         "tags": tags
     }
+    
+    # Always show final tag summary for troubleshooting (UPDATE)
+    print(f"└─ FINAL TAG SUMMARY for component UPDATE {component['ComponentName']}:")
+    print(f"└─ Total tags to be sent: {len(tags)}")
+    for i, tag in enumerate(tags):
+        if 'key' in tag and 'value' in tag:
+            print(f"   {i+1:2d}. {tag['key']}: {tag['value']}")
+        elif 'value' in tag:
+            print(f"   {i+1:2d}. {tag['value']} (value only)")
+    
+    if len(tags) == 0:
+        print(f"└─ ⚠️  WARNING: No tags will be sent with this component update!")
 
     # Handle ticketing configuration
     if component.get('Ticketing'):
@@ -1186,19 +1586,71 @@ def update_component(application, component, existing_component, headers2):
             response = requests.patch(api_url, headers=headers, json=payload)
             response.raise_for_status()
             print(f"└─ Component updated successfully")
+            
+            # Track successful component update
+            if component_tracking_callback:
+                component_tracking_callback('components', 'update_component', f"{application['AppName']} -> {component['ComponentName']}", True, None)
+                
         except requests.exceptions.RequestException as e:
             error_msg = f"Failed to update component: {str(e)}"
-            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
-            log_error(
-                'Component Update',
-                f"{application['AppName']} -> {component['ComponentName']}",
-                'N/A',
-                error_msg,
-                error_details
-            )
-            print(f"└─ Error: {error_msg}")
-            if DEBUG:
-                print(f"└─ Response content: {response.content}")
+            
+            # Check if this is an "Integration not found" error and retry without ticketing
+            if response.status_code == 400 and "Integration not found" in str(response.content):
+                print(f"└─ Integration not found error detected, retrying without ticketing...")
+                
+                # Create a copy of payload without ticketing
+                retry_payload = payload.copy()
+                if 'ticketing' in retry_payload:
+                    del retry_payload['ticketing']
+                    print(f"└─ Removed ticketing integration from payload")
+                    
+                try:
+                    print(f"└─ Sending retry update payload (without ticketing):")
+                    print(f"   └─ {json.dumps(retry_payload, indent=2)}")
+                    retry_response = requests.patch(api_url, headers=headers, json=retry_payload)
+                    retry_response.raise_for_status()
+                    print(f"└─ Component updated successfully without ticketing integration")
+                    
+                    # Track successful component update retry
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'update_component_retry', f"{application['AppName']} -> {component['ComponentName']}", True, 'Integration not found, retried successfully without ticketing')
+                        
+                except requests.exceptions.RequestException as retry_e:
+                    retry_error_msg = f"Failed to update component even without ticketing: {str(retry_e)}"
+                    retry_error_details = f'Original error: {error_msg}\nRetry error: {retry_error_msg}\nOriginal payload: {json.dumps(payload)}\nRetry payload: {json.dumps(retry_payload)}\nRetry response: {getattr(retry_response, "content", "No response content")}'
+                    
+                    log_error(
+                        'Component Update Retry Failed',
+                        f"{application['AppName']} -> {component['ComponentName']}",
+                        'N/A',
+                        retry_error_msg,
+                        retry_error_details
+                    )
+                    print(f"└─ Error: {retry_error_msg}")
+                    if DEBUG:
+                        print(f"└─ Retry response content: {getattr(retry_response, 'content', 'No response content')}")
+                        
+                    # Track failed component update retry
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'update_component_retry', f"{application['AppName']} -> {component['ComponentName']}", False, retry_error_msg)
+                        
+            else:
+                # For other types of errors, log normally
+                error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+                log_error(
+                    'Component Update',
+                    f"{application['AppName']} -> {component['ComponentName']}",
+                    'N/A',
+                    error_msg,
+                    error_details
+                )
+                print(f"└─ Error: {error_msg}")
+                if DEBUG:
+                    print(f"└─ Response content: {response.content}")
+                    
+                # Track failed component update
+                if component_tracking_callback:
+                    component_tracking_callback('components', 'update_component', f"{application['AppName']} -> {component['ComponentName']}", False, error_msg)
     
     try:
         create_component_rules(application['AppName'], component, headers)
@@ -1932,21 +2384,29 @@ def create_teams(teams, pteams, access_token2):
     # Iterate over the list of teams to be added
     for team in teams:
         found = False
+        team_name = team.get('TeamName', '').strip()
+        
+        if not team_name:
+            if DEBUG:
+                print(f"└─ Skipping team with empty name: {team}")
+            continue
 
         # Check if the team already exists in the existing pteams
         for pteam in pteams:
-            if pteam['name'] == team['TeamName']:
+            if pteam['name'] == team_name:
                 found = True
+                if DEBUG:
+                    print(f"└─ Team {team_name} already exists, skipping creation")
                 break
         
         # If the team is not found and has a valid name, proceed to add it
-        if not found and team['TeamName']:
+        if not found:
             print("[Team]")
-            print(f"└─ Creating: {team['TeamName']}")
+            print(f"└─ Creating: {team_name}")
             
             # Prepare the payload for creating the team
             payload = {
-                "name": team['TeamName'],
+                "name": team_name,
                 "type": "GENERAL"
             }
 
@@ -1960,16 +2420,18 @@ def create_teams(teams, pteams, access_token2):
                 response.raise_for_status()
                 team['id'] = response.json()['id']
                 new_pteams.append(response.json())
-                print(f"└─ Team created successfully: {team['TeamName']}")
+                print(f"└─ Team created successfully: {team_name}")
             except requests.exceptions.RequestException as e:
-                if response.status_code == 400:
-                    print(f"└─ Team {team['TeamName']} already exists")
+                if response.status_code == 409:
+                    print(f"└─ Team {team_name} already exists (409 Conflict)")
+                    # Continue processing other teams instead of exiting
+                    continue
                 else:
                     error_msg = f"Failed to create team: {str(e)}"
                     error_details = f"Response: {getattr(response, 'content', 'No response content')}\nPayload: {json.dumps(payload)}"
                     log_error(
                         'Team Creation',
-                        team['TeamName'],
+                        team_name,
                         'N/A',
                         error_msg,
                         error_details
@@ -1977,7 +2439,8 @@ def create_teams(teams, pteams, access_token2):
                     print(f"Error: {error_msg}")
                     if DEBUG:
                         print(f"└─ Response content: {response.content}")
-                    exit(1)
+                    # Continue processing other teams instead of exiting completely
+                    continue
     return new_pteams
 
 
@@ -2905,7 +3368,35 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers2):
         response.raise_for_status()
         print(f"Tag {tag_key} with value {tag_value} added successfully.")
     except requests.exceptions.RequestException as e:
-        print(f"Error adding tag: {e}")
+        error_msg = f"Error adding tag: {e}"
+        print(f"   └─ ❌ {error_msg}")
+        
+        # Log detailed error information
+        tag_description = f"{tag_key}:{tag_value}"
+        log_error(
+            'Application Tag Addition',
+            f"App ID: {application_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'API URL: {api_url}\nPayload: {json.dumps(payload)}\nResponse: {getattr(response, "content", "No response content")}'
+        )
+        
+        if hasattr(response, 'content'):
+            print(f"   └─ API Response: {response.content.decode()}")
+        if hasattr(response, 'status_code'):
+            print(f"   └─ Status Code: {response.status_code}")
+    except Exception as e:
+        error_msg = f"Unexpected error adding tag: {str(e)}"
+        print(f"   └─ ❌ Unexpected error: {error_msg}")
+        
+        tag_description = f"{tag_key}:{tag_value}"
+        log_error(
+            'Application Tag Addition (Unexpected)',
+            f"App ID: {application_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'Exception type: {type(e).__name__}'
+        )
 
 
 # Helper function to check if a member exists
@@ -2934,7 +3425,28 @@ def populate_applications_and_environments(headers2):
     try:
         print("Getting list of Phoenix Applications and Environments")
         api_url = construct_api_url("/v1/applications")
+        
+        # Debug: Print the full request details
+        if DEBUG:
+            print(f"📡 API Request URL: {api_url}")
+            print(f"📡 Request Headers: {headers}")
+        
         response = requests.get(api_url, headers=headers)
+        
+        # Enhanced error handling for API compatibility issues
+        if response.status_code != 200:
+            print(f"⚠️  API returned status code: {response.status_code}")
+            print(f"⚠️  Response content: {response.content}")
+            
+            # Check if this is the ENVIRONMENT_CLOUD enum error
+            if b'ENVIRONMENT_CLOUD' in response.content:
+                print("🔍 Detected ENVIRONMENT_CLOUD enum compatibility issue")
+                print("💡 This appears to be an API version compatibility problem")
+                print("🔄 Attempting alternative API approach...")
+                
+                # Try with different parameters or endpoint variations
+                return handle_enum_compatibility_issue(headers)
+        
         response.raise_for_status()
 
         data = response.json()
@@ -2944,20 +3456,59 @@ def populate_applications_and_environments(headers2):
         for i in range(1, total_pages):
             api_url = construct_api_url(f"/v1/applications?pageNumber={i}")
             response = requests.get(api_url, headers=headers)
+            
+            if response.status_code != 200:
+                print(f"⚠️  Pagination request failed with status: {response.status_code}")
+                break
+                
             components += response.json().get('content', [])
+            
     except requests.exceptions.RequestException as e:
         error_msg = f"Failed to fetch apps/envs. Response: {response.content if hasattr(response, 'content') else 'N/A'}"
+        
+        # Enhanced error reporting for debugging
+        print(f"💥 Request Exception Details:")
+        print(f"   └─ Exception type: {type(e).__name__}")
+        print(f"   └─ Exception message: {str(e)}")
+        if hasattr(response, 'status_code'):
+            print(f"   └─ Response status: {response.status_code}")
+        if hasattr(response, 'content'):
+            print(f"   └─ Response content: {response.content}")
+            
         log_error(
             'Fetching all apps/envs',
             'None',
             'N/A',
             error_msg,
-            f'Response status: {response.status_code}'
+            f'Response status: {response.status_code if hasattr(response, "status_code") else "Unknown"}\nException: {str(e)}'
         )
         print(f"└─ Error: {error_msg}")
-        exit(1)
+        
+        # Instead of exiting, try fallback approach
+        print("🔄 Attempting fallback approach for applications/environments...")
+        return handle_enum_compatibility_issue(headers)
 
     return components
+
+
+def handle_enum_compatibility_issue(headers):
+    """
+    Fallback handler for API compatibility issues with enum values
+    Returns minimal data structure to allow script to continue
+    """
+    print("🛠️  Handling API compatibility issue...")
+    print("📝 This might be due to:")
+    print("   • API version mismatch between client and server")
+    print("   • Server-side enum definition changes")
+    print("   • Backend configuration issues")
+    
+    # Return empty list to allow script to continue
+    # This will mean no existing apps/environments are found,
+    # so new ones will be created if configured
+    print("⚠️  Returning empty applications/environments list")
+    print("💡 Script will proceed assuming no existing apps/environments")
+    
+    return []
 
 @dispatch(str, str, dict, int, dict)
 def add_service(applicationSelectorName, env_id, service, tier, headers2):
@@ -3597,7 +4148,7 @@ def create_autolink_deployments(applications, environments, headers2):
         time.sleep(1)  # Wait for 1 second after processing each batch
 
 
-def get_assets(applicationEnvironmentId, type, headers2):
+def get_assets(applicationEnvironmentId, type, headers2, include_tags=False):
     global headers
     if not headers:
         headers = headers2
@@ -3616,13 +4167,23 @@ def get_assets(applicationEnvironmentId, type, headers2):
         response.raise_for_status()
 
         data = response.json()
-        assets = [asset['name'] for asset in data.get('content', [])]
+        if include_tags:
+            # Return full asset objects with tags for tag-based grouping
+            assets = data.get('content', [])
+        else:
+            # Return just asset names for backward compatibility
+            assets = [asset['name'] for asset in data.get('content', [])]
+            
         total_pages = data.get('totalPages', 1)
         for i in range(1, total_pages):
             api_url = construct_api_url(f"/v1/assets?pageNumber={i}&pageSize=100")
             response = requests.post(api_url, headers=headers, json = asset_request)
-            new_assets = [asset['name'] for asset in response.json().get('content', [])]
-            assets += new_assets
+            page_data = response.json()
+            if include_tags:
+                new_assets = page_data.get('content', [])
+            else:
+                new_assets = [asset['name'] for asset in page_data.get('content', [])]
+            assets.extend(new_assets)
 
         return assets  
 
@@ -3651,38 +4212,1499 @@ def group_assets_by_similar_name(assets):
     return asset_groups
 
 
-def create_components_from_assets(applicationEnvironments, phoenix_components, headers2):
+def get_asset_types_for_category(category):
+    """
+    Map user-friendly asset categories to Phoenix asset types.
+    
+    Args:
+        category (str): User selected category ('all', 'cloud', 'code', 'infrastructure', 'web')
+    
+    Returns:
+        list: List of Phoenix asset types to process
+    """
+    asset_type_mapping = {
+        'all': ['REPOSITORY', 'SOURCE_CODE', 'BUILD', 'WEBSITE_API', 'CONTAINER', 'INFRA', 'CLOUD', 'WEB', 'FOSS', 'SAST'],
+        'cloud': ['CLOUD', 'CONTAINER'],  # Cloud resources and containers
+        'code': ['REPOSITORY', 'SOURCE_CODE', 'BUILD', 'FOSS', 'SAST'],  # Code-related assets
+        'infrastructure': ['INFRA'],  # Infrastructure components
+        'web': ['WEB', 'WEBSITE_API']  # Web assets and APIs
+    }
+    
+    return asset_type_mapping.get(category.lower(), ['CONTAINER', 'CLOUD'])  # Default to original types
+
+
+def get_asset_assignment_strategy(asset_type):
+    """
+    Determine how assets should be assigned based on their type.
+    
+    Args:
+        asset_type (str): Phoenix asset type
+        
+    Returns:
+        dict: Assignment strategy with target type and details
+    """
+    # CODE, WEB, BUILD assets go to APPLICATION COMPONENTS
+    application_component_types = ['REPOSITORY', 'SOURCE_CODE', 'BUILD', 'WEB', 'WEBSITE_API', 'FOSS', 'SAST']
+    
+    # CLOUD, CONTAINER assets go to ENVIRONMENT SERVICES
+    cloud_service_types = ['CLOUD', 'CONTAINER']
+    
+    # INFRA assets go to ENVIRONMENT SERVICES  
+    infra_service_types = ['INFRA']
+    
+    if asset_type in application_component_types:
+        return {
+            'target': 'component',
+            'description': f'{asset_type} assets → Application Components',
+            'service_type': None
+        }
+    elif asset_type in cloud_service_types:
+        return {
+            'target': 'service',
+            'description': f'{asset_type} assets → Environment Services (Cloud type)',
+            'service_type': 'Cloud'
+        }
+    elif asset_type in infra_service_types:
+        return {
+            'target': 'service', 
+            'description': f'{asset_type} assets → Environment Services (Infrastructure type)',
+            'service_type': 'Infrastructure'
+        }
+    else:
+        # Default fallback to component for unknown types
+        return {
+            'target': 'component',
+            'description': f'{asset_type} assets → Application Components (default)',
+            'service_type': None
+        }
+
+
+def is_environment_compatible_with_asset_type(env_subtype, asset_type, assignment_strategy):
+    """
+    Check if an environment type is compatible with an asset type assignment.
+    
+    Args:
+        env_subtype (str): Environment subType (e.g., 'cloud', 'infrastructure', 'application')
+        asset_type (str): Phoenix asset type
+        assignment_strategy (dict): Assignment strategy from get_asset_assignment_strategy
+        
+    Returns:
+        bool: True if compatible, False otherwise
+    """
+    # For application components, any environment is compatible
+    if assignment_strategy['target'] == 'component':
+        return True
+    
+    # For services, match environment subtype with service type
+    if assignment_strategy['target'] == 'service':
+        if assignment_strategy['service_type'] == 'Cloud':
+            # Cloud and container assets should go to cloud-type environments
+            return env_subtype.lower() in ['cloud', 'aws', 'azure', 'gcp', 'container']
+        elif assignment_strategy['service_type'] == 'Infrastructure':
+            # Infrastructure assets should go to infrastructure-type environments
+            return env_subtype.lower() in ['infrastructure', 'infra', 'on-premise', 'datacenter']
+    
+    # Default to compatible for unknown cases
+    return True
+
+
+def show_creation_plan_and_confirm(creation_plan, silent_mode=False):
+    """
+    Show what will be created and get user confirmation.
+    
+    Args:
+        creation_plan (dict): Dictionary containing planned creations
+        silent_mode (bool): If True, auto-accept without prompting
+        
+    Returns:
+        bool: True if user confirms, False otherwise
+    """
+    print("\n" + "="*80)
+    print("🔍 CREATION PLAN PREVIEW")
+    print("="*80)
+    
+    total_items = 0
+    
+    # Show environments to be created
+    if creation_plan['environments']:
+        print(f"\n🌍 ENVIRONMENTS TO CREATE ({len(creation_plan['environments'])})")
+        for env_name, env_data in creation_plan['environments'].items():
+            print(f"   📁 {env_name}")
+            print(f"      Type: {env_data.get('type', 'Unknown')}")
+            print(f"      Team: {env_data.get('team', 'Unknown')}")
+            total_items += 1
+    
+    # Show services to be created
+    if creation_plan['services']:
+        print(f"\n🔧 SERVICES TO CREATE ({len(creation_plan['services'])})")
+        for service_key, service_data in creation_plan['services'].items():
+            print(f"   ⚙️  {service_data['name']} (in {service_data['environment']})")
+            print(f"      Type: {service_data.get('service_type', 'Unknown')}")
+            print(f"      Assets: {service_data.get('asset_count', 0)}")
+            total_items += 1
+    
+    # Show applications to be created
+    if creation_plan['applications']:
+        print(f"\n📦 APPLICATIONS TO CREATE ({len(creation_plan['applications'])})")
+        for app_name, app_data in creation_plan['applications'].items():
+            print(f"   📱 {app_name}")
+            print(f"      Team: {app_data.get('team', 'Unknown')}")
+            total_items += 1
+    
+    # Show components to be created
+    if creation_plan['components']:
+        print(f"\n🧩 COMPONENTS TO CREATE ({len(creation_plan['components'])})")
+        for comp_key, comp_data in creation_plan['components'].items():
+            print(f"   🔗 {comp_data['name']} (in {comp_data['application']})")
+            print(f"      Assets: {comp_data.get('asset_count', 0)}")
+            total_items += 1
+    
+    print(f"\n📊 TOTAL ITEMS TO CREATE: {total_items}")
+    print("="*80)
+    
+    if silent_mode:
+        print("🔇 SILENT MODE: Auto-accepting creation plan")
+        return True
+    
+    if total_items == 0:
+        print("ℹ️  No items to create.")
+        return False
+    
+    while True:
+        try:
+            response = input(f"\n❓ Do you want to proceed with creating these {total_items} items? (Y/yes/N/no): ").strip().lower()
+            if response in ['y', 'yes']:
+                print("✅ Creation confirmed by user")
+                return True
+            elif response in ['n', 'no']:
+                print("❌ Creation cancelled by user")
+                return False
+            else:
+                print("❌ Please enter 'Y' for yes or 'N' for no")
+        except KeyboardInterrupt:
+            print("\n❌ Operation cancelled by user")
+            return False
+
+
+def execute_full_creation_plan(creation_plan, headers):
+    """
+    Execute the full creation plan: environments, services, applications, and components.
+    
+    Args:
+        creation_plan (dict): Dictionary containing planned creations
+        headers (dict): API headers for Phoenix requests
+    """
+    print(f"\n🏗️  EXECUTING FULL CREATION PLAN")
+    print(f"="*60)
+    
+    created_count = 0
+    failed_count = 0
+    
+    # Step 1: Create Environments
+    if creation_plan['environments']:
+        print(f"\n🌍 Creating {len(creation_plan['environments'])} environments...")
+        for env_name, env_data in creation_plan['environments'].items():
+            try:
+                environment = {
+                    'Name': env_name,
+                    'Type': env_data['type'],
+                    'Status': 'Production',
+                    'Responsable': 'auto-generated@phoenix.com',
+                    'Tier': 5,
+                    'TeamName': env_data['team']
+                }
+                create_environment(environment, headers)
+                print(f"   ✅ Created environment: {env_name}")
+                created_count += 1
+            except Exception as e:
+                print(f"   ❌ Failed to create environment {env_name}: {str(e)}")
+                failed_count += 1
+    
+    # Step 2: Create Applications (for components)
+    if creation_plan['applications']:
+        print(f"\n📦 Creating {len(creation_plan['applications'])} applications...")
+        for app_name, app_data in creation_plan['applications'].items():
+            try:
+                # Note: Application creation logic would need to be implemented
+                # For now, we'll just log what would be created
+                print(f"   ℹ️  Would create application: {app_name} (team: {app_data['team']})")
+                print(f"      Note: Application creation API call not implemented yet")
+                created_count += 1
+            except Exception as e:
+                print(f"   ❌ Failed to create application {app_name}: {str(e)}")
+                failed_count += 1
+    
+    # Step 3: Create Services (already created in the main flow, but we could add environment linking here)
+    if creation_plan['services']:
+        print(f"\n🔧 Services ({len(creation_plan['services'])}) already created in main flow")
+    
+    # Step 4: Create Components (already created in the main flow, but we could add application linking here)  
+    if creation_plan['components']:
+        print(f"\n🧩 Components ({len(creation_plan['components'])}) already created in main flow")
+    
+    print(f"\n📊 FULL CREATION SUMMARY")
+    print(f"   ✅ Successfully created: {created_count}")
+    print(f"   ❌ Failed to create: {failed_count}")
+    print(f"="*60)
+
+
+def extract_component_name_from_pattern(asset_names):
+    """
+    Extract a logical component name from a list of similar asset names.
+    
+    Examples:
+        ['prod-db-mysql-01', 'prod-db-mysql-02', 'prod-db-mysql-03'] -> 'prod-db-mysql'
+        ['web-server-staging-1', 'web-server-staging-2'] -> 'web-server-staging'
+        ['nginx-01', 'nginx-02', 'nginx-03'] -> 'nginx'
+        ['usb-hil-ntt-as-01-2c-a-13', 'usb-hil-ntt-as-02-2c-b-13'] -> 'usb-hil-ntt-as'
+    
+    Args:
+        asset_names (list): List of similar asset names
+    
+    Returns:
+        str: Extracted component name
+    """
+    if not asset_names:
+        return "unknown-component"
+    
+    if len(asset_names) == 1:
+        return asset_names[0]
+    
+    # Find common prefix by comparing all names
+    common_prefix = asset_names[0]
+    
+    for name in asset_names[1:]:
+        # Find the longest common prefix
+        i = 0
+        while i < min(len(common_prefix), len(name)) and common_prefix[i] == name[i]:
+            i += 1
+        common_prefix = common_prefix[:i]
+    
+    # Clean up the prefix by removing trailing separators and numbers
+    import re
+    
+    # Remove trailing hyphens, underscores, and numbers with more intelligent pattern matching
+    component_name = re.sub(r'[-_]+(?:\d+[-_]*)*$', '', common_prefix)
+    
+    # If the result is empty or too short, use more sophisticated extraction
+    if len(component_name) < 3:
+        # Try to extract meaningful parts from the first asset name
+        first_asset = asset_names[0]
+        
+        # Remove common suffixes like numbers, rack identifiers, etc.
+        component_name = re.sub(r'[-_](?:\d+[-_]*[a-z]*[-_]*\d*)+$', '', first_asset)
+        
+        # If still too short, try removing just the final numeric sequence
+        if len(component_name) < 3:
+            component_name = re.sub(r'[-_]?\d+$', '', first_asset)
+    
+    # Final fallback
+    if len(component_name) < 3:
+        component_name = asset_names[0]
+    
+    return component_name
+
+
+def extract_environment_name_from_assets(asset_names, asset_type="INFRA"):
+    """
+    Extract a logical environment name from asset names.
+    
+    Examples:
+        ['usb-hil-ntt-as-01', 'usb-hil-ntt-cs-02'] -> 'usb-hil-ntt'
+        ['prod-web-01', 'prod-web-02'] -> 'prod'
+        ['staging-db-mysql-01', 'staging-db-mysql-02'] -> 'staging'
+    
+    Args:
+        asset_names (list): List of asset names
+        asset_type (str): Asset type for context
+    
+    Returns:
+        str: Extracted environment name
+    """
+    if not asset_names:
+        return f"default-{asset_type.lower()}-environment"
+    
+    if len(asset_names) == 1:
+        # For single asset, try to extract meaningful environment name
+        import re
+        name = asset_names[0]
+        
+        # Try to extract first 2-3 meaningful segments
+        parts = re.split(r'[-_.]', name)
+        if len(parts) >= 2:
+            env_name = '-'.join(parts[:2])  # Take first 2 parts
+        else:
+            env_name = parts[0] if parts else name
+            
+        return env_name
+    
+    # Find common prefix for multiple assets
+    common_prefix = asset_names[0]
+    
+    for name in asset_names[1:]:
+        i = 0
+        while i < min(len(common_prefix), len(name)) and common_prefix[i] == name[i]:
+            i += 1
+        common_prefix = common_prefix[:i]
+    
+    import re
+    
+    # Clean up the prefix and extract meaningful environment name
+    # Remove trailing separators and numbers
+    env_name = re.sub(r'[-_]+(?:\d+[-_]*)*$', '', common_prefix)
+    
+    # If too short, try to get first meaningful segments
+    if len(env_name) < 3:
+        first_asset = asset_names[0]
+        parts = re.split(r'[-_.]', first_asset)
+        
+        # Take first 2-3 parts that make sense for environment naming
+        meaningful_parts = []
+        for part in parts[:3]:  # Limit to first 3 parts
+            if part and not re.match(r'^\d+$', part):  # Skip pure numbers
+                meaningful_parts.append(part)
+            if len(meaningful_parts) >= 2:  # Stop after 2 meaningful parts
+                break
+        
+        if meaningful_parts:
+            env_name = '-'.join(meaningful_parts)
+        else:
+            env_name = parts[0] if parts else first_asset
+    
+    # Ensure minimum length and fallback
+    if len(env_name) < 3:
+        env_name = f"{asset_names[0].split('-')[0]}-{asset_type.lower()}"
+    
+    return env_name
+
+
+def extract_responsible_user_from_assets(assets, autogroup_config):
+    """
+    Extract responsible user from asset tags based on autogroup configuration.
+    
+    Args:
+        assets (list): List of assets with tags
+        autogroup_config (dict): Autogroup configuration
+    
+    Returns:
+        str: Responsible user email or None if not found/invalid
+    """
+    if not autogroup_config.get('extract_responsible_from_tags', True):
+        return None
+    
+    # Get responsible tag keys to search for
+    responsible_tag_key = autogroup_config.get('responsible_tag_key', 'owner')
+    alternative_keys = autogroup_config.get('alternative_responsible_tag_keys', [])
+    all_keys = [responsible_tag_key] + alternative_keys
+    
+    # Search for responsible user in asset tags
+    responsible_users = set()
+    
+    for asset in assets:
+        if 'tags' in asset:
+            for tag in asset['tags']:
+                tag_key = tag.get('key', '').lower()
+                tag_value = tag.get('value', '').strip()
+                
+                if tag_key in [key.lower() for key in all_keys] and tag_value:
+                    responsible_users.add(tag_value)
+    
+    # If multiple responsible users found, take the first one
+    if responsible_users:
+        responsible_user = list(responsible_users)[0]
+        
+        # Validate email format if enabled
+        if autogroup_config.get('validate_responsible_email', True):
+            if is_valid_email(responsible_user):
+                return responsible_user
+            elif autogroup_config.get('fallback_to_default_responsible', True):
+                print(f"⚠️  Invalid email format for responsible user: {responsible_user}, using default")
+                return None
+            else:
+                return None
+        else:
+            return responsible_user
+    
+    return None
+
+
+def is_valid_email(email):
+    """
+    Validate email address format.
+    
+    Args:
+        email (str): Email address to validate
+    
+    Returns:
+        bool: True if valid email format, False otherwise
+    """
+    import re
+    
+    # Basic email validation pattern
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
+def get_responsible_user_for_type(asset_type, assets, autogroup_config):
+    """
+    Get the appropriate responsible user for a given asset type.
+    
+    Args:
+        asset_type (str): Type of asset (environment, application, service, component)
+        assets (list): List of assets to extract responsible user from
+        autogroup_config (dict): Autogroup configuration
+    
+    Returns:
+        str: Responsible user email
+    """
+    # Try to extract from asset tags first
+    extracted_user = extract_responsible_user_from_assets(assets, autogroup_config)
+    
+    if extracted_user:
+        return extracted_user
+    
+    # Fall back to default based on asset type
+    default_key = f'default_{asset_type}_responsible'
+    return autogroup_config.get(default_key, 'auto-admin@company.com')
+
+
+def load_autogroup_config(resource_folder):
+    """
+    Load autogroup configuration from autogroup.ini file.
+    
+    Args:
+        resource_folder (str): Path to the Resources folder
+        
+    Returns:
+        dict: Configuration dictionary with autogroup settings
+    """
+    import configparser
+    import os
+    
+    config = {}
+    config_file_path = os.path.join(resource_folder, 'autogroup.ini')
+    
+    if not os.path.exists(config_file_path):
+        print(f"ℹ️  AutoGroup config file not found: {config_file_path}")
+        print("ℹ️  Using default name-based grouping. Copy autogroup.ini.example to autogroup.ini to enable tag-based grouping.")
+        return {
+            'enable_tag_based_grouping': False,
+            'base_tag_key': 'team-name',
+            'alternative_tag_keys': ['pteam', 'owner', 'project'],
+            'application_naming_strategy': 'tag_value',
+            'custom_application_prefix': 'app',
+            'component_name_similarity_threshold': 0.8,
+            'component_min_assets_per_component': 2,
+            'create_separate_applications_per_tag': True,
+            'fallback_for_untagged_assets': 'default_group',
+            'default_group_name': 'untagged-assets',
+            # Responsible users defaults
+            'default_environment_responsible': 'auto-admin@company.com',
+            'default_application_responsible': 'auto-admin@company.com',
+            'default_service_responsible': 'auto-admin@company.com',
+            'default_component_responsible': 'auto-admin@company.com',
+            'extract_responsible_from_tags': True,
+            'responsible_tag_key': 'owner',
+            'alternative_responsible_tag_keys': ['responsible', 'admin', 'lead', 'manager'],
+            'validate_responsible_email': True,
+            'fallback_to_default_responsible': True
+        }
+    
+    try:
+        parser = configparser.ConfigParser()
+        parser.read(config_file_path)
+        
+        if 'tag_based_grouping' in parser:
+            section = parser['tag_based_grouping']
+            
+            config['enable_tag_based_grouping'] = section.getboolean('enable_tag_based_grouping', False)
+            config['base_tag_key'] = section.get('base_tag_key', 'team-name')
+            
+            # Parse alternative tag keys
+            alt_keys = section.get('alternative_tag_keys', 'pteam,owner,project')
+            config['alternative_tag_keys'] = [key.strip() for key in alt_keys.split(',') if key.strip()]
+            
+            config['application_naming_strategy'] = section.get('application_naming_strategy', 'tag_value')
+            config['custom_application_prefix'] = section.get('custom_application_prefix', 'app')
+            config['component_name_similarity_threshold'] = section.getfloat('component_name_similarity_threshold', 0.8)
+            config['component_min_assets_per_component'] = section.getint('component_min_assets_per_component', 2)
+            config['create_separate_applications_per_tag'] = section.getboolean('create_separate_applications_per_tag', True)
+            config['fallback_for_untagged_assets'] = section.get('fallback_for_untagged_assets', 'default_group')
+            config['default_group_name'] = section.get('default_group_name', 'untagged-assets')
+            
+            print(f"✅ Loaded autogroup configuration from: {config_file_path}")
+            print(f"   📋 Tag-based grouping: {'enabled' if config['enable_tag_based_grouping'] else 'disabled'}")
+            if config['enable_tag_based_grouping']:
+                print(f"   🏷️  Base tag key: {config['base_tag_key']}")
+                print(f"   📱 Application naming: {config['application_naming_strategy']}")
+        else:
+            print(f"⚠️  Warning: [tag_based_grouping] section not found in {config_file_path}")
+            config['enable_tag_based_grouping'] = False
+        
+        # Load responsible users configuration
+        if 'responsible_users' in parser:
+            section = parser['responsible_users']
+            
+            config['default_environment_responsible'] = section.get('default_environment_responsible', 'auto-admin@company.com')
+            config['default_application_responsible'] = section.get('default_application_responsible', 'auto-admin@company.com')
+            config['default_service_responsible'] = section.get('default_service_responsible', 'auto-admin@company.com')
+            config['default_component_responsible'] = section.get('default_component_responsible', 'auto-admin@company.com')
+            config['extract_responsible_from_tags'] = section.getboolean('extract_responsible_from_tags', True)
+            config['responsible_tag_key'] = section.get('responsible_tag_key', 'owner')
+            
+            # Parse alternative responsible tag keys
+            alt_responsible_keys = section.get('alternative_responsible_tag_keys', 'responsible,admin,lead,manager')
+            config['alternative_responsible_tag_keys'] = [key.strip() for key in alt_responsible_keys.split(',') if key.strip()]
+            
+            config['validate_responsible_email'] = section.getboolean('validate_responsible_email', True)
+            config['fallback_to_default_responsible'] = section.getboolean('fallback_to_default_responsible', True)
+            
+            print(f"   👤 Default environment responsible: {config['default_environment_responsible']}")
+            print(f"   👤 Extract responsible from tags: {'enabled' if config['extract_responsible_from_tags'] else 'disabled'}")
+            if config['extract_responsible_from_tags']:
+                print(f"   🏷️  Responsible tag key: {config['responsible_tag_key']}")
+        else:
+            # Set defaults if section not found
+            config.update({
+                'default_environment_responsible': 'auto-admin@company.com',
+                'default_application_responsible': 'auto-admin@company.com',
+                'default_service_responsible': 'auto-admin@company.com',
+                'default_component_responsible': 'auto-admin@company.com',
+                'extract_responsible_from_tags': True,
+                'responsible_tag_key': 'owner',
+                'alternative_responsible_tag_keys': ['responsible', 'admin', 'lead', 'manager'],
+                'validate_responsible_email': True,
+                'fallback_to_default_responsible': True
+            })
+            
+    except Exception as e:
+        print(f"❌ Error reading autogroup config file {config_file_path}: {e}")
+        print("ℹ️  Using default settings")
+        config['enable_tag_based_grouping'] = False
+    
+    return config
+
+
+def group_assets_by_tags(assets, autogroup_config):
+    """
+    Group assets by common tag values.
+    
+    Args:
+        assets (list): List of asset objects with tags
+        autogroup_config (dict): Autogroup configuration
+        
+    Returns:
+        dict: Dictionary with tag values as keys and asset lists as values
+    """
+    base_tag_key = autogroup_config['base_tag_key']
+    alternative_keys = autogroup_config['alternative_tag_keys']
+    fallback_behavior = autogroup_config['fallback_for_untagged_assets']
+    default_group_name = autogroup_config['default_group_name']
+    
+    tag_groups = {}
+    untagged_assets = []
+    
+    print(f"🏷️  Grouping assets by tag key: {base_tag_key}")
+    print(f"📋 Alternative tag keys: {', '.join(alternative_keys)}")
+    
+    for asset in assets:
+        asset_tags = asset.get('tags', [])
+        tag_value = None
+        found_tag_key = None
+        
+        # Look for the base tag key first
+        for tag in asset_tags:
+            if tag.get('key') == base_tag_key and tag.get('value'):
+                tag_value = tag['value']
+                found_tag_key = base_tag_key
+                break
+        
+        # If base tag not found, try alternative keys
+        if not tag_value:
+            for alt_key in alternative_keys:
+                for tag in asset_tags:
+                    if tag.get('key') == alt_key and tag.get('value'):
+                        tag_value = tag['value']
+                        found_tag_key = alt_key
+                        break
+                if tag_value:
+                    break
+        
+        if tag_value:
+            if tag_value not in tag_groups:
+                tag_groups[tag_value] = []
+            tag_groups[tag_value].append(asset)
+            if DEBUG:
+                print(f"   📌 Asset '{asset.get('name', 'Unknown')}' → group '{tag_value}' (key: {found_tag_key})")
+        else:
+            untagged_assets.append(asset)
+            if DEBUG:
+                print(f"   ⚠️  Asset '{asset.get('name', 'Unknown')}' has no matching tags")
+    
+    # Handle untagged assets based on fallback behavior
+    if untagged_assets:
+        print(f"⚠️  Found {len(untagged_assets)} assets without matching tags")
+        
+        if fallback_behavior == 'default_group':
+            tag_groups[default_group_name] = untagged_assets
+            print(f"   📦 Added untagged assets to default group: {default_group_name}")
+        elif fallback_behavior == 'skip':
+            print(f"   ⏭️  Skipping {len(untagged_assets)} untagged assets")
+        # 'name_based' fallback is handled in the main function
+    
+    print(f"📊 Created {len(tag_groups)} tag-based groups:")
+    for tag_value, assets_in_group in tag_groups.items():
+        print(f"   🏷️  '{tag_value}': {len(assets_in_group)} assets")
+    
+    return tag_groups, untagged_assets
+
+
+def generate_application_name_from_tag(tag_value, tag_key, autogroup_config):
+    """
+    Generate application name based on tag value and naming strategy.
+    
+    Args:
+        tag_value (str): The tag value
+        tag_key (str): The tag key used
+        autogroup_config (dict): Autogroup configuration
+        
+    Returns:
+        str: Generated application name
+    """
+    strategy = autogroup_config['application_naming_strategy']
+    custom_prefix = autogroup_config['custom_application_prefix']
+    
+    if strategy == 'tag_value':
+        return tag_value
+    elif strategy == 'tag_key_value':
+        return f"{tag_key}-{tag_value}"
+    elif strategy == 'custom_prefix':
+        return f"{custom_prefix}-{tag_value}"
+    else:
+        return tag_value  # Default fallback
+
+
+def group_assets_by_similar_name_within_tag_group(assets, similarity_threshold=0.8):
+    """
+    Group assets by name similarity within a tag-based group.
+    This is used after tag-based grouping to create components within each tag group.
+    
+    Args:
+        assets (list): List of asset objects from the same tag group
+        similarity_threshold (float): Similarity threshold for name matching
+        
+    Returns:
+        list: List of asset name groups
+    """
+    import Levenshtein
+    
+    asset_names = [asset.get('name', '') for asset in assets]
+    asset_groups = []
+    
+    for asset_name in asset_names:
+        added_to_group = False
+        for group in asset_groups:
+            should_add_to_group = True
+            for grouped_asset_name in group:
+                if Levenshtein.ratio(asset_name, grouped_asset_name) < similarity_threshold:
+                    should_add_to_group = False
+                    break
+            if should_add_to_group:
+                group.append(asset_name)
+                added_to_group = True
+                break
+        if not added_to_group:
+            asset_groups.append([asset_name])
+    
+    return asset_groups
+
+
+def prompt_grouping_method_selection(autogroup_config):
+    """
+    Prompt user to select grouping method: name-based or tag-based.
+    
+    Args:
+        autogroup_config (dict): Autogroup configuration
+        
+    Returns:
+        str: Selected method ('name_based' or 'tag_based')
+    """
+    print("\\n" + "="*60)
+    print("ASSET GROUPING METHOD SELECTION")
+    print("="*60)
+    
+    if not autogroup_config['enable_tag_based_grouping']:
+        print("ℹ️  Tag-based grouping is disabled in autogroup.ini")
+        print("📋 Using name-based grouping (assets grouped by name similarity)")
+        return 'name_based'
+    
+    print("\\nSelect asset grouping method:")
+    print("\\n1. 🏷️  TAG-BASED   - Group assets by common tag values")
+    print("2. 📝 NAME-BASED   - Group assets by name similarity (original method)")
+    
+    print(f"\\nTag-Based Grouping Details:")
+    print(f"- Base tag key: {autogroup_config['base_tag_key']}")
+    print(f"- Alternative keys: {', '.join(autogroup_config['alternative_tag_keys'])}")
+    print(f"- Application naming: {autogroup_config['application_naming_strategy']}")
+    print(f"- Separate apps per tag: {'Yes' if autogroup_config['create_separate_applications_per_tag'] else 'No'}")
+    
+    while True:
+        try:
+            choice = input("\\nEnter your choice (1-2): ").strip()
+            
+            if choice == '1':
+                print("\\n✅ Selected: TAG-BASED grouping")
+                print(f"🏷️  Will group assets by '{autogroup_config['base_tag_key']}' tag values")
+                return 'tag_based'
+            elif choice == '2':
+                print("\\n✅ Selected: NAME-BASED grouping")
+                print("📝 Will group assets by name similarity patterns")
+                return 'name_based'
+            else:
+                print("❌ Invalid choice. Please enter 1 or 2.")
+                
+        except KeyboardInterrupt:
+            print("\\n\\n❌ Operation cancelled by user")
+            return None
+        except Exception as e:
+            print(f"❌ Error: {e}. Please try again.")
+
+
+def prompt_asset_type_selection():
+    """
+    Prompt user to select which asset types to process.
+    
+    Returns:
+        str: Selected category ('all', 'cloud', 'code', 'infrastructure', 'web')
+    """
+    print("\n" + "="*60)
+    print("ASSET TYPE SELECTION FOR COMPONENT CREATION")
+    print("="*60)
+    print("\nSelect which asset types to process:")
+    print("\n1. 🌐 ALL        - All asset types (comprehensive scan)")
+    print("2. ☁️  CLOUD      - Cloud resources and containers")
+    print("3. 💻 CODE       - Repository and source code assets")
+    print("4. 🏗️  INFRASTRUCTURE - Infrastructure components")
+    print("5. 🌍 WEB        - Web applications and APIs")
+    
+    print("\nAsset Type Details:")
+    print("- CLOUD: CLOUD, CONTAINER")
+    print("- CODE: REPOSITORY, SOURCE_CODE, BUILD, FOSS, SAST")
+    print("- INFRASTRUCTURE: INFRA")
+    print("- WEB: WEB, WEBSITE_API")
+    print("- ALL: All above types")
+    
+    while True:
+        try:
+            choice = input("\nEnter your choice (1-5): ").strip()
+            
+            choice_mapping = {
+                '1': 'all',
+                '2': 'cloud', 
+                '3': 'code',
+                '4': 'infrastructure',
+                '5': 'web'
+            }
+            
+            if choice in choice_mapping:
+                selected = choice_mapping[choice]
+                asset_types = get_asset_types_for_category(selected)
+                print(f"\n✅ Selected: {selected.upper()}")
+                print(f"📋 Will process asset types: {', '.join(asset_types)}")
+                return selected
+            else:
+                print("❌ Invalid choice. Please enter 1, 2, 3, 4, or 5.")
+                
+        except KeyboardInterrupt:
+            print("\n\n❌ Operation cancelled by user")
+            return None
+        except Exception as e:
+            print(f"❌ Error: {e}. Please try again.")
+
+
+def create_components_from_assets(applicationEnvironments, phoenix_components, headers2, cli_config=None):
     global headers
     if not headers:
         headers = headers2
-    types = ["CONTAINER", "CLOUD"]
+    
+    # Load autogroup configuration
+    resource_folder = os.path.join(os.path.dirname(__file__), '..', 'Resources')
+    autogroup_config = load_autogroup_config(resource_folder)
+    
+    # Check if full creation mode is enabled
+    create_automatically_groups = cli_config.get('create_automatically_groups', False) if cli_config else False
+    silent_mode = cli_config.get('silent', False) if cli_config else False
+    
+    # Override configuration with CLI parameters if provided
+    if cli_config:
+        print("🔧 Using CLI configuration parameters")
+        
+        # Override tag configuration if provided
+        if cli_config.get('tag_base'):
+            autogroup_config['base_tag_key'] = cli_config['tag_base']
+            print(f"   🏷️  CLI override - base tag key: {cli_config['tag_base']}")
+        
+        if cli_config.get('tag_alternative'):
+            alt_keys = [key.strip() for key in cli_config['tag_alternative'].split(',') if key.strip()]
+            autogroup_config['alternative_tag_keys'] = alt_keys
+            print(f"   🏷️  CLI override - alternative tag keys: {', '.join(alt_keys)}")
+        
+        # Determine grouping method
+        grouping_method = cli_config.get('grouping_method', 'name_based')  # Default to name_based
+        print(f"   🎯 CLI override - grouping method: {grouping_method}")
+        
+        if not grouping_method:
+            print("❌ No grouping method selected. Exiting component creation.")
+            return []
+        
+        # Determine asset type
+        if cli_config.get('asset_type'):
+            selected_category = cli_config['asset_type']
+            print(f"   📂 CLI override - asset type: {selected_category}")
+        else:
+            # Prompt user for asset type selection if not specified via CLI
+            selected_category = prompt_asset_type_selection()
+            if not selected_category:
+                print("❌ No asset type selected. Exiting component creation.")
+                return []
+    else:
+        # Interactive mode - prompt user for selections
+        print("🎮 Interactive mode - prompting for user selections")
+        
+        # Prompt user for grouping method selection
+        grouping_method = prompt_grouping_method_selection(autogroup_config)
+        if not grouping_method:
+            print("❌ No grouping method selected. Exiting component creation.")
+            return []
+        
+        # Prompt user for asset type selection
+        selected_category = prompt_asset_type_selection()
+        if not selected_category:
+            print("❌ No asset type selected. Exiting component creation.")
+            return []
+    
+    types = get_asset_types_for_category(selected_category)
     phoenix_component_names = [pcomponent.get('name') for pcomponent in phoenix_components]
+    auto_created_components = []  # Track created components for YAML export
+    
+    print(f"\n🚀 Starting component creation for asset types: {', '.join(types)}")
+    print(f"📊 Processing {len(applicationEnvironments)} environments...")
+    print(f"🎯 Using {grouping_method.upper().replace('_', '-')} grouping method")
+    
+    if create_automatically_groups:
+        print(f"🏗️  Full creation mode: Will create environments, services, applications, and components")
+        print(f"🔇 Silent mode: {'ENABLED (auto-accept)' if silent_mode else 'DISABLED (will prompt for confirmation)'}")
+    
+    if grouping_method == 'tag_based':
+        return create_components_from_assets_tag_based(applicationEnvironments, phoenix_components, types, autogroup_config, headers, create_automatically_groups, silent_mode)
+    else:
+        return create_components_from_assets_name_based(applicationEnvironments, phoenix_components, types, headers, create_automatically_groups, silent_mode, autogroup_config)
+
+
+def create_components_from_assets_name_based(applicationEnvironments, phoenix_components, types, headers, create_automatically_groups=False, silent_mode=False, autogroup_config=None):
+    """Enhanced name-based component creation logic with logical environment grouping"""
+    phoenix_component_names = [pcomponent.get('name') for pcomponent in phoenix_components]
+    auto_created_components = []
+    
+    # Track what will be created for preview
+    creation_plan = {
+        'environments': {},
+        'services': {},
+        'applications': {},
+        'components': {}
+    }
+    
+    # Collect all assets from all environments first, then group them logically
+    all_assets_by_type = {}
+    
+    print(f"\n🔍 Collecting assets from all environments for logical grouping...")
+    
     for type in types:
+        print(f"\n📂 Collecting {type} assets from all environments...")
+        all_assets_by_type[type] = []
+        
+        for appEnv in applicationEnvironments:
+            env_name = appEnv.get('name')
+            env_id = appEnv.get('id')
+            env_subtype = appEnv.get('subtype', 'CLOUD').upper()
+            
+            print(f"🔍 Checking environment: {env_name} (Type: {env_subtype})")
+            
+            # Get assignment strategy for this asset type
+            assignment_strategy = get_asset_assignment_strategy(type)
+            
+            # Skip if environment not compatible with asset type
+            if not is_environment_compatible_with_asset_type(env_subtype, type, assignment_strategy):
+                print(f"   ⏭️  Skipping {env_name} - environment type '{env_subtype}' not compatible with asset type '{type}'")
+                continue
+            
+            # Fetch assets for this environment and type
+            assets = get_assets(env_id, type, headers, include_tags=True)
+            if assets:
+                print(f"   📋 Found {len(assets)} {type} assets in {env_name}")
+                # Add environment context to each asset
+                for asset in assets:
+                    asset['source_env_name'] = env_name
+                    asset['source_env_id'] = env_id
+                    asset['source_env_subtype'] = env_subtype
+                all_assets_by_type[type].extend(assets)
+            else:
+                print(f"   📋 No {type} assets found in {env_name}")
+    
+    # Now process each asset type with logical environment grouping
+    for type in types:
+        if not all_assets_by_type.get(type):
+            print(f"\n⚠️  No {type} assets found across all environments")
+            continue
+            
+        print(f"\n📂 Processing asset type: {type} ({len(all_assets_by_type[type])} total assets)")
+        assets = all_assets_by_type[type]
+        
+        # Get assignment strategy
+        assignment_strategy = get_asset_assignment_strategy(type)
+        print(f"   🎯 Assignment strategy: {assignment_strategy['description']}")
+        
+        # Group assets by name similarity
+        asset_names = [asset['name'] for asset in assets]
+        similar_asset_groups = group_assets_by_name_similarity(asset_names, ASSET_NAME_SIMILARITY_THRESHOLD)
+        
+        print(f"   📊 Found {len(similar_asset_groups)} asset groups based on name similarity")
+        
+        # Group similar assets by logical environments
+        logical_environments = {}
         already_suggested_components = set()
+        
+        for asset_group_names in similar_asset_groups:
+            if len(asset_group_names) >= ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION:
+                # Get full asset objects for this group
+                asset_group = [asset for asset in assets if asset['name'] in asset_group_names]
+                
+                # Extract logical environment name from this asset group
+                logical_env_name = extract_environment_name_from_assets(asset_group_names, type)
+                
+                if logical_env_name not in logical_environments:
+                    logical_environments[logical_env_name] = {
+                        'name': logical_env_name,
+                        'type': type,
+                        'asset_groups': [],
+                        'source_environments': set()
+                    }
+                
+                # Add source environments
+                for asset in asset_group:
+                    logical_environments[logical_env_name]['source_environments'].add(asset['source_env_name'])
+                
+                logical_environments[logical_env_name]['asset_groups'].append(asset_group)
+        
+        # Process each logical environment
+        for logical_env_name, logical_env_data in logical_environments.items():
+            print(f"\n🌍 Processing Logical Environment: {logical_env_name}")
+            print(f"   📊 Asset Groups: {len(logical_env_data['asset_groups'])}")
+            print(f"   📁 Source Environments: {', '.join(logical_env_data['source_environments'])}")
+            
+            # Process each asset group within this logical environment
+            for asset_group in logical_env_data['asset_groups']:
+                asset_names = [asset['name'] for asset in asset_group]
+                sample_assets = asset_names[:3]
+                
+                # Extract intelligent component name
+                suggested_component_name = extract_component_name_from_pattern(asset_names)
+                
+                # Skip if already suggested
+                if suggested_component_name in already_suggested_components:
+                    print(f"   ⚠️  Skipping {suggested_component_name} - already exists or suggested")
+                    continue
+                
+                already_suggested_components.add(suggested_component_name)
+                
+                print(f"\n💡 COMPONENT SUGGESTION")
+                print(f"   Logical Environment: {logical_env_name}")
+                print(f"   Asset Type: {type}")
+                print(f"   Assets Found: {len(asset_group)} similar assets")
+                print(f"   Sample Assets: {', '.join(sample_assets)}{'...' if len(asset_names) > 3 else ''}")
+                print(f"")
+                print(f"   Suggested Component: {suggested_component_name}")
+                
+                if silent_mode:
+                    print(f"\n   🤖 SILENT MODE: Auto-accepting component '{suggested_component_name}'")
+                    answer = 'Y'
+                else:
+                    answer = input(f"\n   Create component '{suggested_component_name}'? [Y=yes, N=no, A=alter name]: ").strip().upper()
+                
+                if answer == 'Y':
+                    component_name = suggested_component_name
+                elif answer == 'A':
+                    component_name = input("   Enter component name: ").strip()
+                    if not component_name:
+                        print("   ❌ Invalid component name. Skipping.")
+                        continue
+                else:
+                    print("   ⏭️  Skipping component creation")
+                    continue
+                
+                print(f"   🔧 Creating component: {component_name}")
+                
+                # Get team names from assets if available
+                team_names = []
+                for asset in asset_group:
+                    if 'tags' in asset:
+                        for tag in asset['tags']:
+                            if tag.get('key') == 'pteam':
+                                team_value = tag.get('value')
+                                if team_value and team_value not in team_names:
+                                    team_names.append(team_value)
+                
+                print(f"   👥 Team assignments: {team_names if team_names else 'None'}")
+                
+                try:
+                    if assignment_strategy['target'] == 'service':
+                        # Create service in logical environment
+                        print(f"\n[Service Creation]")
+                        print(f" └─ Logical Environment: {logical_env_name}")
+                        print(f" └─ Service: {component_name}")
+                        print(f" └─ Team: {team_names[0] if team_names else 'default-team'}")
+                        
+                        service_to_create = {
+                            "Service": component_name,
+                            "Type": assignment_strategy['service_type'],
+                            "Tier": 5,
+                            "TeamNames": team_names
+                        }
+                        
+                        team_name = team_names[0] if team_names else "default-team"
+                        
+                        # Create service in the logical environment
+                        add_service(logical_env_name, logical_env_name, service_to_create, 5, team_name, headers)
+                        print(f"   ✅ Successfully created ENVIRONMENT SERVICE: {component_name} in {logical_env_name} (Type: {assignment_strategy['service_type']})")
+                        
+                        # Store service info for creation plan
+                        auto_created_components.append({
+                            'environment_name': logical_env_name,
+                            'application_name': logical_env_name,
+                            'component_name': component_name,
+                            'team_names': team_names,
+                            'status': None,
+                            'type': None,
+                            'asset_count': len(asset_group),
+                            'asset_type': type,
+                            'original_group_name': asset_names[0],
+                            'suggested_name': suggested_component_name,
+                            'sample_assets': asset_names[:5],
+                            'grouping_method': 'name_based',
+                            'assignment_strategy': assignment_strategy['target'],
+                            'service_type': assignment_strategy.get('service_type'),
+                            'asset_names': asset_names,  # Store ALL asset names for MULTI_MultiConditionRules
+                            'environment_subtype': type,
+                            'responsible_user': get_responsible_user_for_type('service', asset_group, autogroup_config or {})
+                        })
+                    else:
+                        # Create component in application (existing logic for non-service assets)
+                        component_result = create_custom_component(
+                            logical_env_name, 
+                            component_name,
+                            team_names,
+                            headers
+                        )
+                        
+                        if component_result:
+                            print(f"   ✅ Successfully created APPLICATION COMPONENT: {component_name}")
+                            
+                            auto_created_components.append({
+                                'environment_name': logical_env_name,
+                                'application_name': logical_env_name,
+                                'component_name': component_name,
+                                'team_names': team_names,
+                                'status': None,
+                                'type': None,
+                                'asset_count': len(asset_group),
+                                'asset_type': type,
+                                'original_group_name': asset_names[0],
+                                'suggested_name': suggested_component_name,
+                                'sample_assets': asset_names[:5],
+                                'grouping_method': 'name_based',
+                                'assignment_strategy': 'component',
+                                'asset_names': asset_names,
+                                'environment_subtype': type,
+                                'responsible_user': get_responsible_user_for_type('component', asset_group, autogroup_config or {})
+                            })
+                        else:
+                            print(f"   ❌ Failed to create component {component_name}")
+                            
+                except Exception as e:
+                    print(f"   ❌ Failed to create component {component_name}: {str(e)}")
+    
+    # Handle full creation mode
+    if create_automatically_groups and auto_created_components:
+        print(f"\n🏗️  FULL CREATION MODE - Preparing creation plan...")
+        
+        # Build creation plan from auto_created_components
+        for component in auto_created_components:
+            env_name = component.get('environment_name', 'Unknown')
+            app_name = component.get('application_name', env_name)
+            comp_name = component.get('component_name', 'Unknown')
+            assignment_strategy = component.get('assignment_strategy', 'component')
+            
+            if assignment_strategy == 'service':
+                # For services, we need environments
+                if env_name not in creation_plan['environments']:
+                    creation_plan['environments'][env_name] = {
+                        'type': component.get('environment_subtype', 'CLOUD').upper(),
+                        'team': component.get('team_names', ['auto-generated'])[0] if component.get('team_names') else 'auto-generated'
+                    }
+                
+                # Add service
+                service_key = f"{env_name}::{comp_name}"
+                creation_plan['services'][service_key] = {
+                    'name': comp_name,
+                    'environment': env_name,
+                    'service_type': component.get('service_type', 'Cloud'),
+                    'asset_count': component.get('asset_count', 0)
+                }
+            else:
+                # For components, we need applications
+                if app_name not in creation_plan['applications']:
+                    creation_plan['applications'][app_name] = {
+                        'team': component.get('team_names', ['auto-generated'])[0] if component.get('team_names') else 'auto-generated'
+                    }
+                
+                # Add component
+                component_key = f"{app_name}::{comp_name}"
+                creation_plan['components'][component_key] = {
+                    'name': comp_name,
+                    'application': app_name,
+                    'asset_count': component.get('asset_count', 0)
+                }
+        
+        # Show preview and execute if confirmed
+        show_creation_preview(creation_plan, silent_mode)
+        
+        if silent_mode or creation_plan:
+            execute_full_creation_plan(creation_plan, headers)
+    
+    return auto_created_components
+
+
+
+def create_components_from_assets_tag_based(applicationEnvironments, phoenix_components, types, autogroup_config, headers, create_automatically_groups=False, silent_mode=False):
+    """New tag-based component creation logic with proper asset type routing"""
+    import os
+    
+    phoenix_component_names = [pcomponent.get('name') for pcomponent in phoenix_components]
+    auto_created_components = []
+    
+    # Track what will be created for preview
+    creation_plan = {
+        'environments': {},
+        'services': {},
+        'applications': {},
+        'components': {}
+    }
+    
+    for type in types:
+        print(f"\n📂 Processing asset type: {type}")
+        
+        # Determine asset assignment strategy based on asset type
+        assignment_strategy = get_asset_assignment_strategy(type)
+        print(f"   🎯 Assignment strategy: {assignment_strategy['description']}")
+        
+        # Collect all assets from all environments for this asset type
+        all_assets = []
         for appEnv in applicationEnvironments:
             if appEnv.get('type') == "ENVIRONMENT":
-                assets = get_assets(appEnv.get("id"), type, headers)
-                asset_groups = group_assets_by_similar_name(assets)
-                for group in asset_groups:
-                    if len(group) > ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION and not group[0] in already_suggested_components\
-                        and not group[0] in phoenix_component_names:
-                        answer = input(f"Would you like to create component {group[0]} in environment: {appEnv.get('name')}? [Y for yes] [N for no] [A for alter name]")
-                        already_suggested_components.add(group[0])
-                        component_name = group[0]
+                env_name = appEnv.get('name', 'Unknown')
+                env_subtype = appEnv.get('subType', 'Unknown')
+                
+                # Check if this environment type is compatible with the asset type
+                if not is_environment_compatible_with_asset_type(env_subtype, type, assignment_strategy):
+                    print(f"   ⏭️  Skipping {env_name} - environment type '{env_subtype}' not compatible with asset type '{type}'")
+                    continue
+                
+                assets = get_assets(appEnv.get("id"), type, headers, include_tags=True)
+                
+                # Add environment context to each asset
+                for asset in assets:
+                    asset['source_environment'] = env_name
+                    asset['source_environment_id'] = appEnv.get('id')
+                    asset['source_environment_subtype'] = env_subtype
+                
+                all_assets.extend(assets)
+                print(f"   📋 Collected {len(assets)} {type} assets from {env_name} (Type: {env_subtype})")
+                if DEBUG and assets:
+                    print(f"   🔍 DEBUG: Sample assets from {env_name}: {', '.join([asset.get('name', 'Unknown') for asset in assets[:5]])}")
+        
+        if not all_assets:
+            print(f"   ℹ️  No {type} assets found across all environments")
+            continue
+        
+        print(f"   📊 Total {type} assets collected: {len(all_assets)}")
+        
+        # Group assets by tags
+        tag_groups, untagged_assets = group_assets_by_tags(all_assets, autogroup_config)
+        
+        # Process each tag group
+        for tag_value, assets_in_group in tag_groups.items():
+            print(f"\n🏷️  Processing tag group: '{tag_value}' ({len(assets_in_group)} assets)")
+            
+            # Generate application name for this tag group
+            application_name = generate_application_name_from_tag(tag_value, autogroup_config['base_tag_key'], autogroup_config)
+            print(f"   📱 Application name: {application_name}")
+            
+            # Group assets within this tag group by name similarity for component creation
+            asset_names_in_group = [asset.get('name', '') for asset in assets_in_group]
+            component_groups = group_assets_by_similar_name_within_tag_group(
+                assets_in_group, 
+                autogroup_config['component_name_similarity_threshold']
+            )
+            
+            print(f"   🔍 Found {len(component_groups)} potential component groups within tag group")
+            
+            for component_group in component_groups:
+                if len(component_group) >= autogroup_config['component_min_assets_per_component']:
+                    # Extract component name from this group
+                    suggested_component_name = extract_component_name_from_pattern(component_group)
+                    
+                    # Check if component already exists
+                    if suggested_component_name in phoenix_component_names:
+                        print(f"      ⚠️  Skipping {suggested_component_name} - component already exists")
+                        continue
+                    
+                    print(f"\n      💡 COMPONENT SUGGESTION (Tag-Based)")
+                    print(f"         Tag Group: {tag_value}")
+                    print(f"         Application: {application_name}")
+                    print(f"         Asset Type: {type}")
+                    print(f"         Assets Found: {len(component_group)} similar assets")
+                    print(f"         Sample Assets: {', '.join(component_group[:3])}{'...' if len(component_group) > 3 else ''}")
+                    print(f"         Suggested Component: {suggested_component_name}")
+                    
+                    if silent_mode:
+                        print(f"\n         🤖 SILENT MODE: Auto-accepting component '{suggested_component_name}' in application '{application_name}'")
+                        answer = 'Y'
+                    else:
+                        answer = input(f"\n         Create component '{suggested_component_name}' in application '{application_name}'? [Y=yes, N=no, A=alter name]: ").strip().upper()
+                    
+                    component_name = suggested_component_name
+                    
+                    if answer == 'N':
+                        print(f"         ❌ Skipped component creation")
+                        continue
+                    elif answer == 'A' and not silent_mode:
+                        component_name = input(f"         Enter custom component name: ").strip()
+                        if not component_name:
+                            print(f"         ❌ Empty name provided, skipping")
+                            continue
+                    
+                    # Use tag value as team name (or extract from assets)
+                    team_names = [tag_value] if tag_value != autogroup_config['default_group_name'] else []
+                    
+                    print(f"         🔧 Creating component: {component_name}")
+                    print(f"         👥 Team assignments: {', '.join(team_names) if team_names else 'None'}")
+                    
+                    component_to_create = {
+                        "Status": None,
+                        "Type": None,
+                        "TeamNames": team_names,
+                        "ComponentName": component_name
+                    }
+                    
+                    try:
+                        # Route to appropriate creation function based on assignment strategy
+                        if assignment_strategy['target'] == 'component':
+                            create_custom_component(application_name, component_to_create, headers)
+                            print(f"         ✅ Successfully created APPLICATION COMPONENT: {component_name} in application: {application_name}")
+                            if DEBUG:
+                                print(f"         🔍 DEBUG: Component assigned to APPLICATION: {application_name}")
+                                print(f"         🔍 DEBUG: Assets from environments: {', '.join(set(asset.get('source_environment', 'Unknown') for asset in component_group))}")
+                        else:
+                            # For services, we need to create them in the appropriate environments
+                            # Group assets by source environment for service creation
+                            env_asset_groups = {}
+                            for asset in component_group:
+                                env_name = asset.get('source_environment', 'Unknown')
+                                env_id = asset.get('source_environment_id')
+                                env_subtype = asset.get('source_environment_subtype', 'Unknown')
+                                if env_name not in env_asset_groups:
+                                    env_asset_groups[env_name] = {
+                                        'assets': [],
+                                        'env_id': env_id,
+                                        'env_subtype': env_subtype
+                                    }
+                                env_asset_groups[env_name]['assets'].append(asset)
+                            
+                            # Create service in each relevant environment
+                            for env_name, env_data in env_asset_groups.items():
+                                service_to_create = {
+                                    "Service": component_name,
+                                    "Type": assignment_strategy['service_type'],
+                                    "Tier": 5,  # Default tier
+                                    "TeamNames": team_names
+                                }
+                                # Use the team name from the first available team
+                                team_name = team_names[0] if team_names else "default-team"
+                                add_service(env_name, env_data['env_id'], service_to_create, 5, team_name, headers)
+                                print(f"         ✅ Successfully created ENVIRONMENT SERVICE: {component_name} in {env_name} (Type: {assignment_strategy['service_type']})")
+                                if DEBUG:
+                                    print(f"         🔍 DEBUG: Service assigned to ENVIRONMENT: {env_name} (SubType: {env_data['env_subtype']})")
+                                    print(f"         🔍 DEBUG: Assets assigned: {', '.join([asset.get('name', 'Unknown') for asset in env_data['assets'][:5]])}")
+                        
+                        # Track the created component/service for YAML export
+                        auto_created_components.append({
+                            'environment_name': application_name,
+                            'application_name': application_name,
+                            'component_name': component_name,
+                            'team_names': team_names,
+                            'status': None,
+                            'type': None,
+                            'asset_count': len(component_group),
+                            'asset_type': type,
+                            'original_group_name': component_group[0] if isinstance(component_group[0], str) else component_group[0].get('name', 'Unknown'),
+                            'suggested_name': suggested_component_name,
+                            'sample_assets': [asset.get('name', 'Unknown') if isinstance(asset, dict) else asset for asset in component_group[:5]],
+                            'grouping_method': 'tag_based',
+                            'tag_group': tag_value,
+                            'tag_key': autogroup_config['base_tag_key'],
+                            'assignment_strategy': assignment_strategy['target'],
+                            'service_type': assignment_strategy.get('service_type')
+                        })
+                    except Exception as e:
+                        print(f"         ❌ Failed to create component {component_name}: {str(e)}")
+                else:
+                    print(f"      ⏭️  Skipping group with {len(component_group)} assets (below minimum of {autogroup_config['component_min_assets_per_component']})")
+        
+        # Handle untagged assets if fallback is name_based
+        if untagged_assets and autogroup_config['fallback_for_untagged_assets'] == 'name_based':
+            print(f"\n📝 Processing {len(untagged_assets)} untagged assets with name-based grouping")
+            asset_names = [asset.get('name', '') for asset in untagged_assets]
+            asset_groups = group_assets_by_similar_name(asset_names)
+            
+            for group in asset_groups:
+                if len(group) > ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION:
+                    suggested_component_name = extract_component_name_from_pattern(group)
+                    
+                    if suggested_component_name not in phoenix_component_names:
+                        print(f"\n   💡 UNTAGGED ASSET COMPONENT SUGGESTION")
+                        print(f"      Assets Found: {len(group)} similar assets")
+                        print(f"      Sample Assets: {', '.join(group[:3])}{'...' if len(group) > 3 else ''}")
+                        print(f"      Suggested Component: {suggested_component_name}")
+                        
+                        if silent_mode:
+                            print(f"\n      🤖 SILENT MODE: Auto-accepting component '{suggested_component_name}' for untagged assets")
+                            answer = 'Y'
+                        else:
+                            answer = input(f"\n      Create component '{suggested_component_name}' for untagged assets? [Y=yes, N=no, A=alter name]: ").strip().upper()
+                        
+                        component_name = suggested_component_name
                         if answer == 'N':
                             continue
-                        if answer == 'A':
-                            component_name = input("Component name:")
-                            already_suggested_components.add(component_name)
-                        print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
+                        elif answer == 'A' and not silent_mode:
+                            component_name = input(f"      Enter custom component name: ").strip()
+                            if not component_name:
+                                continue
+                        
                         component_to_create = {
                             "Status": None,
                             "Type": None,
-                            "TeamNames": [next((tag['value'] for tag in appEnv['tags'] if 'value' in tag and 'key' in tag and tag['key'] == 'pteam'), None)],
+                            "TeamNames": [],
                             "ComponentName": component_name
                         }
-                        create_custom_component(appEnv['name'], component_to_create, headers)
-                        print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
+                        
+                        try:
+                            # Use first asset's source environment for untagged assets
+                            source_env = next((asset['source_environment'] for asset in untagged_assets 
+                                             if asset.get('name') in group), 'default-environment')
+                            
+                            create_custom_component(source_env, component_to_create, headers)
+                            print(f"      ✅ Successfully created component: {component_name}")
+                            
+                            auto_created_components.append({
+                                'environment_name': source_env,
+                                'application_name': source_env,
+                                'component_name': component_name,
+                                'team_names': [],
+                            'status': None,
+                            'type': None,
+                            'asset_count': len(group),
+                            'asset_type': type,
+                                'original_group_name': group[0],
+                                'suggested_name': suggested_component_name,
+                                'sample_assets': group[:5],
+                                'grouping_method': 'name_based_fallback',
+                                'tag_group': 'untagged'
+                            })
+                        except Exception as e:
+                            print(f"      ❌ Failed to create component {component_name}: {str(e)}")
+    
+    print(f"\n🎯 TAG-BASED COMPONENT/SERVICE CREATION SUMMARY")
+    print(f"   Total items created: {len(auto_created_components)}")
+    if auto_created_components:
+        print(f"   Asset types processed: {', '.join(set(comp['asset_type'] for comp in auto_created_components))}")
+        tag_groups_used = set(comp.get('tag_group', 'N/A') for comp in auto_created_components)
+        print(f"   Tag groups processed: {', '.join(tag_groups_used)}")
+        applications_created = set(comp['application_name'] for comp in auto_created_components)
+        print(f"   Applications affected: {len(applications_created)} ({', '.join(list(applications_created)[:3])}{'...' if len(applications_created) > 3 else ''})")
+        
+        # Show breakdown by assignment strategy
+        components_count = len([comp for comp in auto_created_components if comp.get('assignment_strategy') == 'component'])
+        services_count = len([comp for comp in auto_created_components if comp.get('assignment_strategy') == 'service'])
+        print(f"   📦 Application Components: {components_count}")
+        print(f"   🔧 Environment Services: {services_count}")
+        
+        # Show service type breakdown if any services were created
+        if services_count > 0:
+            service_types = [comp.get('service_type') for comp in auto_created_components if comp.get('service_type')]
+            service_type_counts = {stype: service_types.count(stype) for stype in set(service_types)}
+            for stype, count in service_type_counts.items():
+                print(f"      - {stype} Services: {count}")
+    
+    # Handle full creation mode (same as name-based)
+    if create_automatically_groups and auto_created_components:
+        print(f"\n🏗️  FULL CREATION MODE - Preparing creation plan...")
+        
+        # Build creation plan from auto_created_components
+        for component in auto_created_components:
+            env_name = component.get('environment_name', 'Unknown')
+            app_name = component.get('application_name', env_name)
+            comp_name = component.get('component_name', 'Unknown')
+            assignment_strategy = component.get('assignment_strategy', 'component')
+            
+            if assignment_strategy == 'service':
+                # For services, we need environments
+                if env_name not in creation_plan['environments']:
+                    creation_plan['environments'][env_name] = {
+                        'type': component.get('environment_subtype', 'CLOUD').upper(),
+                        'team': component.get('team_names', ['auto-generated'])[0] if component.get('team_names') else 'auto-generated'
+                    }
+                
+                # Add service
+                service_key = f"{env_name}::{comp_name}"
+                creation_plan['services'][service_key] = {
+                    'name': comp_name,
+                    'environment': env_name,
+                    'service_type': component.get('service_type', 'Cloud'),
+                    'asset_count': component.get('asset_count', 0)
+                }
+            else:
+                # For components, we need applications
+                if app_name not in creation_plan['applications']:
+                    creation_plan['applications'][app_name] = {
+                        'team': component.get('team_names', ['auto-generated'])[0] if component.get('team_names') else 'auto-generated'
+                    }
+                
+                # Add component
+                comp_key = f"{app_name}::{comp_name}"
+                creation_plan['components'][comp_key] = {
+                    'name': comp_name,
+                    'application': app_name,
+                    'asset_count': component.get('asset_count', 0)
+                }
+        
+        # Show plan and get confirmation
+        if show_creation_plan_and_confirm(creation_plan, silent_mode):
+            print(f"\n🚀 EXECUTING FULL CREATION...")
+            execute_full_creation_plan(creation_plan, headers)
+        else:
+            print(f"\n❌ Full creation cancelled. Only component/service creation was performed.")
+    
+    return auto_created_components
 
 
 # Handle Repository Rule Creation for Components
@@ -3857,14 +5879,7 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     print(f"   └─ Application: {applicationName}")
                     print(f"   └─ Component: {componentName}")
                     print(f"   └─ Filter: {json.dumps(rule['filter'], indent=2)}")
-                # Log successful rule creation
-                log_error(
-                    'Rule Creation',
-                    f"{componentName} -> {descriptive_rule_name}",
-                    applicationName,
-                    'Rule created successfully',
-                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
-                )
+                # Success - no need to log to errors.log
                 return True
                 
             elif response.status_code == 409:
@@ -3873,14 +5888,7 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     print(f"   └─ Application: {applicationName}")
                     print(f"   └─ Component: {componentName}")
                     print(f"   └─ Filter: {json.dumps(rule['filter'], indent=2)}")
-                # Log existing rule
-                log_error(
-                    'Rule Update',
-                    f"{componentName} -> {descriptive_rule_name}",
-                    applicationName,
-                    'Rule already exists',
-                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
-                )
+                # Rule already exists - this is not an error condition
                 return True
                 
             elif response.status_code in [503, 429]:

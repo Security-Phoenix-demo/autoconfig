@@ -1,12 +1,40 @@
 # Phoenix Security YAML Quick Reference
 
+## Configuration File Structure (Updated v4.8.3)
+
+### run-config.yaml Options
+
+```yaml
+ConfigFiles:
+  - /bv/core-structure-bv-7.yaml      # Config files to process
+
+# User Management (NEW in v4.8.3)
+CreateUsersForApplications: true        # Auto-create users from Responsable field
+
+# Team Configuration
+TeamsFolder: /bv/bv-Teams              # Custom teams folder path
+
+# Hives Configuration  
+EnableHives: false                      # Enable/disable hives system
+HivesFile: bv/bv-hives.yaml            # Custom hives file path
+
+# GitHub Integration
+GitHubRepositories: []                  # GitHub repo URLs
+GitHubRepoFolder: /path/to/repos       # Local clone folder
+ConfigFileName: assetconfig.phoenix     # Config file name in repos
+```
+
 ## Essential Structure
 
 ```yaml
+# User Creation Control (NEW)
+AllAccessAccounts: []                   # List of admin users
+CreateUsersForApplications: true        # Auto-create users (optional)
+
 DeploymentGroups:
   - AppName: "MyApp"                    # Required
     ReleaseDefinitions: []              # Required (can be empty)
-    Responsable: "owner@company.com"    # Required
+    Responsable: "owner@company.com"    # Required - User auto-created if missing
     TeamNames: ["Team1"]                # Optional
     Tier: 2                             # Optional (1-10)
     Components:
@@ -17,7 +45,7 @@ Environment Groups:
   - Name: "Production"                  # Required
     Type: "CLOUD"                       # Required (CLOUD/INFRA)
     Status: "Production"                # Required
-    Responsable: "owner@company.com"    # Required
+    Responsable: "owner@company.com"    # Required - User auto-created if missing
     Tier: 1                             # Required (1-10)
     Services:
       - Service: "my-service"           # Required

@@ -1,0 +1,33 @@
+TeamName: SP_axelot30
+AzureDevopsAreaPath: company\SP_axelot20
+TeamWikiLocation: 
+RecreateTeamAssociations: False
+TeamMembers:
+- Name: james terry
+  EmailAddress: Jamesterry30+test2@company.com
+  EmployeeType: Employee
+  Level: M6 
+- Namee: james blake
+  EmailAddress: Dave.blake30+test2@company.com
+  EmployeeType: Employee
+  Level: L4 
+- Name: rich terry
+  EmailAddress: rich.terry30+test2@company.com
+  EmployeeType: UK Contractor
+  Level: L5 
+- Name: joe doe
+  EmailAddress: Joe.doe30+test2@company.com
+  EmployeeType: Employee
+  Level: L2 
+- Name: darren mcperson
+  EmailAddress: darren.mcperson30+test2@company.com
+  EmployeeType: UK Contractor
+  Level: L4 Senior
+- Name: person mcpersonface
+  EmailAddress: person.mcpersonface30+test2@company.com
+  EmployeeType: Employee
+  Level: L1 
+- Name: lady mcladyface
+  EmailAddress: lady.mcladyface+test2@company.com
+  EmployeeType: Contractor
+  Level: L3 
