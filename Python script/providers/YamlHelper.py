@@ -200,16 +200,11 @@ def populate_teams(resource_folder):
         print("Please supply path for the resources")
         return teams
 
-    # Load teams folder from configuration
-    teams_folder = load_teams_folder(resource_folder)
-    teams_file_path = os.path.join(resource_folder, teams_folder)
+    teams_file_path = os.path.join(resource_folder, "Teams")
 
     if not os.path.exists(teams_file_path):
-        print(f"Teams folder path does not exist: {teams_file_path}")
-        print(f"Configured teams folder: {teams_folder}")
+        print(f"Path does not exist: {teams_file_path}")
         exit(1)
-
-    print(f"Loading teams from folder: {teams_file_path}")
 
     for team_file in Path(teams_file_path).glob("*.yaml"):
         with open(team_file, 'r') as stream:
@@ -224,7 +219,6 @@ def populate_teams(resource_folder):
         if not found:
             teams.append(team)
 
-    print(f"Loaded {len(teams)} teams from {teams_folder}")
     return teams
 
 
@@ -236,51 +230,34 @@ def populate_hives(resource_folder):
         print("Please supply path for the resources")
         return hives
 
-    # Load hives configuration
-    enable_hives, hives_file = load_hives_config(resource_folder)
-    
-    if not enable_hives:
-        print("Hives are disabled in run-config.yaml")
-        return hives
-
-    yaml_file = os.path.join(resource_folder, hives_file)
+    yaml_file = os.path.join(resource_folder, "hives.yaml")
 
     if not os.path.exists(yaml_file):
-        print(f"Hives file not found: {yaml_file}")
-        print(f"Configured hives file: {hives_file}")
-        print("Continuing without hives (organizational hierarchy features will be unavailable)")
+        print(f"File not found or invalid path: {yaml_file}")
         return hives
 
-    print(f"Loading hives from file: {yaml_file}")
+    with open(yaml_file, 'r') as stream:
+        yaml_content = yaml.safe_load(stream)
 
-    try:
-        with open(yaml_file, 'r') as stream:
-            yaml_content = yaml.safe_load(stream)
+    is_custom_email = yaml_content.get('CustomEmail', False)
+    company_email_domain = yaml_content.get('CompanyEmailDomain', None)
+    if not is_custom_email and not company_email_domain:
+        company_email_domain = input('Please enter company email domain (without @ symbol):')
 
-        is_custom_email = yaml_content.get('CustomEmail', False)
-        company_email_domain = yaml_content.get('CompanyEmailDomain', None)
-        if not is_custom_email and not company_email_domain:
-            company_email_domain = input('Please enter company email domain (without @ symbol):')
+    for hive in yaml_content['Hives']:
+        for team in hive['Teams']:
+            products = []
+            if team.get('Product'):
+                products = [conditionally_replace_first_last_name_with_email(is_custom_email, company_email_domain, p)
+                            for p in team['Product'].split(' and ')]
 
-        for hive in yaml_content['Hives']:
-            for team in hive['Teams']:
-                products = []
-                if team.get('Product'):
-                    products = [conditionally_replace_first_last_name_with_email(is_custom_email, company_email_domain, p)
-                                for p in team['Product'].split(' and ')]
+            hive_object = {
+                'Lead': conditionally_replace_first_last_name_with_email(is_custom_email, company_email_domain, team['Lead']),
+                'Product': products,
+                'Team': team['Name']
+            }
 
-                hive_object = {
-                    'Lead': conditionally_replace_first_last_name_with_email(is_custom_email, company_email_domain, team['Lead']),
-                    'Product': products,
-                    'Team': team['Name']
-                }
-
-                hives.append(hive_object)
-
-        print(f"Loaded {len(hives)} hive entries from {hives_file}")
-    except Exception as e:
-        print(f"Error loading hives from {yaml_file}: {str(e)}")
-        print("Continuing without hives (organizational hierarchy features will be unavailable)")
+            hives.append(hive_object)
 
     return hives
 
@@ -672,6 +649,9 @@ def load_github_config_file_name(resource_folder):
     if not 'ConfigFileName' in repos_yaml:
         raise Exception("run-config configuration is missing 'ConfigFileName' property")
 
+<<<<<<< Updated upstream
+    return repos_yaml['ConfigFileName']
+=======
     return repos_yaml['ConfigFileName']
 
 
@@ -721,3 +701,4 @@ def load_hives_config(resource_folder):
     hives_file = config.get('HivesFile', 'hives.yaml')
     
     return enable_hives, hives_file
+>>>>>>> Stashed changes
