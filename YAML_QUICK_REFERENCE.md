@@ -55,29 +55,44 @@ Environment Groups:
 
 ## Asset Matching Fields
 
+### **Components (Software Assets)**
 | Field | Format | Example |
 |-------|--------|---------|
 | `RepositoryName` | String or List | `"repo-name"` or `["repo1", "repo2"]` |
 | `SearchName` | String | `"search-term"` |
-| `AssetType` | String | See AssetType table below |
+| `AssetType` | String | Software types only (see below) |
 | `Tags` | List | `["tag1", "tag2"]` |
+| `Fqdn` | List | `["api.company.com"]` |
+
+### **Services (Infrastructure Assets)**
+| Field | Format | Example |
+|-------|--------|---------|
+| `SearchName` | String | `"infrastructure-search"` |
+| `AssetType` | String | Infrastructure types only (see below) |
+| `Tags` | List | `["infra", "production"]` |
 | `Cidr` | String | `"10.1.1.0/24"` |
 | `ProviderAccountId` | **List** | `["12345678-1234-1234-1234-123456789012"]` |
+| `Hostnames` | List | `["server-01", "server-02"]` |
 
 ## Supported AssetType Values
 
+### **Components (Software-Focused)**
 | AssetType | Purpose | When to Use |
 |-----------|---------|-------------|
 | `REPOSITORY` | Source code repos | GitHub, GitLab repositories |
 | `SOURCE_CODE` | Source files | Code files, source artifacts |
 | `BUILD` | Build artifacts | JAR files, executables |
 | `WEBSITE_API` | Web apps & APIs | REST APIs, web services |
-| `CONTAINER` | Containers | Docker, Kubernetes pods |
-| `INFRA` | Infrastructure | Servers, networks |
-| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
 | `WEB` | Web assets | Websites, web apps |
 | `FOSS` | Open source | Third-party libraries |
 | `SAST` | Security scans | Static analysis results |
+
+### **Services (Infrastructure-Focused)**
+| AssetType | Purpose | When to Use |
+|-----------|---------|-------------|
+| `CONTAINER` | Containers | Docker, Kubernetes pods |
+| `INFRA` | Infrastructure | Servers, networks |
+| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
 
 ## Tag Types
 
@@ -105,13 +120,13 @@ MultiConditionRule:
   RepositoryName: "my-repo"
   Tags: ["production"]
 
-# Multiple rules
+# Multiple rules (for Components - software assets)
 MULTI_MultiConditionRules:
-  - AssetType: "CONTAINER"
-    SearchName: "web-app"
-    Tags: ["web"]
   - AssetType: "REPOSITORY"
-    RepositoryName: "api-repo"
+    RepositoryName: "web-frontend-repo"
+    Tags: ["web"]
+  - AssetType: "WEBSITE_API"
+    SearchName: "api-service"
     Tags: ["api"]
 ```
 
@@ -129,30 +144,32 @@ Messaging:
 
 ## Common Patterns
 
-### Simple Component
+### Simple Component (Software)
 ```yaml
 - ComponentName: "web-frontend"
   TeamNames: ["WebTeam"]
   RepositoryName: "company/frontend-repo"
+  AssetType: "REPOSITORY"
   Tags: ["frontend", "web"]
   Tags_label: ["Environment: Production"]
 ```
 
-### Component with Cloud Resources
+### Component with Web API
 ```yaml
 - ComponentName: "api-service"
-  AssetType: "CONTAINER"
-  SearchName: "api-container"
-  ProviderAccountId: ["12345678-1234-1234-1234-123456789012"]
+  AssetType: "WEBSITE_API"
+  SearchName: "api-service"
+  Fqdn: ["api.company.com"]
   Tags: ["api", "backend"]
 ```
 
 ### Infrastructure Service
 ```yaml
-- Service: "database"
+- Service: "database-cluster"
   Type: "Cloud"
   AssetType: "INFRA"
   Cidr: "10.1.0.0/16"
+  ProviderAccountId: ["12345678-1234-1234-1234-123456789012"]
   Tags: ["database", "storage"]
 ```
 

@@ -161,22 +161,17 @@ Components are the building blocks within applications that represent specific s
 - `Ticketing`: Component-specific ticketing integration
 - `Messaging`: Component-specific messaging integration
 
-### Asset Matching Fields
-Components can match assets using various criteria:
+### Asset Matching Fields - Software Assets
+Components focus on software-related assets and can match using:
 
 - `RepositoryName`: Repository name(s) - string or list
-- `SearchName`: General search term
-- `AssetType`: Asset type (`REPOSITORY`, `SOURCE_CODE`, `BUILD`, `WEBSITE_API`, `CONTAINER`, `INFRA`)
+- `SearchName`: General search term for software assets
+- `AssetType`: Software asset types (`REPOSITORY`, `SOURCE_CODE`, `BUILD`, `WEBSITE_API`, `WEB`, `FOSS`, `SAST`)
 - `Tags`: List of tag values for asset matching rules
 - `Tag_label`/`Tags_label`: Component metadata tags (not for asset matching)
-- `Cidr`: Network CIDR block
-- `Fqdn`: List of fully qualified domain names
-- `Netbios`: List of NetBIOS names
-- `OsNames`: List of operating system names
-- `Hostnames`: List of hostnames
-- `ProviderAccountId`: List of cloud provider account IDs
-- `ProviderAccountName`: List of cloud provider account names
-- `ResourceGroup`: List of resource group names
+- `Fqdn`: List of fully qualified domain names (for web applications)
+
+**Note**: Components should focus on software assets like repositories, code, builds, and web applications.
 
 ### Example Component
 ```yaml
@@ -197,9 +192,8 @@ Components:
     Tags_label:  # Metadata tags for the component itself
       - "Environment: Production"
       - "ComponentType: service"
-    Cidr: 10.1.1.0/24
-    ProviderAccountId:
-      - "12345678-1234-1234-1234-123456789012"
+    Fqdn:
+      - "auth-api.company.com"
 ```
 
 ## Environment Groups
@@ -248,23 +242,41 @@ Services are operational units within environments that handle specific function
 - `Ticketing`: Service-specific ticketing
 - `Messaging`: Service-specific messaging
 
-### Asset Matching (same as Components)
-Services support the same asset matching fields as components.
+### Asset Matching Fields - Infrastructure Assets
+Services focus on infrastructure and operational assets and can match using:
+
+- `SearchName`: General search term for infrastructure assets
+- `AssetType`: Infrastructure asset types (`CONTAINER`, `INFRA`, `CLOUD`)
+- `Tags`: List of tag values for asset matching rules
+- `Cidr`: Network CIDR block
+- `Fqdn`: List of fully qualified domain names (for infrastructure)
+- `Netbios`: List of NetBIOS names
+- `OsNames`: List of operating system names
+- `Hostnames`: List of hostnames
+- `ProviderAccountId`: List of cloud provider account IDs
+- `ProviderAccountName`: List of cloud provider account names
+- `ResourceGroup`: List of resource group names
+
+**Note**: Services should focus on infrastructure assets like containers, cloud resources, and physical infrastructure.
 
 ### Example Service
 ```yaml
 Services:
-  - Service: web-frontend
+  - Service: web-infrastructure
     Type: Cloud
     Tier: 2
-    TeamName: WebTeam
-    SearchName: frontend-app
+    TeamName: InfraTeam
+    SearchName: web-cluster
     AssetType: CONTAINER
     Tags:
-      - "frontend"
-      - "public"
+      - "infrastructure"
+      - "web-tier"
     ProviderAccountId:
       - "12345678-1234-1234-1234-123456789012"
+    Cidr: "10.1.0.0/24"
+    Hostnames:
+      - "web-lb-01"
+      - "web-lb-02"
 ```
 
 ## Multi-Condition Rules
