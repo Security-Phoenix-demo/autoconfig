@@ -35,6 +35,67 @@ Environment Groups:
     # ... environment configuration
 ```
 
+## Configuration File Organization
+
+The Phoenix Security system supports organizing configuration files using the `run-config.yaml` file, which can now reference files in subfolders for better organization.
+
+### run-config.yaml Structure
+
+```yaml
+# Configuration files to load (supports subfolders)
+ConfigFiles:
+  - core-structure.yaml                     # Direct file in Resources/
+  - /mimecast/mimecast-core-structure.yaml  # Subfolder path
+  - /q2/q2_container_services_config.yaml   # Another subfolder
+  - /client1/client1-applications.yaml      # Client-specific config
+
+# GitHub repository configurations (optional)
+GitHubRepositories:
+  - https://github.com/org/config-repo
+
+# GitHub configuration settings
+GitHubRepoFolder: /path/to/local/repos
+ConfigFileName: assetconfig.phoenix
+promptOnDuplicate: false
+```
+
+### Subfolder Organization Examples
+
+#### Multi-Client Setup
+```yaml
+ConfigFiles:
+  - /acme-corp/acme-applications.yaml
+  - /beta-inc/beta-infrastructure.yaml
+  - /gamma-ltd/gamma-services.yaml
+  - shared-resources.yaml
+```
+
+#### Environment-Based Organization
+```yaml
+ConfigFiles:
+  - /production/prod-apps.yaml
+  - /staging/staging-apps.yaml
+  - /development/dev-apps.yaml
+  - /shared/common-infrastructure.yaml
+```
+
+#### Domain-Based Structure
+```yaml
+ConfigFiles:
+  - /security/security-services.yaml
+  - /finance/finance-applications.yaml
+  - /hr/hr-systems.yaml
+  - core-infrastructure.yaml
+```
+
+### Path Syntax Rules
+
+- **Subfolder paths**: Start with `/` (e.g., `/mimecast/config.yaml`)
+- **Direct files**: No leading `/` (e.g., `core-structure.yaml`)
+- **Case sensitive**: Use exact folder and file names
+- **Supported extensions**: `.yaml` and `.yml`
+- **Relative to Resources**: All paths are relative to the `Resources/` directory
+
 ## DeploymentGroups (Applications)
 
 Applications are the top-level containers that group related components together.
@@ -100,22 +161,17 @@ Components are the building blocks within applications that represent specific s
 - `Ticketing`: Component-specific ticketing integration
 - `Messaging`: Component-specific messaging integration
 
-### Asset Matching Fields
-Components can match assets using various criteria:
+### Asset Matching Fields - Software Assets
+Components focus on software-related assets and can match using:
 
 - `RepositoryName`: Repository name(s) - string or list
-- `SearchName`: General search term
-- `AssetType`: Asset type (`REPOSITORY`, `SOURCE_CODE`, `BUILD`, `WEBSITE_API`, `CONTAINER`, `INFRA`)
+- `SearchName`: General search term for software assets
+- `AssetType`: Software asset types (`REPOSITORY`, `SOURCE_CODE`, `BUILD`, `WEBSITE_API`, `WEB`, `FOSS`, `SAST`)
 - `Tags`: List of tag values for asset matching rules
 - `Tag_label`/`Tags_label`: Component metadata tags (not for asset matching)
-- `Cidr`: Network CIDR block
-- `Fqdn`: List of fully qualified domain names
-- `Netbios`: List of NetBIOS names
-- `OsNames`: List of operating system names
-- `Hostnames`: List of hostnames
-- `ProviderAccountId`: List of cloud provider account IDs
-- `ProviderAccountName`: List of cloud provider account names
-- `ResourceGroup`: List of resource group names
+- `Fqdn`: List of fully qualified domain names (for web applications)
+
+**Note**: Components should focus on software assets like repositories, code, builds, and web applications.
 
 ### Example Component
 ```yaml
@@ -136,9 +192,8 @@ Components:
     Tags_label:  # Metadata tags for the component itself
       - "Environment: Production"
       - "ComponentType: service"
-    Cidr: 10.1.1.0/24
-    ProviderAccountId:
-      - "12345678-1234-1234-1234-123456789012"
+    Fqdn:
+      - "auth-api.company.com"
 ```
 
 ## Environment Groups
@@ -187,23 +242,41 @@ Services are operational units within environments that handle specific function
 - `Ticketing`: Service-specific ticketing
 - `Messaging`: Service-specific messaging
 
-### Asset Matching (same as Components)
-Services support the same asset matching fields as components.
+### Asset Matching Fields - Infrastructure Assets
+Services focus on infrastructure and operational assets and can match using:
+
+- `SearchName`: General search term for infrastructure assets
+- `AssetType`: Infrastructure asset types (`CONTAINER`, `INFRA`, `CLOUD`)
+- `Tags`: List of tag values for asset matching rules
+- `Cidr`: Network CIDR block
+- `Fqdn`: List of fully qualified domain names (for infrastructure)
+- `Netbios`: List of NetBIOS names
+- `OsNames`: List of operating system names
+- `Hostnames`: List of hostnames
+- `ProviderAccountId`: List of cloud provider account IDs
+- `ProviderAccountName`: List of cloud provider account names
+- `ResourceGroup`: List of resource group names
+
+**Note**: Services should focus on infrastructure assets like containers, cloud resources, and physical infrastructure.
 
 ### Example Service
 ```yaml
 Services:
-  - Service: web-frontend
+  - Service: web-infrastructure
     Type: Cloud
     Tier: 2
-    TeamName: WebTeam
-    SearchName: frontend-app
+    TeamName: InfraTeam
+    SearchName: web-cluster
     AssetType: CONTAINER
     Tags:
-      - "frontend"
-      - "public"
+      - "infrastructure"
+      - "web-tier"
     ProviderAccountId:
       - "12345678-1234-1234-1234-123456789012"
+    Cidr: "10.1.0.0/24"
+    Hostnames:
+      - "web-lb-01"
+      - "web-lb-02"
 ```
 
 ## Multi-Condition Rules
@@ -582,11 +655,32 @@ If you get YAML parsing errors, check for:
 - **Required Fields**: Applications need `AppName`, `ReleaseDefinitions`, `Responsable`
 - **Email Validation**: Responsible person emails must be valid format
 
-#### **Recent Fixes Applied**
+#### **Recent Fixes Applied (v4.8.3)**
+- ✅ **Script Hanging**: Fixed teams loading path issue that caused hanging
+- ✅ **API Compatibility**: Added graceful handling for ENVIRONMENT_CLOUD enum errors
+- ✅ **User Creation**: Enhanced automatic user creation from Responsable field
+- ✅ **Hang Prevention**: Added timeout protection for user fetching operations
 - ✅ **YAML Structure**: Fixed multi-condition rule indentation issues
 - ✅ **AssetType Support**: Added `CLOUD`, `WEB`, `FOSS`, `SAST` support  
 - ✅ **Validation Sync**: Linter now matches Phoenix Security API requirements
 - ✅ **Multi-Condition Rules**: Enhanced validation and error reporting
+
+#### **Troubleshooting Common Issues**
+
+**Script Hanging Issues:**
+- ✅ **FIXED**: Teams folder path handling (leading slash issue)
+- ✅ **FIXED**: User creation hanging during API calls
+- ✅ **FIXED**: API compatibility errors causing crashes
+
+**User Creation Problems:**
+- Use `--create_users_from_responsable=true` for automatic user creation
+- Check that Responsable emails are valid format
+- Script now prevents duplicate user creation automatically
+
+**API Compatibility Issues:**
+- Script now handles ENVIRONMENT_CLOUD enum errors gracefully
+- Continues execution despite API version mismatches
+- Clear error messages explain compatibility issues
 
 ---
 

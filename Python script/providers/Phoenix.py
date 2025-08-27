@@ -4,10 +4,135 @@ import json
 import time
 import Levenshtein
 import random
+import os
+from datetime import datetime
 from multipledispatch import dispatch
+
+# Global tracking callback for main script reporting
+component_tracking_callback = None
+
+# Debug response saving
+DEBUG_SAVE_RESPONSE = False
+DEBUG_JSON_TO_SAVE = 10  # Default limit per operation type
+DEBUG_RUN_ID = None  # Will be set when debug mode is enabled
+DEBUG_DOMAIN_NAME = None  # Will be extracted from API domain
+debug_response_counter = {}
+
+def set_component_tracking_callback(callback_func):
+    """Set the callback function for tracking component operations from the main script"""
+    global component_tracking_callback
+    component_tracking_callback = callback_func
+
+def track_application_component_operations(callback_func):
+    """Configure component tracking for the main script reporting"""
+    set_component_tracking_callback(callback_func)
+
+def extract_domain_name(api_domain):
+    """
+    Extract domain name from API URL for folder naming
+    Examples:
+    - api.bv.securityphoenix.cloud -> bv
+    - api.demo.appsecphx.io -> demo
+    - api.custom.phoenix.com -> custom
+    - localhost:8080 -> localhost
+    """
+    try:
+        # Remove protocol if present
+        domain = api_domain.replace('https://', '').replace('http://', '')
+        
+        # Remove port if present
+        domain = domain.split(':')[0]
+        
+        # Split by dots and look for the pattern api.{name}.{rest}
+        parts = domain.split('.')
+        if len(parts) >= 3 and parts[0] == 'api':
+            return parts[1]  # Return the second part (domain name)
+        elif len(parts) >= 2:
+            return parts[0]  # Fallback to first part
+        elif len(parts) == 1:
+            return parts[0]  # Single domain like 'localhost'
+        else:
+            return 'unknown'
+    except Exception:
+        return 'unknown'
+
+def initialize_debug_session(api_domain):
+    """Initialize debug session with run ID and domain name"""
+    global DEBUG_RUN_ID, DEBUG_DOMAIN_NAME
+    
+    # Generate run ID in yymmddhhmm format
+    DEBUG_RUN_ID = datetime.now().strftime("%y%m%d%H%M")
+    
+    # Extract domain name
+    DEBUG_DOMAIN_NAME = extract_domain_name(api_domain)
+    
+    print(f"🐛 Debug session initialized: {DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}")
+
+def save_debug_response(operation_type, response_data, request_data=None, endpoint=None):
+    """
+    Save API response to a JSON file for debugging purposes
+    
+    Args:
+        operation_type: Type of operation (deployment, component_creation, application_creation, team_fetch, team_creation)
+        response_data: The response data to save
+        request_data: Optional request data to include
+        endpoint: Optional API endpoint information
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    global debug_response_counter
+    
+    # Initialize counter for this operation type
+    if operation_type not in debug_response_counter:
+        debug_response_counter[operation_type] = 0
+    
+    # Check if we've reached the limit for this operation type (0 means unlimited)
+    if DEBUG_JSON_TO_SAVE > 0 and debug_response_counter[operation_type] >= DEBUG_JSON_TO_SAVE:
+        # Only show the limit message once per operation type
+        if debug_response_counter[operation_type] == DEBUG_JSON_TO_SAVE:
+            print(f"🐛 Reached limit of {DEBUG_JSON_TO_SAVE} saved responses for {operation_type}")
+        return  # Skip saving if limit reached
+    
+    debug_response_counter[operation_type] += 1
+    
+    # Create run-specific debug directory if it doesn't exist
+    if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+        print("⚠️  Debug session not initialized - using default folder")
+        debug_dir = "debug_responses"
+    else:
+        debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+    
+    if not os.path.exists(debug_dir):
+        os.makedirs(debug_dir)
+        if DEBUG_RUN_ID and DEBUG_DOMAIN_NAME:
+            print(f"📁 Created debug directory: {debug_dir}")
+        else:
+            print(f"📁 Created debug_responses directory")
+    
+    # Create filename with timestamp and counter
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{operation_type}_{timestamp}_{debug_response_counter[operation_type]:03d}.json"
+    filepath = os.path.join(debug_dir, filename)
+    
+    # Prepare debug data
+    debug_data = {
+        "timestamp": datetime.now().isoformat(),
+        "operation_type": operation_type,
+        "endpoint": endpoint,
+        "request_data": request_data,
+        "response_data": response_data,
+        "counter": debug_response_counter[operation_type]
+    }
+    
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(debug_data, f, indent=2, ensure_ascii=False, default=str)
+        print(f"🐛 Saved {operation_type} response to: {filename}")
+    except Exception as e:
+        print(f"⚠️  Failed to save debug response for {operation_type}: {str(e)}")
 from providers.Utils import group_repos_by_subdomain, calculate_criticality, extract_user_name_from_email, validate_user_role
 import logging
-import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -27,7 +152,7 @@ def log_error(operation_type, name, environment, error_msg, details=None):
         error_msg: Error message
         details: Additional details (optional)
     """
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     error_entry = f"""
 TIME: {timestamp}
 OPERATION: {operation_type}
@@ -140,7 +265,18 @@ def create_environment(environment, headers2):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f"└─ Environment added successfully: {environment['Name']}")
+        return True
     except requests.exceptions.RequestException as e:
+        # Handle 409 conflicts gracefully (environment already exists)
+        if hasattr(response, 'status_code') and response.status_code == 409:
+            response_content = getattr(response, 'content', b'').decode() if hasattr(response, 'content') else ''
+            if 'must be unique' in response_content or 'already exists' in response_content:
+                print(f"└─ Environment '{environment['Name']}' already exists (409 Conflict)")
+                print(f"└─ This is expected behavior - environment will be used as-is")
+                print(f"└─ Continuing with service creation...")
+                return True  # Return success for existing environments
+        
+        # Handle other errors
         error_msg = f"Failed to create environment: {str(e)}"
         error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
         log_error(
@@ -153,6 +289,11 @@ def create_environment(environment, headers2):
         print(f"└─ Error: {error_msg}")
         if DEBUG:
             print(f"└─ Response content: {error_details}")
+        
+        # For non-409 errors, re-raise to ensure proper error handling
+        if not (hasattr(response, 'status_code') and response.status_code == 409):
+            raise e
+        return False
 
 
 def update_environment(environment, existing_environment, headers2):
@@ -258,56 +399,124 @@ def update_environment(environment, existing_environment, headers2):
 
 
 # Function to add services and process rules for the environment
-def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2):
+def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2, track_operation_callback=None):
     global access_token
     if not access_token:
         access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
+    print(f"\n[Service Creation Process Started]")
+    print(f"└─ Processing {len(environments)} environments")
+    
     for environment in environments:
         env_name = environment['Name']
         env_id = get_environment_id(application_environments, env_name)
         if not env_id:
             print(f"[Services] Environment {env_name} doesn't have ID! Skipping service and rule creation")
             continue
-        print(f"[Services] for {env_name}:{env_id}")
+        print(f"\n[Services] for {env_name}:{env_id}")
+        
+        if not environment.get('Services'):
+            print(f"└─ No services defined for environment {env_name}")
+            continue
+            
+        services_list = environment['Services']
+        print(f"└─ Found {len(services_list)} services to process in {env_name}")
+        
+        # Log all services that will be processed
+        print(f"└─ Services to process:")
+        for i, svc in enumerate(services_list, 1):
+            svc_name = svc.get('Service', 'Unknown')
+            svc_type = svc.get('Type', 'Unknown')
+            svc_deployment_set = svc.get('Deployment_set', 'None')
+            print(f"   {i:2d}. {svc_name} (Type: {svc_type}, Deployment_set: {svc_deployment_set})")
 
-        if environment['Services']:
-            for service in environment['Services']:
+        for service in environment['Services']:
                 team_name = service.get('TeamName', None)
                 service_name = service['Service']
+                service_type = service.get('Type', 'Unknown')
+                deployment_set = service.get('Deployment_set', 'None')
+                
+                print(f"\n  [Processing Service: {service_name}]")
+                print(f"  └─ Type: {service_type}")
+                print(f"  └─ Team: {team_name}")
+                print(f"  └─ Deployment Set: {deployment_set}")
+                print(f"  └─ Environment: {env_name} (ID: {env_id})")
                 
                 # First verify if service exists with thorough check
+                print(f"  └─ Checking if service already exists...")
                 exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
                 
                 if not exists:
-                    print(f" > Service {service_name} does not exist, attempting to create...")
+                    print(f"  └─ ❌ Service does not exist, attempting to create...")
+                    print(f"  └─ Service details for creation:")
+                    print(f"     └─ Name: {service_name}")
+                    print(f"     └─ Type: {service_type}")
+                    print(f"     └─ Tier: {service.get('Tier', 'Unknown')}")
+                    print(f"     └─ Team: {team_name}")
+                    print(f"     └─ Environment: {env_name} (ID: {env_id})")
+                    
                     creation_success = False
                     try:
                         if team_name:
+                            print(f"  └─ Creating service with team: {team_name}")
                             creation_success = add_service(env_name, env_id, service, service['Tier'], team_name, headers)
                         else:
+                            print(f"  └─ Creating service without team")
                             creation_success = add_service(env_name, env_id, service, service['Tier'], headers)
+                        
+                        if creation_success:
+                            print(f"  └─ ✅ Service {service_name} created successfully")
+                        else:
+                            print(f"  └─ ❌ Service {service_name} creation failed (returned False)")
+                        
+                        # Track service creation operation
+                        if track_operation_callback:
+                            if creation_success:
+                                track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", True)
+                            else:
+                                track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, "Service creation failed")
+                                
                     except NotImplementedError as e:
-                        print(f"Error adding service {service_name} for environment {env_name}: {e}")
+                        error_msg = f"NotImplementedError creating service {service_name}: {e}"
+                        print(f"  └─ ❌ {error_msg}")
+                        if track_operation_callback:
+                            track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, str(e))
+                        continue
+                    except Exception as e:
+                        error_msg = f"Unexpected error creating service {service_name}: {e}"
+                        print(f"  └─ ❌ {error_msg}")
+                        if track_operation_callback:
+                            track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, str(e))
                         continue
                         
                     if not creation_success:
-                        print(f" ! Failed to create service {service_name}, skipping rule creation")
-                        continue
-                        
-                    # Re-verify after creation
-                    exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
-                    if not exists:
-                        print(f" ! Service {service_name} creation verified failed, skipping rule creation")
+                        print(f"  └─ ❌ Failed to create service {service_name}, skipping rule creation")
                         continue
                 else:
-                    update_service(service, service_id, headers)
+                    print(f"  └─ ✅ Service already exists (ID: {service_id})")
                 
-                print(f" > Service {service_name} verified, updating rules...")
+                # Re-verify after creation attempt (if service was created) or use existing service_id
+                if not exists:  # This means we tried to create it
+                    exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
+                    if not exists:
+                        print(f"  └─ ❌ Service {service_name} creation verified failed, skipping rule creation")
+                        if track_operation_callback:
+                            track_operation_callback('services', 'verify_service', f"{service_name} ({env_name})", False, "Service verification failed after creation")
+                        continue
+                
+                # At this point, service exists (either created or was already there)
+                print(f"  └─ Service {service_name} verified, updating service and rules...")
+                update_service(service, service_id, headers)
+                if track_operation_callback:
+                    track_operation_callback('services', 'update_service', f"{service_name} ({env_name})", True)
+                
                 # Always update rules if service exists and is verified
                 add_service_rule_batch(application_environments, environment, service, service_id, headers)
                 time.sleep(1)  # Add small delay between operations
+
+    print(f"\n[Service Creation Process Completed]")
+    print(f"└─ Finished processing services for all environments")
 
 
 # AddContainerRule Function
@@ -666,18 +875,152 @@ def create_application(app, headers2):
         payload['tags'].append({"key": "pteam", "value": team})
         print(f"└─ Debug - Adding team tag: pteam={team}")
     
+    # Add tags from the Tag_label and Tags_label fields in YAML configuration
+    print(f"└─ Processing application Tag_label field...")
+    if app.get('Tag_label'):
+        tag_label = app.get('Tag_label')
+        print(f"└─ Found application Tag_label: {tag_label}")
+        print(f"└─ Tag_label type: {type(tag_label)}")
+        
+        if isinstance(tag_label, str):
+            # Handle single string tag
+            processed_tag = process_tag_string(tag_label)
+            payload['tags'].append(processed_tag)
+            print(f"└─ Added application Tag_label: {processed_tag}")
+        elif isinstance(tag_label, list):
+            print(f"└─ Processing {len(tag_label)} application Tag_label entries...")
+            for i, tag in enumerate(tag_label):
+                print(f"└─ Processing application Tag_label[{i}]: '{tag}' (type: {type(tag)})")
+                if isinstance(tag, str):
+                    processed_tag = process_tag_string(tag)
+                    payload['tags'].append(processed_tag)
+                    print(f"└─ Added application Tag_label[{i}]: {processed_tag}")
+                elif isinstance(tag, dict):
+                    if 'key' in tag and 'value' in tag:
+                        tag_dict = {"key": tag['key'], "value": tag['value']}
+                        payload['tags'].append(tag_dict)
+                        print(f"└─ Added application Tag_label[{i}] dict: {tag_dict}")
+                    elif 'value' in tag:
+                        tag_dict = {"value": tag['value']}
+                        payload['tags'].append(tag_dict)
+                        print(f"└─ Added application Tag_label[{i}] value-only: {tag_dict}")
+    else:
+        print(f"└─ No Tag_label field found in application")
+    
+    if app.get('Tags_label'):
+        print(f"└─ Processing application Tags_label field...")
+        for i, tag in enumerate(app.get('Tags_label')):
+            print(f"└─ Processing application Tags_label[{i}]: '{tag}' (type: {type(tag)})")
+            if isinstance(tag, str):
+                # Handle string tags using helper function
+                processed_tag = process_tag_string(tag)
+                payload['tags'].append(processed_tag)
+                print(f"└─ Added application Tags_label[{i}]: {processed_tag}")
+            elif isinstance(tag, dict):
+                # Handle dict tags that already have key/value structure
+                if 'key' in tag and 'value' in tag:
+                    tag_dict = {"key": tag['key'], "value": tag['value']}
+                    payload['tags'].append(tag_dict)
+                    print(f"└─ Added application Tags_label[{i}] dict: {tag_dict}")
+                elif 'value' in tag:
+                    tag_dict = {"value": tag['value']}
+                    payload['tags'].append(tag_dict)
+                    print(f"└─ Added application Tags_label[{i}] value-only: {tag_dict}")
+    
+    # Show final tag summary for application
+    print(f"└─ FINAL APPLICATION TAG SUMMARY for {app['AppName']}:")
+    print(f"└─ Total tags to be sent: {len(payload['tags'])}")
+    for i, tag in enumerate(payload['tags']):
+        if 'key' in tag and 'value' in tag:
+            print(f"   {i+1:2d}. {tag['key']}: {tag['value']}")
+        elif 'value' in tag:
+            print(f"   {i+1:2d}. {tag['value']} (value only)")
+    
     print(f"└─ Final payload:")
     print(json.dumps(payload, indent=2))
 
+    app_id = None
+    application_created = False
+    
     try:
         api_url = construct_api_url("/v1/applications")
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f"└─ Application created successfully")
-        time.sleep(2)
+        
+        # Save debug response if enabled
+        response_data = response.json() if response.content else {"status": "created", "message": "Application created successfully"}
+        save_debug_response(
+            operation_type="application_creation",
+            response_data=response_data,
+            request_data=payload,
+            endpoint="/v1/applications"
+        )
+        
+        # Get the application ID from the response for tag addition
+        app_response = response.json()
+        app_id = app_response.get('id')
+        application_created = True
+        
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f"└─ Application {app['AppName']} already exists")
+            # Application exists, get its ID for tag addition
+            existing_apps = populate_applications_and_environments(headers)
+            existing_app = next((app_item for app_item in existing_apps if app_item['name'] == app['AppName'] and app_item['type'] == 'APPLICATION'), None)
+            if existing_app:
+                app_id = existing_app.get('id')
+                print(f"└─ Found existing application ID: {app_id}")
+            else:
+                print(f"└─ Could not find existing application ID for tag addition")
+                # Log this as an error since we have tags to add but can't find the application
+                if payload.get('tags'):
+                    log_error(
+                        'Application Tag Addition - ID Lookup Failed',
+                        app['AppName'],
+                        'N/A',
+                        'Could not find existing application ID for tag addition',
+                        f'Application name: {app["AppName"]}\nTags to add: {len(payload.get("tags", []))}\nTag details: {json.dumps(payload.get("tags", []), indent=2)}'
+                    )
+        elif response.status_code == 400 and b'Invalid user email' in response.content:
+            # Handle invalid user email specifically
+            user_email = app['Responsable']
+            print(f"└─ ⚠️  Invalid user email: {user_email}")
+            print(f"└─ 💡 This user doesn't exist in Phoenix platform")
+            print(f"└─ 🔧 Consider:")
+            print(f"   • Creating the user first in Phoenix")
+            print(f"   • Using a valid existing user email")
+            print(f"   • Enabling auto-user creation in config")
+            
+            # Try with a fallback default user if available
+            fallback_email = "fc+mimecast@phoenix.security"  # Use the configured default
+            print(f"└─ 🔄 Attempting to create application with fallback user: {fallback_email}")
+            
+            # Update payload with fallback user
+            fallback_payload = payload.copy()
+            fallback_payload["owner"]["email"] = fallback_email
+            
+            try:
+                api_url = construct_api_url("/v1/applications")
+                fallback_response = requests.post(api_url, headers=headers, json=fallback_payload)
+                fallback_response.raise_for_status()
+                print(f"└─ ✅ Application created successfully with fallback user")
+                
+                # Get the application ID from the response for tag addition
+                app_response = fallback_response.json()
+                app_id = app_response.get('id')
+                application_created = True
+                
+            except requests.exceptions.RequestException as fallback_error:
+                error_msg = f"Failed to create application even with fallback user: {str(fallback_error)}"
+                print(f"└─ ❌ {error_msg}")
+                log_error(
+                    'Application Creation Failed - Invalid User',
+                    app['AppName'],
+                    'N/A',
+                    f'Original user: {user_email}, Fallback user: {fallback_email}',
+                    f'Original error: {response.content}\nFallback error: {fallback_response.content if "fallback_response" in locals() else "N/A"}'
+                )
         else:
             error_msg = f"Failed to create application: {str(e)}"
             error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
@@ -693,11 +1036,160 @@ def create_application(app, headers2):
             print(f"└─ Payload sent: {json.dumps(payload, indent=2)}")
             return
     
+    # Add tags separately using the dedicated tags endpoint if we have tags to add
+    # This works for both newly created applications and existing ones
+    if payload.get('tags') and app_id:
+        print(f"└─ Adding {len(payload['tags'])} tags to application ID: {app_id}")
+        if DEBUG:
+            print(f"└─ DEBUG: Tags to add: {json.dumps(payload.get('tags'), indent=2)}")
+        
+        tags_attempted = 0
+        tags_succeeded = 0
+        tags_failed = 0
+        tags_skipped = 0
+        
+        for i, tag in enumerate(payload['tags']):
+            print(f"   └─ Processing tag {i+1}/{len(payload['tags'])}: {tag}")
+            tags_attempted += 1
+            
+            if 'key' in tag and 'value' in tag:
+                print(f"   └─ Adding key-value tag: {tag['key']}: {tag['value']}")
+                try:
+                    add_tag_to_application(tag['key'], tag['value'], app_id, headers)
+                    tags_succeeded += 1
+                except Exception as e:
+                    tags_failed += 1
+                    print(f"   └─ ❌ Tag addition failed: {e}")
+            elif 'value' in tag:
+                print(f"   └─ Adding value-only tag: {tag['value']}")
+                try:
+                    # For value-only tags, we'll use a custom call since the existing function requires a key
+                    add_application_tag_custom(app_id, tag, headers)
+                    tags_succeeded += 1
+                except Exception as e:
+                    tags_failed += 1
+                    print(f"   └─ ❌ Tag addition failed: {e}")
+            else:
+                print(f"   └─ ⚠️ Skipping invalid tag format: {tag}")
+                tags_skipped += 1
+                # Log invalid tag format
+                log_error(
+                    'Application Tag Addition - Invalid Format',
+                    f"App ID: {app_id} -> Invalid Tag",
+                    'N/A',
+                    'Skipping tag due to invalid format',
+                    f'Tag data: {json.dumps(tag)}\nExpected format: {{"key": "string", "value": "string"}} or {{"value": "string"}}'
+                )
+        
+        # Summary of tag addition results
+        print(f"└─ 📊 Tag Addition Summary for {app['AppName']}:")
+        print(f"   └─ Total attempted: {tags_attempted}")
+        print(f"   └─ ✅ Succeeded: {tags_succeeded}")
+        print(f"   └─ ❌ Failed: {tags_failed}")
+        print(f"   └─ ⚠️ Skipped: {tags_skipped}")
+        
+        # Log summary if there were any failures
+        if tags_failed > 0 or tags_skipped > 0:
+            log_error(
+                'Application Tag Addition Summary',
+                f"{app['AppName']} (ID: {app_id})",
+                'N/A',
+                f'Tag addition completed with issues: {tags_failed} failed, {tags_skipped} skipped',
+                f'Total attempted: {tags_attempted}\nSucceeded: {tags_succeeded}\nFailed: {tags_failed}\nSkipped: {tags_skipped}'
+            )
+    elif payload.get('tags') and not app_id:
+        print(f"└─ ⚠️ Cannot add tags: Application ID not found")
+        print(f"└─ DEBUG: Tags that would be added: {json.dumps(payload.get('tags'), indent=2)}")
+        
+        # Log this as an error since we have tags to add but no application ID
+        log_error(
+            'Application Tag Addition - No App ID',
+            app['AppName'],
+            'N/A',
+            'Cannot add tags: Application ID not found',
+            f'Application name: {app["AppName"]}\nTags to add: {len(payload.get("tags", []))}\nTag details: {json.dumps(payload.get("tags", []), indent=2)}'
+        )
+    elif not payload.get('tags'):
+        print(f"└─ ℹ️ No tags to add to application")
+    else:
+        print(f"└─ ℹ️ No tag addition needed (no tags or no app ID)")
+    
+    time.sleep(2)
+    
     # Create components if any
     if app.get('Components'):
         print(f"└─ Processing {len(app['Components'])} components")
         for component in app['Components']:
             create_custom_component(app['AppName'], component, headers)
+
+def process_tag_string(tag_string):
+    """Helper function to properly process tag strings, especially RiskFactor tags with multiple colons"""
+    if ':' in tag_string:
+        # Handle special case for RiskFactor tags with multiple colons
+        if tag_string.startswith('RiskFactor:') and tag_string.count(':') >= 2:
+            # Find the last colon to split key and value
+            last_colon_index = tag_string.rfind(':')
+            key = tag_string[:last_colon_index].strip()
+            value = tag_string[last_colon_index + 1:].strip()
+            return {"key": key, "value": value}
+        else:
+            # Standard key:value processing
+            tag_parts = tag_string.split(':', 1)
+            key = tag_parts[0].strip()
+            value = tag_parts[1].strip()
+            return {"key": key, "value": value}
+    else:
+        # Handle tags without key:value format
+        return {"value": tag_string}
+
+def add_application_tag_custom(app_id, tag, headers):
+    """Add a single tag to an application using the tags endpoint"""
+    try:
+        api_url = construct_api_url(f"/v1/applications/{app_id}/tags")
+        tags_payload = {"tags": [tag]}
+        
+        if DEBUG:
+            print(f"   └─ DEBUG: Sending PUT request to {api_url}")
+            print(f"   └─ DEBUG: Payload: {json.dumps(tags_payload, indent=2)}")
+        
+        response = requests.put(api_url, headers=headers, json=tags_payload)
+        response.raise_for_status()
+        
+        if 'key' in tag and 'value' in tag:
+            print(f"   └─ ✅ Successfully added tag {tag['key']}: {tag['value']}")
+        else:
+            print(f"   └─ ✅ Successfully added tag: {tag['value']}")
+        
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Failed to add tag to application: {str(e)}"
+        print(f"   └─ ❌ Error adding tag: {error_msg}")
+        
+        # Log detailed error information
+        tag_description = f"{tag.get('key', 'NO_KEY')}:{tag.get('value', 'NO_VALUE')}" if tag.get('key') else tag.get('value', 'INVALID_TAG')
+        log_error(
+            'Application Tag Addition',
+            f"App ID: {app_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'API URL: {api_url}\nPayload: {json.dumps(tags_payload)}\nResponse: {getattr(response, "content", "No response content")}'
+        )
+        
+        if hasattr(response, 'content'):
+            print(f"   └─ API Response: {response.content.decode()}")
+        if hasattr(response, 'status_code'):
+            print(f"   └─ Status Code: {response.status_code}")
+    except Exception as e:
+        error_msg = f"Unexpected error adding tag: {str(e)}"
+        print(f"   └─ ❌ Unexpected error: {error_msg}")
+        
+        tag_description = f"{tag.get('key', 'NO_KEY')}:{tag.get('value', 'NO_VALUE')}" if tag.get('key') else tag.get('value', 'INVALID_TAG')
+        log_error(
+            'Application Tag Addition (Unexpected)',
+            f"App ID: {app_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'Tag data: {json.dumps(tag)}\nException type: {type(e).__name__}'
+        )
 
 def create_custom_component(applicationName, component, headers2):
     global headers
@@ -706,67 +1198,70 @@ def create_custom_component(applicationName, component, headers2):
     print(f"\n[Component Creation]")
     print(f"└─ Application: {applicationName}")
     print(f"└─ Component: {component['ComponentName']}")
+    print(f"└─ Component Data: {component}")
 
     # Ensure valid tag values by filtering out empty or None 
     tags = []
+    print(f"└─ Processing component tags...")
     
     if component.get('Status'):
         tags.append({"key": "Status", "value": component['Status']})
+        print(f"└─ Added Status tag: Status = {component['Status']}")
     if component.get('Type'):
         tags.append({"key": "Type", "value": component['Type']})
+        print(f"└─ Added Type tag: Type = {component['Type']}")
 
     # Add team tags
     for team in component.get('TeamNames', []):
         if team:  # Only add non-empty team names
             tags.append({"key": "pteam", "value": team})
+            print(f"└─ Added Team tag: pteam = {team}")
 
     # Add domain and subdomain tags only if they are not None or empty
     if component.get('Domain'):
         tags.append({"key": "domain", "value": component['Domain']})
+        print(f"└─ Added Domain tag: domain = {component['Domain']}")
     if component.get('SubDomain'):
         tags.append({"key": "subdomain", "value": component['SubDomain']})
+        print(f"└─ Added Subdomain tag: subdomain = {component['SubDomain']}")
     
     # Add tags from the Tag_label and Tags_label fields in YAML configuration
+    print(f"└─ Processing Tag_label field...")
     if component.get('Tag_label'):
         tag_label = component.get('Tag_label')
+        print(f"└─ Found Tag_label: {tag_label}")
+        print(f"└─ Tag_label type: {type(tag_label)}")
+        
         if isinstance(tag_label, str):
-            # Handle string tags like "Environment: Production"
-            if ':' in tag_label:
-                tag_parts = tag_label.split(':', 1)  # Split only on first colon
-                key = tag_parts[0].strip()
-                value = tag_parts[1].strip()
-                tags.append({"key": key, "value": value})
-            else:
-                # Handle tags without key:value format
-                tags.append({"value": tag_label})
+            # Handle single string tag
+            processed_tag = process_tag_string(tag_label)
+            tags.append(processed_tag)
+            print(f"└─ Processed single Tag_label: {processed_tag}")
         elif isinstance(tag_label, list):
-            for tag in tag_label:
+            print(f"└─ Processing {len(tag_label)} Tag_label entries...")
+            for i, tag in enumerate(tag_label):
+                print(f"└─ Processing Tag_label[{i}]: '{tag}' (type: {type(tag)})")
                 if isinstance(tag, str):
-                    if ':' in tag:
-                        tag_parts = tag.split(':', 1)
-                        key = tag_parts[0].strip()
-                        value = tag_parts[1].strip()
-                        tags.append({"key": key, "value": value})
-                    else:
-                        tags.append({"value": tag})
+                    processed_tag = process_tag_string(tag)
+                    tags.append(processed_tag)
+                    print(f"└─ Added Tag_label[{i}]: {processed_tag}")
                 elif isinstance(tag, dict):
                     if 'key' in tag and 'value' in tag:
-                        tags.append({"key": tag['key'], "value": tag['value']})
+                        tag_dict = {"key": tag['key'], "value": tag['value']}
+                        tags.append(tag_dict)
+                        print(f"└─ Added Tag_label[{i}] dict: {tag_dict}")
                     elif 'value' in tag:
-                        tags.append({"value": tag['value']})
+                        tag_dict = {"value": tag['value']}
+                        tags.append(tag_dict)
+                        print(f"└─ Added Tag_label[{i}] value-only: {tag_dict}")
+    else:
+        print(f"└─ No Tag_label field found in component")
     
     if component.get('Tags_label'):
         for tag in component.get('Tags_label'):
             if isinstance(tag, str):
-                # Handle string tags like "Environment: Production"
-                if ':' in tag:
-                    tag_parts = tag.split(':', 1)  # Split only on first colon
-                    key = tag_parts[0].strip()
-                    value = tag_parts[1].strip()
-                    tags.append({"key": key, "value": value})
-                else:
-                    # Handle tags without key:value format
-                    tags.append({"value": tag})
+                # Handle string tags using helper function
+                tags.append(process_tag_string(tag))
             elif isinstance(tag, dict):
                 # Handle dict tags that already have key/value structure
                 if 'key' in tag and 'value' in tag:
@@ -779,23 +1274,47 @@ def create_custom_component(applicationName, component, headers2):
             "name": applicationName
         },
         "name": component['ComponentName'],
-        "criticality": component.get('Criticality', 5),  # Default to criticality 5
+        "criticality": calculate_criticality(component.get('Tier', 5)),  # Calculate from Tier field
         "tags": tags
     }
+    
+    # Always show final tag summary for troubleshooting
+    print(f"└─ FINAL TAG SUMMARY for component {component['ComponentName']}:")
+    print(f"└─ Total tags to be sent: {len(tags)}")
+    for i, tag in enumerate(tags):
+        if 'key' in tag and 'value' in tag:
+            print(f"   {i+1:2d}. {tag['key']}: {tag['value']}")
+        elif 'value' in tag:
+            print(f"   {i+1:2d}. {tag['value']} (value only)")
+    
+    if len(tags) == 0:
+        print(f"└─ ⚠️  WARNING: No tags will be sent with this component!")
 
     # Handle ticketing configuration
     if component.get('Ticketing'):
-        ticketing = component['Ticketing']
-        if isinstance(ticketing, list):
-            ticketing = ticketing[0] if ticketing else {}
-        
-        if ticketing.get('Backlog'):  # Only add if Backlog is present
-            payload["ticketing"] = {
-                "integrationName": ticketing.get('TIntegrationName'),
-                "projectName": ticketing.get('Backlog')  # This is required
-            }
-        else:
-            print(f"└─ Warning: Skipping ticketing configuration - missing required Backlog field")
+        try:
+            ticketing = component['Ticketing']
+            if isinstance(ticketing, list):
+                ticketing = ticketing[0] if ticketing else {}
+            
+            integration_name = ticketing.get('TIntegrationName')
+            backlog = ticketing.get('Backlog')
+            
+            if integration_name and backlog:
+                payload["ticketing"] = {
+                    "integrationName": integration_name,
+                    "projectName": backlog
+                }
+                print(f"└─ Adding ticketing configuration:")
+                print(f"   └─ Integration: {integration_name}")
+                print(f"   └─ Project: {backlog}")
+            else:
+                print(f"└─ Warning: Skipping ticketing configuration - missing required fields")
+                print(f"   └─ TIntegrationName: {integration_name}")
+                print(f"   └─ Backlog: {backlog}")
+        except Exception as e:
+            print(f"└─ Warning: Error processing ticketing configuration: {e}")
+            print(f"└─ Continuing component creation without ticketing integration")
 
     # Handle messaging configuration
     if component.get('Messaging'):
@@ -811,20 +1330,116 @@ def create_custom_component(applicationName, component, headers2):
         else:
             print(f"└─ Warning: Skipping messaging configuration - missing required Channel field")
 
-    if DEBUG:
-        print(f"└─ Sending payload:")
-        print(f"   └─ {json.dumps(payload, indent=2)}")
+    # Always show the full payload being sent to the API
+    print(f"└─ SENDING COMPONENT CREATION REQUEST:")
+    print(f"└─ API URL: {construct_api_url('/v1/components')}")
+    print(f"└─ Full Payload:")
+    print(json.dumps(payload, indent=2))
 
     api_url = construct_api_url("/v1/components")
 
     try:
+        print(f"└─ Making POST request to create component...")
         response = requests.post(api_url, headers=headers, json=payload)
+        print(f"└─ API Response Status: {response.status_code}")
+        print(f"└─ API Response Content: {response.content.decode('utf-8') if response.content else 'No content'}")
         response.raise_for_status()
-        print(f"└─ Component created successfully")
+        print(f"└─ ✅ Component created successfully")
+        
+        # Save debug response if enabled
+        response_data = response.json() if response.content else {"status": "created", "message": "Component created successfully"}
+        save_debug_response(
+            operation_type="component_creation",
+            response_data=response_data,
+            request_data=payload,
+            endpoint="/v1/components"
+        )
+        
+        # Track successful component creation for main script reporting
+        if component_tracking_callback:
+            component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", True)
+        
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
             print(f"└─ Component already exists")
+        elif response.status_code == 400:
+            # Handle specific 400 errors
+            try:
+                error_response = response.json()
+                error_message = error_response.get('error', 'Unknown error')
+                
+                if 'Integration not found' in error_message:
+                    print(f"└─ ⚠️  Warning: Ticketing integration not found, retrying without ticketing...")
+                    # Remove ticketing from payload and retry
+                    payload_without_ticketing = payload.copy()
+                    payload_without_ticketing.pop('ticketing', None)
+                    
+                    print(f"└─ Retrying component creation without ticketing integration...")
+                    try:
+                        retry_response = requests.post(api_url, headers=headers, json=payload_without_ticketing)
+                        retry_response.raise_for_status()
+                        print(f"└─ ✅ Component created successfully (without ticketing)")
+                        
+                        # Track successful component creation (retry) for main script reporting
+                        if component_tracking_callback:
+                            component_tracking_callback('components', 'create_component_retry', f"{applicationName} -> {component['ComponentName']}", True)
+                        
+                        time.sleep(2)
+                    except requests.exceptions.RequestException as retry_e:
+                        if retry_response.status_code == 409:
+                            print(f"└─ Component already exists")
+                        else:
+                            error_msg = f"Failed to create component even without ticketing: {str(retry_e)}"
+                            error_details = f'Response: {getattr(retry_response, "content", "No response content")}\nPayload: {json.dumps(payload_without_ticketing)}'
+                            log_error(
+                                'Component Creation (Retry)',
+                                f"{applicationName} -> {component['ComponentName']}",
+                                'N/A',
+                                error_msg,
+                                error_details
+                            )
+                            print(f"└─ Error: {error_msg}")
+                            
+                            # Track failed component creation for main script reporting
+                            if component_tracking_callback:
+                                component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+                            
+                            return
+                else:
+                    error_msg = f"Failed to create component: {error_message}"
+                    error_details = f'Response: {response.content.decode()}\nPayload: {json.dumps(payload)}'
+                    log_error(
+                        'Component Creation',
+                        f"{applicationName} -> {component['ComponentName']}",
+                        'N/A',
+                        error_msg,
+                        error_details
+                    )
+                    print(f"└─ Error: {error_msg}")
+                    
+                    # Track failed component creation for main script reporting
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+                    
+                    return
+            except (ValueError, KeyError):
+                error_msg = f"Failed to create component: {str(e)}"
+                error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+                log_error(
+                    'Component Creation',
+                    f"{applicationName} -> {component['ComponentName']}",
+                    'N/A',
+                    error_msg,
+                    error_details
+                )
+                print(f"└─ Error: {error_msg}")
+                
+                # Track failed component creation for main script reporting
+                if component_tracking_callback:
+                    component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+                
+                return
         else:
             error_msg = f"Failed to create component: {str(e)}"
             error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
@@ -838,6 +1453,11 @@ def create_custom_component(applicationName, component, headers2):
             print(f"└─ Error: {error_msg}")
             if DEBUG:
                 print(f"└─ Response content: {response.content}")
+            
+            # Track failed component creation for main script reporting
+            if component_tracking_callback:
+                component_tracking_callback('components', 'create_component', f"{applicationName} -> {component['ComponentName']}", False, error_msg)
+            
             return
 
     try:
@@ -1027,6 +1647,8 @@ def update_component(application, component, existing_component, headers2):
     print(f"\n[Component Update]")
     print(f"└─ Application: {application['AppName']}")
     print(f"└─ Component: {component['ComponentName']}")
+    print(f"└─ Existing Component ID: {existing_component.get('id')}")
+    print(f"└─ Component Data: {component}")
 
     # Handle team tags
     try:
@@ -1061,25 +1683,12 @@ def update_component(application, component, existing_component, headers2):
     if component.get('Tag_label'):
         tag_label = component.get('Tag_label')
         if isinstance(tag_label, str):
-            # Handle string tags like "Environment: Production"
-            if ':' in tag_label:
-                tag_parts = tag_label.split(':', 1)  # Split only on first colon
-                key = tag_parts[0].strip()
-                value = tag_parts[1].strip()
-                tags.append({"key": key, "value": value})
-            else:
-                # Handle tags without key:value format
-                tags.append({"value": tag_label})
+            # Handle single string tag
+            tags.append(process_tag_string(tag_label))
         elif isinstance(tag_label, list):
             for tag in tag_label:
                 if isinstance(tag, str):
-                    if ':' in tag:
-                        tag_parts = tag.split(':', 1)
-                        key = tag_parts[0].strip()
-                        value = tag_parts[1].strip()
-                        tags.append({"key": key, "value": value})
-                    else:
-                        tags.append({"value": tag})
+                    tags.append(process_tag_string(tag))
                 elif isinstance(tag, dict):
                     if 'key' in tag and 'value' in tag:
                         tags.append({"key": tag['key'], "value": tag['value']})
@@ -1089,15 +1698,8 @@ def update_component(application, component, existing_component, headers2):
     if component.get('Tags_label'):
         for tag in component.get('Tags_label'):
             if isinstance(tag, str):
-                # Handle string tags like "Environment: Production"
-                if ':' in tag:
-                    tag_parts = tag.split(':', 1)  # Split only on first colon
-                    key = tag_parts[0].strip()
-                    value = tag_parts[1].strip()
-                    tags.append({"key": key, "value": value})
-                else:
-                    # Handle tags without key:value format
-                    tags.append({"value": tag})
+                # Handle string tags using helper function
+                tags.append(process_tag_string(tag))
             elif isinstance(tag, dict):
                 # Handle dict tags that already have key/value structure
                 if 'key' in tag and 'value' in tag:
@@ -1107,9 +1709,21 @@ def update_component(application, component, existing_component, headers2):
 
     payload = {
         "name": component['ComponentName'],
-        "criticality": component.get('Criticality', 5),  # Default to criticality 5
+        "criticality": calculate_criticality(component.get('Tier', 5)),  # Calculate from Tier field
         "tags": tags
     }
+    
+    # Always show final tag summary for troubleshooting (UPDATE)
+    print(f"└─ FINAL TAG SUMMARY for component UPDATE {component['ComponentName']}:")
+    print(f"└─ Total tags to be sent: {len(tags)}")
+    for i, tag in enumerate(tags):
+        if 'key' in tag and 'value' in tag:
+            print(f"   {i+1:2d}. {tag['key']}: {tag['value']}")
+        elif 'value' in tag:
+            print(f"   {i+1:2d}. {tag['value']} (value only)")
+    
+    if len(tags) == 0:
+        print(f"└─ ⚠️  WARNING: No tags will be sent with this component update!")
 
     # Handle ticketing configuration
     if component.get('Ticketing'):
@@ -1186,19 +1800,71 @@ def update_component(application, component, existing_component, headers2):
             response = requests.patch(api_url, headers=headers, json=payload)
             response.raise_for_status()
             print(f"└─ Component updated successfully")
+            
+            # Track successful component update
+            if component_tracking_callback:
+                component_tracking_callback('components', 'update_component', f"{application['AppName']} -> {component['ComponentName']}", True, None)
+                
         except requests.exceptions.RequestException as e:
             error_msg = f"Failed to update component: {str(e)}"
-            error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
-            log_error(
-                'Component Update',
-                f"{application['AppName']} -> {component['ComponentName']}",
-                'N/A',
-                error_msg,
-                error_details
-            )
-            print(f"└─ Error: {error_msg}")
-            if DEBUG:
-                print(f"└─ Response content: {response.content}")
+            
+            # Check if this is an "Integration not found" error and retry without ticketing
+            if response.status_code == 400 and "Integration not found" in str(response.content):
+                print(f"└─ Integration not found error detected, retrying without ticketing...")
+                
+                # Create a copy of payload without ticketing
+                retry_payload = payload.copy()
+                if 'ticketing' in retry_payload:
+                    del retry_payload['ticketing']
+                    print(f"└─ Removed ticketing integration from payload")
+                    
+                try:
+                    print(f"└─ Sending retry update payload (without ticketing):")
+                    print(f"   └─ {json.dumps(retry_payload, indent=2)}")
+                    retry_response = requests.patch(api_url, headers=headers, json=retry_payload)
+                    retry_response.raise_for_status()
+                    print(f"└─ Component updated successfully without ticketing integration")
+                    
+                    # Track successful component update retry
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'update_component_retry', f"{application['AppName']} -> {component['ComponentName']}", True, 'Integration not found, retried successfully without ticketing')
+                        
+                except requests.exceptions.RequestException as retry_e:
+                    retry_error_msg = f"Failed to update component even without ticketing: {str(retry_e)}"
+                    retry_error_details = f'Original error: {error_msg}\nRetry error: {retry_error_msg}\nOriginal payload: {json.dumps(payload)}\nRetry payload: {json.dumps(retry_payload)}\nRetry response: {getattr(retry_response, "content", "No response content")}'
+                    
+                    log_error(
+                        'Component Update Retry Failed',
+                        f"{application['AppName']} -> {component['ComponentName']}",
+                        'N/A',
+                        retry_error_msg,
+                        retry_error_details
+                    )
+                    print(f"└─ Error: {retry_error_msg}")
+                    if DEBUG:
+                        print(f"└─ Retry response content: {getattr(retry_response, 'content', 'No response content')}")
+                        
+                    # Track failed component update retry
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'update_component_retry', f"{application['AppName']} -> {component['ComponentName']}", False, retry_error_msg)
+                        
+            else:
+                # For other types of errors, log normally
+                error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
+                log_error(
+                    'Component Update',
+                    f"{application['AppName']} -> {component['ComponentName']}",
+                    'N/A',
+                    error_msg,
+                    error_details
+                )
+                print(f"└─ Error: {error_msg}")
+                if DEBUG:
+                    print(f"└─ Response content: {response.content}")
+                    
+                # Track failed component update
+                if component_tracking_callback:
+                    component_tracking_callback('components', 'update_component', f"{application['AppName']} -> {component['ComponentName']}", False, error_msg)
     
     try:
         create_component_rules(application['AppName'], component, headers)
@@ -1932,21 +2598,29 @@ def create_teams(teams, pteams, access_token2):
     # Iterate over the list of teams to be added
     for team in teams:
         found = False
+        team_name = team.get('TeamName', '').strip()
+        
+        if not team_name:
+            if DEBUG:
+                print(f"└─ Skipping team with empty name: {team}")
+            continue
 
         # Check if the team already exists in the existing pteams
         for pteam in pteams:
-            if pteam['name'] == team['TeamName']:
+            if pteam['name'] == team_name:
                 found = True
+                if DEBUG:
+                    print(f"└─ Team {team_name} already exists, skipping creation")
                 break
         
         # If the team is not found and has a valid name, proceed to add it
-        if not found and team['TeamName']:
+        if not found:
             print("[Team]")
-            print(f"└─ Creating: {team['TeamName']}")
+            print(f"└─ Creating: {team_name}")
             
             # Prepare the payload for creating the team
             payload = {
-                "name": team['TeamName'],
+                "name": team_name,
                 "type": "GENERAL"
             }
 
@@ -1958,18 +2632,29 @@ def create_teams(teams, pteams, access_token2):
                 # Make the POST request to add the team
                 response = requests.post(api_url, headers=headers, json=payload)
                 response.raise_for_status()
-                team['id'] = response.json()['id']
-                new_pteams.append(response.json())
-                print(f"└─ Team created successfully: {team['TeamName']}")
+                response_data = response.json()
+                team['id'] = response_data['id']
+                new_pteams.append(response_data)
+                print(f"└─ Team created successfully: {team_name}")
+                
+                # Save debug response if enabled
+                save_debug_response(
+                    operation_type="team_creation",
+                    response_data=response_data,
+                    request_data=payload,
+                    endpoint="/v1/teams"
+                )
             except requests.exceptions.RequestException as e:
-                if response.status_code == 400:
-                    print(f"└─ Team {team['TeamName']} already exists")
+                if response.status_code == 409:
+                    print(f"└─ Team {team_name} already exists (409 Conflict)")
+                    # Continue processing other teams instead of exiting
+                    continue
                 else:
                     error_msg = f"Failed to create team: {str(e)}"
                     error_details = f"Response: {getattr(response, 'content', 'No response content')}\nPayload: {json.dumps(payload)}"
                     log_error(
                         'Team Creation',
-                        team['TeamName'],
+                        team_name,
                         'N/A',
                         error_msg,
                         error_details
@@ -1977,7 +2662,8 @@ def create_teams(teams, pteams, access_token2):
                     print(f"Error: {error_msg}")
                     if DEBUG:
                         print(f"└─ Response content: {response.content}")
-                    exit(1)
+                    # Continue processing other teams instead of exiting completely
+                    continue
     return new_pteams
 
 
@@ -2035,8 +2721,19 @@ def populate_phoenix_teams(access_token2):
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
         
+        response_data = response.json()
+        teams_content = response_data.get('content', [])
+        
+        # Save debug response if enabled
+        save_debug_response(
+            operation_type="team_fetch",
+            response_data=response_data,
+            request_data=None,  # GET request has no body
+            endpoint="/v1/teams"
+        )
+        
         # Return the content of the response (team list)
-        return response.json().get('content', [])
+        return teams_content
     
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
@@ -2520,6 +3217,15 @@ def get_phoenix_components(headers2):
             response.raise_for_status()
             data = response.json()
             
+            # Save debug response if enabled (only save first page to avoid too many files)
+            if page_number == 0:
+                save_debug_response(
+                    operation_type="component_fetch",
+                    response_data=data,
+                    request_data=params,
+                    endpoint="/v1/components"
+                )
+            
             # Add components from current page
             page_components = data.get('content', [])
             components.extend(page_components)
@@ -2631,6 +3337,14 @@ def verify_service_exists(env_name, env_id, service_name, headers2, max_retries=
         response = requests.get(api_url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
+        
+        # Save debug response if enabled
+        save_debug_response(
+            operation_type="service_fetch",
+            response_data=data,
+            request_data=params,
+            endpoint="/v1/components"
+        )
         
         total_elements = data.get('totalElements', 0)
         total_pages = data.get('totalPages', 1)
@@ -2905,7 +3619,35 @@ def add_tag_to_application(tag_key, tag_value, application_id, headers2):
         response.raise_for_status()
         print(f"Tag {tag_key} with value {tag_value} added successfully.")
     except requests.exceptions.RequestException as e:
-        print(f"Error adding tag: {e}")
+        error_msg = f"Error adding tag: {e}"
+        print(f"   └─ ❌ {error_msg}")
+        
+        # Log detailed error information
+        tag_description = f"{tag_key}:{tag_value}"
+        log_error(
+            'Application Tag Addition',
+            f"App ID: {application_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'API URL: {api_url}\nPayload: {json.dumps(payload)}\nResponse: {getattr(response, "content", "No response content")}'
+        )
+        
+        if hasattr(response, 'content'):
+            print(f"   └─ API Response: {response.content.decode()}")
+        if hasattr(response, 'status_code'):
+            print(f"   └─ Status Code: {response.status_code}")
+    except Exception as e:
+        error_msg = f"Unexpected error adding tag: {str(e)}"
+        print(f"   └─ ❌ Unexpected error: {error_msg}")
+        
+        tag_description = f"{tag_key}:{tag_value}"
+        log_error(
+            'Application Tag Addition (Unexpected)',
+            f"App ID: {application_id} -> Tag: {tag_description}",
+            'N/A',
+            error_msg,
+            f'Exception type: {type(e).__name__}'
+        )
 
 
 # Helper function to check if a member exists
@@ -2934,30 +3676,216 @@ def populate_applications_and_environments(headers2):
     try:
         print("Getting list of Phoenix Applications and Environments")
         api_url = construct_api_url("/v1/applications")
+        
+        # Debug: Print the full request details
+        if DEBUG:
+            print(f"📡 API Request URL: {api_url}")
+            print(f"📡 Request Headers: {headers}")
+        
         response = requests.get(api_url, headers=headers)
+        
+        # Enhanced error handling for API compatibility issues
+        if response.status_code != 200:
+            print(f"⚠️  API returned status code: {response.status_code}")
+            print(f"⚠️  Response content: {response.content}")
+            
+            # Check if this is the ENVIRONMENT_CLOUD enum error
+            if b'ENVIRONMENT_CLOUD' in response.content:
+                print("🔍 Detected ENVIRONMENT_CLOUD enum compatibility issue")
+                print("💡 This appears to be an API version compatibility problem")
+                print("🔄 Attempting alternative API approach...")
+                
+                # Try with different parameters or endpoint variations
+                return handle_enum_compatibility_issue(headers)
+        
         response.raise_for_status()
 
         data = response.json()
+        
+        # Save debug response if enabled
+        save_debug_response(
+            operation_type="application_environment_fetch",
+            response_data=data,
+            request_data=None,  # GET request has no body
+            endpoint="/v1/applications"
+        )
+        
         components = data.get('content', [])
         total_pages = data.get('totalPages', 1)
 
         for i in range(1, total_pages):
             api_url = construct_api_url(f"/v1/applications?pageNumber={i}")
             response = requests.get(api_url, headers=headers)
+            
+            if response.status_code != 200:
+                print(f"⚠️  Pagination request failed with status: {response.status_code}")
+                break
+                
             components += response.json().get('content', [])
+            
     except requests.exceptions.RequestException as e:
         error_msg = f"Failed to fetch apps/envs. Response: {response.content if hasattr(response, 'content') else 'N/A'}"
+        
+        # Enhanced error reporting for debugging
+        print(f"💥 Request Exception Details:")
+        print(f"   └─ Exception type: {type(e).__name__}")
+        print(f"   └─ Exception message: {str(e)}")
+        if hasattr(response, 'status_code'):
+            print(f"   └─ Response status: {response.status_code}")
+        if hasattr(response, 'content'):
+            print(f"   └─ Response content: {response.content}")
+            
         log_error(
             'Fetching all apps/envs',
             'None',
             'N/A',
             error_msg,
-            f'Response status: {response.status_code}'
+            f'Response status: {response.status_code if hasattr(response, "status_code") else "Unknown"}\nException: {str(e)}'
         )
         print(f"└─ Error: {error_msg}")
-        exit(1)
+        
+        # Instead of exiting, try fallback approach
+        print("🔄 Attempting fallback approach for applications/environments...")
+        return handle_enum_compatibility_issue(headers)
 
     return components
+
+
+def handle_enum_compatibility_issue(headers):
+    """
+    Fallback handler for API compatibility issues with enum values
+    Tries alternative API approaches before falling back to empty list
+    """
+    print("🛠️  Handling API compatibility issue...")
+    print("📝 This might be due to:")
+    print("   • API version mismatch between client and server")
+    print("   • Server-side enum definition changes")
+    print("   • Backend configuration issues")
+    
+    # Try alternative API approaches
+    alternative_approaches = [
+        "/v1/applications?minimal=true",
+        "/v1/applications?pageSize=100",
+        "/v1/applications?type=APPLICATION",
+        "/v1/applications?type=ENVIRONMENT"
+    ]
+    
+    for approach in alternative_approaches:
+        try:
+            print(f"🔄 Trying alternative API approach: {approach}")
+            api_url = construct_api_url(approach)
+            response = requests.get(api_url, headers=headers)
+            
+            if response.status_code == 200:
+                print("✅ Alternative API approach successful!")
+                data = response.json()
+                components = data.get('content', [])
+                print(f"📊 Retrieved {len(components)} applications/environments")
+                
+                # Validate the data structure
+                if components and isinstance(components, list):
+                    # Check if we have valid application/environment objects
+                    valid_items = [item for item in components if isinstance(item, dict) and 'name' in item and 'type' in item]
+                    if valid_items:
+                        print(f"✅ Found {len(valid_items)} valid applications/environments")
+                        return valid_items
+                
+            elif response.status_code == 400 and b'ENVIRONMENT_CLOUD' not in response.content:
+                # Different 400 error, might be worth continuing
+                print(f"⚠️  Got 400 status but different error: {response.content}")
+                continue
+            else:
+                print(f"⚠️  Alternative approach failed with status {response.status_code}")
+                
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️  Alternative approach failed with exception: {str(e)}")
+            continue
+        except Exception as e:
+            print(f"⚠️  Unexpected error in alternative approach: {str(e)}")
+            continue
+    
+    print("⚠️  All alternative approaches failed")
+    print("🔄 Attempting direct individual resource checks...")
+    
+    # Try to get individual applications/environments by common names
+    # This helps detect existing resources even when listing fails
+    common_names = ['Production', 'Staging', 'Development', 'Test']
+    found_items = []
+    
+    for name in common_names:
+        try:
+            # Try to get specific application/environment
+            search_url = construct_api_url(f"/v1/applications?name={name}")
+            response = requests.get(search_url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('content', [])
+                for item in items:
+                    if item.get('name') == name:
+                        found_items.append(item)
+                        print(f"✅ Found existing resource: {name} (type: {item.get('type', 'unknown')})")
+        except:
+            # Silently continue if individual checks fail
+            pass
+    
+    if found_items:
+        print(f"✅ Successfully identified {len(found_items)} existing resources through individual checks")
+        return found_items
+    
+    # Final fallback: return empty list but log the issue thoroughly
+    print("⚠️  Returning empty applications/environments list")
+    print("💡 Script will proceed assuming no existing apps/environments")
+    print("🚨 WARNING: This may cause duplicate creation attempts")
+    print("🔍 Check Phoenix UI manually to verify existing resources")
+    
+    return []
+
+
+def get_environment_by_name(env_name, headers):
+    """
+    Try to get a specific environment by name
+    This is a fallback method when the main listing API fails
+    """
+    try:
+        # Try direct search by name
+        api_url = construct_api_url(f"/v1/applications?name={env_name}")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            # Save debug response if enabled
+            try:
+                data = response.json()
+                save_debug_response(
+                    operation_type="environment_fetch",
+                    response_data=data,
+                    request_data={"name": env_name},
+                    endpoint=f"/v1/applications?name={env_name}"
+                )
+            except Exception:
+                pass  # Don't fail if debug saving fails
+            data = response.json()
+            environments = [item for item in data.get('content', []) 
+                          if item.get('type') == 'ENVIRONMENT' and item.get('name') == env_name]
+            if environments:
+                print(f"✅ Found environment '{env_name}' via direct search")
+                return environments[0]
+        
+        # Try alternative pagination approach
+        api_url = construct_api_url("/v1/applications?pageSize=1000")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            for item in data.get('content', []):
+                if item.get('type') == 'ENVIRONMENT' and item.get('name') == env_name:
+                    print(f"✅ Found environment '{env_name}' via pagination search")
+                    return item
+                    
+    except Exception as e:
+        print(f"⚠️  Error searching for environment '{env_name}': {str(e)}")
+    
+    return None
+
 
 @dispatch(str, str, dict, int, dict)
 def add_service(applicationSelectorName, env_id, service, tier, headers2):
@@ -3268,6 +4196,50 @@ def get_environment_id(application_environments, env_name):
     return None
 
 
+def check_application_exists(app_name, headers):
+    """
+    Check if an application exists by trying to find it directly
+    This is a fallback method when the main listing API fails
+    """
+    try:
+        # Try to search for the application by name
+        api_url = construct_api_url(f"/v1/applications?name={app_name}")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Save debug response if enabled
+            save_debug_response(
+                operation_type="application_fetch",
+                response_data=data,
+                request_data={"name": app_name},
+                endpoint=f"/v1/applications?name={app_name}"
+            )
+            
+            applications = [item for item in data.get('content', []) 
+                          if item.get('type') == 'APPLICATION' and item.get('name') == app_name]
+            if applications:
+                print(f"✅ Found application '{app_name}' via direct search (ID: {applications[0].get('id')})")
+                return applications[0]
+        
+        # Try alternative approach - get first page of applications and search
+        api_url = construct_api_url("/v1/applications?pageSize=1000")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            for item in data.get('content', []):
+                if item.get('type') == 'APPLICATION' and item.get('name') == app_name:
+                    print(f"✅ Found application '{app_name}' via pagination search (ID: {item.get('id')})")
+                    return item
+                    
+    except Exception as e:
+        print(f"⚠️  Error searching for application '{app_name}': {str(e)}")
+    
+    return None
+
+
 def get_phoenix_team_members(team_id, headers2):
     global headers
     if not headers:
@@ -3286,19 +4258,41 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
     if not headers:
         headers = headers2
     application_services = []
-    # Track all available apps and services for validation
-    available_apps = {app['name']: app['id'] for app in phoenix_apps_envs if app.get('type') == "APPLICATION"}
-    available_services = {}
     
     print(f"\n[Deployment Operation]")
     print(f"└─ Found {len(applications)} applications to process")
     print(f"└─ Found {len(environments)} environments to process")
     print(f"└─ Found {len(phoenix_apps_envs)} Phoenix apps/envs")
     
-    # Debug: Show available applications
-    print(f"└─ Available applications in Phoenix:")
-    for app_name, app_id in available_apps.items():
-        print(f"   └─ {app_name} (ID: {app_id})")
+    # Track deployment set to service mismatches
+    deployment_set_mismatches = []
+    
+    # Handle API compatibility issues
+    if not phoenix_apps_envs:
+        print(f"⚠️  No Phoenix apps/envs retrieved - likely due to API compatibility issue")
+        print(f"🔄 Switching to individual application detection mode...")
+        
+        # In this mode, we'll try to create deployments and let the API tell us if apps exist
+        available_apps = {}  # Empty - we'll detect during deployment attempts
+        available_services = {}
+        fallback_mode = True
+    else:
+        # Normal mode - we have the full list
+        available_apps = {app['name']: app['id'] for app in phoenix_apps_envs if app.get('type') == "APPLICATION"}
+        available_services = {}
+        fallback_mode = False
+        
+        # Debug: Show available applications
+        print(f"└─ Available applications in Phoenix:")
+        for app_name, app_id in available_apps.items():
+            print(f"   └─ {app_name} (ID: {app_id})")
+            
+        # Get all services for each environment with proper pagination
+        all_services = get_phoenix_components(headers)
+        for env in phoenix_apps_envs:
+            if env.get('type') == "ENVIRONMENT":
+                available_services[env['name']] = {svc['name']: svc['id'] for svc in all_services if svc['applicationId'] == env['id']}
+                print(f"└─ Total services loaded for '{env['name']}': {len(available_services[env['name']])}")
     
     # Debug: Show applications to process
     print(f"└─ Applications from config to process:")
@@ -3307,45 +4301,46 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
         deployment_set = app.get('Deployment_set', 'None')
         print(f"   └─ {app_name} (Deployment_set: {deployment_set})")
     
-    # Get all services for each environment with proper pagination
-    all_services = get_phoenix_components(headers)
-    for env in phoenix_apps_envs:
-        if env.get('type') == "ENVIRONMENT":
-            available_services[env['name']] = {svc['name']: svc['id'] for svc in all_services if svc['applicationId'] == env['id']}
-            print(f"└─ Total services loaded for '{env['name']}': {len(available_services[env['name']])}")
-    
     # Process each application
     for app in applications:
         app_name = app.get('AppName')
         if not app_name:
             continue
             
-        if app_name not in available_apps:
-            print(f"\n[Processing Application: {app_name}]")
-            print(f"└─ Error: Application not found")
-            continue
-            
+        print(f"\n[Processing Application: {app_name}]")
+        
+        # Check if application exists (normal mode vs fallback mode)
+        app_exists = False
+        app_id = None
+        
+        if fallback_mode:
+            # In fallback mode, try to find the application directly
+            print(f"└─ Checking if application exists (fallback mode)...")
+            app_data = check_application_exists(app_name, headers)
+            if app_data:
+                app_exists = True
+                app_id = app_data.get('id')
+                available_apps[app_name] = app_id  # Cache for future use
+            else:
+                print(f"└─ ⚠️  Application '{app_name}' not found - it may need to be created first")
+                print(f"└─ 💡 Skipping deployment for this application")
+                continue
+        else:
+            # Normal mode - check against the pre-loaded list
+            if app_name not in available_apps:
+                print(f"└─ Error: Application not found in Phoenix listing")
+                continue
+            else:
+                app_exists = True
+                app_id = available_apps[app_name]
+                
         deployment_set = app.get('Deployment_set')
         if not deployment_set:
-            print(f"\n[Processing Application: {app_name}]")
             print(f"└─ Error: No deployment set defined")
             continue
             
-        print(f"\n[Processing Application: {app_name}]")
-        print(f"└─ Deployment Set: {deployment_set}")
-        
-        # Validate app exists
-        if app_name not in available_apps:
-            error_msg = f"Application '{app_name}' not found in available applications"
-            log_error(
-                'Deployment Creation',
-                app_name,
-                'N/A',
-                error_msg,
-                f'Available apps: {", ".join(sorted(available_apps.keys()))}'
-            )
-            print(f"└─ Error: {error_msg}")
-            continue
+        print(f"└─ ✅ Application found (ID: {app_id})")
+        print(f"└─ Processing deployment set: {deployment_set}")
 
         for env in environments:
             if not env.get('Services'):
@@ -3414,6 +4409,16 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
                     matched_services += 1
                 else:
                     print(f"       └─ ✗ No match")
+                    # Log deployment set mismatch
+                    mismatch_info = {
+                        'app_name': app_name,
+                        'deployment_set': deployment_set,
+                        'service_name': service_name,
+                        'service_deployment_set': service.get('Deployment_set'),
+                        'service_deployment_tag': service.get('Deployment_tag'),
+                        'environment': env_name
+                    }
+                    deployment_set_mismatches.append(mismatch_info)
             
             print(f"  └─ Matched {matched_services} out of {total_services} services in environment {env_name}")
     
@@ -3477,6 +4482,16 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
                     response.raise_for_status()
                     print(f"└─ Successfully created deployment for application {app_name} and "
                           f"{'service name: ' + service_info if use_service_name else 'service tag: ' + service_info}")
+                    
+                    # Save debug response if enabled
+                    response_data = response.json() if response.content else {"status": "deployed", "message": "Deployment successful"}
+                    save_debug_response(
+                        operation_type="deployment",
+                        response_data=response_data,
+                        request_data=deployment_payload,
+                        endpoint=f"/v1/applications/{app_id}/deploy"
+                    )
+                    
                     consecutive_400_errors = 0
                     deployment_success = True
                     successful_deployments += 1
@@ -3523,10 +4538,49 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
 
         time.sleep(1)  # Wait for 1 second after processing each batch
     
+    # Report deployment set mismatches
+    if deployment_set_mismatches:
+        print(f"\n[Deployment Set Mismatches Report]")
+        print(f"└─ Found {len(deployment_set_mismatches)} deployment set mismatches:")
+        
+        # Group by deployment set for better readability
+        mismatches_by_deployment_set = {}
+        for mismatch in deployment_set_mismatches:
+            deployment_set = mismatch['deployment_set']
+            if deployment_set not in mismatches_by_deployment_set:
+                mismatches_by_deployment_set[deployment_set] = []
+            mismatches_by_deployment_set[deployment_set].append(mismatch)
+        
+        for deployment_set, mismatches in mismatches_by_deployment_set.items():
+            print(f"\n  [Deployment Set: {deployment_set}]")
+            print(f"  └─ {len(mismatches)} services don't match this deployment set:")
+            
+            for mismatch in mismatches:
+                service_ds = mismatch['service_deployment_set'] or 'None'
+                service_dt = mismatch['service_deployment_tag'] or 'None'
+                print(f"    └─ Service: {mismatch['service_name']}")
+                print(f"       └─ Has Deployment_set: {service_ds}")
+                print(f"       └─ Has Deployment_tag: {service_dt}")
+                print(f"       └─ Required: {deployment_set}")
+                print(f"       └─ Environment: {mismatch['environment']}")
+                
+                # Log to error log as well
+                log_error(
+                    'Deployment Set Mismatch',
+                    f"{mismatch['app_name']} -> {mismatch['service_name']}",
+                    mismatch['environment'],
+                    f"Deployment set mismatch: app requires '{deployment_set}' but service has Deployment_set='{service_ds}', Deployment_tag='{service_dt}'",
+                    f"Service configuration may need to be updated to match application deployment set"
+                )
+    else:
+        print(f"\n[Deployment Set Mismatches Report]")
+        print(f"└─ ✅ No deployment set mismatches found")
+    
     print(f"\n[Final Deployment Summary]")
     print(f"└─ Total deployments processed: {total_deployments}")
     print(f"└─ Successful deployments: {successful_deployments}")
     print(f"└─ Failed deployments: {failed_deployments}")
+    print(f"└─ Deployment set mismatches: {len(deployment_set_mismatches)}")
 
 
 def check_app_name_matches_service_name(app_name, service_name):
@@ -3578,6 +4632,16 @@ def create_autolink_deployments(applications, environments, headers2):
                     response = requests.patch(api_url, headers=headers, json=deployment)
                     response.raise_for_status()
                     print(f" + Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']} successful")
+                    
+                    # Save debug response if enabled
+                    response_data = response.json() if response.content else {"status": "deployed", "message": "Deployment successful"}
+                    save_debug_response(
+                        operation_type="deployment",
+                        response_data=response_data,
+                        request_data=deployment,
+                        endpoint="/v1/applications/deploy"
+                    )
+                    
                     break  # Exit the retry loop if successful
                 except requests.exceptions.RequestException as e:
                     if response.status_code == 409:
@@ -3657,6 +4721,8 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
         headers = headers2
     types = ["CONTAINER", "CLOUD"]
     phoenix_component_names = [pcomponent.get('name') for pcomponent in phoenix_components]
+    auto_created_components = []  # Track created components for YAML export
+    
     for type in types:
         already_suggested_components = set()
         for appEnv in applicationEnvironments:
@@ -3674,15 +4740,35 @@ def create_components_from_assets(applicationEnvironments, phoenix_components, h
                         if answer == 'A':
                             component_name = input("Component name:")
                             already_suggested_components.add(component_name)
+                        
+                        # Extract team names from environment tags
+                        team_names = [next((tag['value'] for tag in appEnv['tags'] if 'value' in tag and 'key' in tag and tag['key'] == 'pteam'), None)]
+                        team_names = [name for name in team_names if name is not None]  # Remove None values
+                        
                         print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
                         component_to_create = {
                             "Status": None,
                             "Type": None,
-                            "TeamNames": [next((tag['value'] for tag in appEnv['tags'] if 'value' in tag and 'key' in tag and tag['key'] == 'pteam'), None)],
+                            "TeamNames": team_names,
                             "ComponentName": component_name
                         }
                         create_custom_component(appEnv['name'], component_to_create, headers)
                         print(f"Created component with name {component_name} in environment: {appEnv.get('name')}")
+                        
+                        # Track the created component for YAML export
+                        auto_created_components.append({
+                            'environment_name': appEnv.get('name'),
+                            'application_name': appEnv.get('applicationName', appEnv.get('name')),  # Use app name if available
+                            'component_name': component_name,
+                            'team_names': team_names,
+                            'status': None,
+                            'type': None,
+                            'asset_count': len(group),
+                            'asset_type': type,
+                            'original_group_name': group[0]
+                        })
+    
+    return auto_created_components
 
 
 # Handle Repository Rule Creation for Components
@@ -3857,14 +4943,7 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     print(f"   └─ Application: {applicationName}")
                     print(f"   └─ Component: {componentName}")
                     print(f"   └─ Filter: {json.dumps(rule['filter'], indent=2)}")
-                # Log successful rule creation
-                log_error(
-                    'Rule Creation',
-                    f"{componentName} -> {descriptive_rule_name}",
-                    applicationName,
-                    'Rule created successfully',
-                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
-                )
+                # Success - no need to log to errors.log
                 return True
                 
             elif response.status_code == 409:
@@ -3873,14 +4952,7 @@ def create_component_rule(applicationName, componentName, filterName, filterValu
                     print(f"   └─ Application: {applicationName}")
                     print(f"   └─ Component: {componentName}")
                     print(f"   └─ Filter: {json.dumps(rule['filter'], indent=2)}")
-                # Log existing rule
-                log_error(
-                    'Rule Update',
-                    f"{componentName} -> {descriptive_rule_name}",
-                    applicationName,
-                    'Rule already exists',
-                    f'Filter: {json.dumps(rule["filter"])}' if DEBUG else None
-                )
+                # Rule already exists - this is not an error condition
                 return True
                 
             elif response.status_code in [503, 429]:

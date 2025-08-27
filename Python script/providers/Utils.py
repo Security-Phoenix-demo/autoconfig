@@ -1,4 +1,5 @@
 from itertools import groupby
+from urllib.parse import urlparse
 
 # Function to populate unique domains from a list of repos
 def populate_domains(repos):
@@ -133,7 +134,50 @@ def validate_user_role(user_role):
     
 
 def add_PAT_to_github_repo_url(pat, repo_url):
-    # update the repo_url to contain the PAT right after https://
-    # only for github repos
-    if "https://github.com" in repo_url:
-        return repo_url[:8] + pat + "@" + repo_url[8:]
+    """
+    Securely add Personal Access Token to GitHub repository URL.
+    
+    Args:
+        pat (str): Personal Access Token
+        repo_url (str): Repository URL to validate and modify
+        
+    Returns:
+        str: Modified URL with PAT if valid GitHub URL, original URL otherwise
+        
+    Raises:
+        ValueError: If PAT is empty or contains invalid characters
+    """
+    # Input validation
+    if not pat or not isinstance(pat, str):
+        raise ValueError("Personal Access Token must be a non-empty string")
+    
+    if not repo_url or not isinstance(repo_url, str):
+        return repo_url
+    
+    try:
+        # Parse and validate URL
+        parsed_url = urlparse(repo_url)
+        
+        # Strict validation: must be HTTPS GitHub URL
+        if (parsed_url.scheme == "https" and 
+            parsed_url.hostname == "github.com" and
+            parsed_url.netloc == "github.com"):  # Additional check for exact netloc
+            
+            # Reconstruct URL with PAT using proper URL components
+            scheme = parsed_url.scheme
+            netloc_with_auth = f"{pat}@{parsed_url.netloc}"
+            path = parsed_url.path
+            params = parsed_url.params
+            query = parsed_url.query
+            fragment = parsed_url.fragment
+            
+            # Rebuild URL safely
+            from urllib.parse import urlunparse
+            modified_url = urlunparse((scheme, netloc_with_auth, path, params, query, fragment))
+            return modified_url
+            
+    except Exception as e:
+        # Log security event (in production, use proper logging)
+        print(f"Security warning: Invalid URL rejected: {repo_url} - {str(e)}")
+        
+    return repo_url

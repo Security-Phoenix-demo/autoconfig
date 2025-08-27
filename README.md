@@ -1,142 +1,38 @@
 ## Versioning
 
-V 4.5.1
-Date - 23 July 2025
-
-# 🔧 Autoconfig – Developer-First CMDB-as-Code
-
-**Autoconfig** is a YAML-based automation framework that flips the legacy CMDB model on its head.
-
-Instead of forcing developers to submit tickets to update outdated configuration management databases, **Autoconfig enables teams to define ownership, application structure, environments, and cloud-service mappings directly in their own repositories**—where infrastructure and code already live.
-
-This configuration is automatically synced with the **Phoenix Security platform** to ensure:
-- 🔍 Accurate ownership attribution
-- ⚡ Contextual vulnerability triage
-- 🚀 Faster remediation through team-level accountability
-
- # 🤝 Philosophy
-
-Let devs *own* what they build.  
-Let security *see* what’s at risk.  
-All through Git.
-
-Autoconfig brings configuration, ownership, and attribution into the developer workflow — replacing stale CMDBs with YAML-defined truth.
-
-# 🧠 Best Practices
-
-- Use **incremental YAML definitions**
-- Validate with linter before pushing
-- Schedule **daily CI/CD runs**
-- Keep teams and ownership up to date
-- Use meaningful `Tier` values to prioritize critical components
-
----
-
-## 🧠 Why It Matters
-
-| Legacy CMDB | Autoconfig |
-|-------------|------------|
-| Manual and outdated | Git-driven and always current |
-| Lives outside the Dev workflow | Lives in your repo |
-| Requires ticketing and change boards | CI/CD-native automation |
-| No context for risk | Full code-to-cloud visibility |
-
----
-
-## 🛠️ How It Works
-
-1. **Developers define**:
-   - Apps, services, components, teams in YAML
-   - Ownership using real team emails and roles
-   - Rules to associate code and cloud to the right owners
-
-2. **Autoconfig parses and validates** your YAML
-
-3. **It syncs to Phoenix Security via API**, configuring:
-   - Applications and components
-   - Cloud environments and services
-   - Team membership and user roles
-   - Code-to-cloud mappings
-
-### 🧪 Example
-
-```yaml
-DeploymentGroups:
-  - AppName: MyWebApp
-    TeamNames: [WebTeam]
-    Responsable: lead@company.com
-    Tier: 2
-    Components:
-      - ComponentName: Backend
-        TeamNames: [BackendTeam]
-        RepositoryName: myorg/backend-service
-        Type: API
-        AssetType: REPOSITORY
-
-Environment Groups:
-  - Name: Production
-    Type: CLOUD
-    Responsable: ops@company.com
-    Services:
-      - Service: DBCluster
-        Type: Infra
-        TeamName: DBA
-        MultiConditionRules:
-          - RepositoryName: db-schema
-            Tag: env:prod
-            AssetType: CLOUD
-```
-
-# 🔐 Security Best Practices
-
-- **Do NOT** hardcode API credentials
-- Use environment variables or secrets
-- Rotate tokens regularly
-- Review user and team roles frequently
-
----
-
----
-
-## 🧾 4. `COMMANDS.md`
-
-
-# 🚦 Command Line Usage
-
-## Common Flags
-
-| Task | Flag |
-|------|------|
-| Create teams | `--action_teams=true` |
-| Configure apps & repos | `--action_code=true` |
-| Configure cloud & services | `--action_cloud=true` |
-| Link deployments | `--action_deployment=true` |
-| Auto-create teams from tags | `--action_autocreate_teams_from_pteam=true` |
-| Auto-link apps and services | `--action_autolink_deploymentset=true` |
-| Suggest components from cloud assets | `--action_create_components_from_assets=true` |
-
-## Full Setup
-
-```bash
-python run-phx.py <client_id> <client_secret> \
-  --action_teams=true \
-  --action_code=true \
-  --action_cloud=true \
-  --action_deployment=true
-```
-
+V 4.5.2
+Date - August 2025
 
 ## 🎉 Recent Updates & Improvements
 
-### **📋 New Documentation**
+### **🆕 Version 4.5.2 Features**
+- ✅ **Comprehensive Execution Reporting**: New detailed reporting system that tracks success/failure of all operations
+- ✅ **Component Creation Tracking**: Individual component creation success/failure tracking with detailed error reporting
+- ✅ **Application-Level Tag Support**: Full support for Tag_label processing at application level in Phoenix API
+- ✅ **Enhanced Error Analysis**: Integration of both real-time tracking and historical error log analysis
+- ✅ **Visual Progress Indicators**: Clear status indicators (✅ ⚠️ ❌) for easy identification of issues
+- ✅ **Detailed Error Tracking**: Comprehensive error logging with context for troubleshooting
+- ✅ **Performance Metrics**: Execution time tracking and success rate calculations
+- ✅ **Operation Categorization**: Reports organized by teams, applications, deployments, environments, components, etc.
+
+### **🆕 Version 4.5.1 Features**
+- ✅ **Subfolder Support**: `run-config.yaml` now supports subfolder paths like `/mimecast/config.yaml` for better organization
+- ✅ **Enhanced Path Resolution**: Improved configuration file discovery and validation
+- ✅ **Multi-Client Support**: Organize configurations by client, environment, or team in subfolders
+- ✅ **Backward Compatibility**: All existing configurations continue to work without changes
+
+### **📋 Documentation**
 - **[YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md)** - Comprehensive 500+ line guide with examples, validation, and troubleshooting
 - **[YAML Quick Reference](YAML_QUICK_REFERENCE.md)** - Concise reference card for quick lookups during configuration
+- **[Release Notes](RELEASE_NOTES.md)** - Detailed information about version 4.5.2 reporting features and 4.5.1 subfolder support
 
-### **🔧 Critical Fixes Applied**
-- ✅ **YAML Parsing Errors**: Fixed structural issues with multi-condition rules causing parsing failures
-- ✅ **AssetType Validation**: Added missing `CLOUD`, `WEB`, `FOSS`, `SAST` support (now synchronized with Phoenix Security API)
-- ✅ **Linter Improvements**: Enhanced validation with multi-condition rule checking and better error reporting
-- ✅ **API Compatibility**: All AssetType values now match Phoenix Security API requirements
+### **🔧 Recent Critical Fixes**
+- ✅ **Application Tag Processing**: Fixed missing Tag_label support in application creation API calls
+- ✅ **Component Integration Errors**: Added automatic retry mechanism for "Integration not found" errors
+- ✅ **RiskFactor Tag Parsing**: Fixed multi-colon tag processing (e.g., RiskFactor:authenticated_access: false)
+- ✅ **YAML Syntax Validation**: Enhanced mimecast_translator.py with proper indentation handling
+- ✅ **Linter Schema Updates**: Added Tag_label support to application and component validation schemas
+- ✅ **AssetType Validation**: Added missing `CLOUD`, `WEB`, `FOSS`, `SAST` support (synchronized with Phoenix Security API)
 
 ### **🛠️ Validation & Linter**
 To validate your YAML configuration:
@@ -212,25 +108,35 @@ The Phoenix-based endpoint for API requests is: [https://api.YOURDOMAIN.security
 
 The following AssetType values are supported and validated by the Phoenix Security API:
 
+### **Components (Software-Focused Assets)**
 | AssetType | Purpose | Use Cases |
 |-----------|---------|-----------|
 | `REPOSITORY` | Source code repositories | GitHub repos, GitLab repos |
 | `SOURCE_CODE` | Source code assets | Code files, source artifacts |
 | `BUILD` | Build artifacts | JAR files, executables |
 | `WEBSITE_API` | Web applications & APIs | REST APIs, web services |
-| `CONTAINER` | Container images/instances | Docker, Kubernetes pods |
-| `INFRA` | Infrastructure components | Servers, networks |
-| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
 | `WEB` | Web assets | Websites, web applications |
 | `FOSS` | Open source components | Third-party libraries |
 | `SAST` | Static analysis assets | Security scan results |
 
-**Note**: These values are case-sensitive and must be used exactly as shown. For detailed usage examples, see the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md).
+### **Services (Infrastructure-Focused Assets)**
+| AssetType | Purpose | Use Cases |
+|-----------|---------|-----------|
+| `CONTAINER` | Container images/instances | Docker, Kubernetes pods |
+| `INFRA` | Infrastructure components | Servers, networks |
+| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
+
+**Note**: Components handle software assets while Services handle infrastructure assets. Values are case-sensitive and must be used exactly as shown. For detailed usage examples, see the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md).
 
 ## Versioning
 
-V 4.3
-Date - 25 Mar 2025
+V 4.5.2
+Date - January 2025
+
+### Recent Versions
+- **V 4.5.2** (January 2025): Comprehensive execution reporting system
+- **V 4.5.1** (August 2025): Configuration file organization with subfolder support  
+- **V 4.3** (March 2025): Tag logic overhaul and repository path optimization
 
 # Quick Start Guide
 
@@ -263,7 +169,55 @@ python run.py your_client_id your_client_secret True False False False False Fal
 
 ## Using run-phx.py (New Version)
 
-The new version of the script (`run-phx.py`) uses a more modern argument parser with named parameters for better clarity and usability.
+The new version of the script (`run-phx.py`) uses a more modern argument parser with named parameters for better clarity and usability. 
+
+### **📊 Comprehensive Execution Reporting** ⭐ **NEW IN v4.5.2**
+
+The script now includes automatic execution reporting that provides complete visibility into the configuration process. After each run, you'll receive a detailed report showing:
+
+- **📅 Execution Summary**: Start time, duration, and configuration files processed
+- **📊 Success Rates**: Visual indicators (✅ ⚠️ ❌) with percentage success rates for each category
+- **📋 Detailed Breakdown**: Success/failure details for teams, applications, deployments, environments, etc.
+- **❌ Error Analysis**: Comprehensive error tracking with context for quick troubleshooting
+- **🎯 Overall Metrics**: Total operations performed and overall success rate
+
+**Example Report Output:**
+```
+================================================================================
+PHOENIX AUTOCONFIG EXECUTION REPORT
+================================================================================
+
+📅 Execution Time: 2024-01-15 10:30:00 - 2024-01-15 10:32:45
+⏱️  Total Duration: 0:02:45
+
+📂 Configuration Files Processed: 2
+   • mimecast-core-structure.yaml
+   • core-structure.yaml
+
+🔧 Actions Performed: Teams, Cloud, Code, Deployment
+
+📊 OPERATION SUMMARY
+--------------------------------------------------
+✅ TEAMS: 5/5 successful (100.0%)
+✅ APPLICATIONS: 12/12 successful (100.0%)
+✅ COMPONENTS: 18/20 successful (90.0%)
+⚠️ ENVIRONMENTS: 8/10 successful (80.0%)
+❌ DEPLOYMENTS: 3/8 successful (37.5%)
+
+🎯 OVERALL SUCCESS RATE: 46/55 (83.6%)
+
+❌ COMPREHENSIVE ERROR SUMMARY (7 total)
+--------------------------------------------------
+
+COMPONENTS Errors (2):
+  1. create_component - mimecast-admin-console -> Mimecast Administration Console
+     Error: Integration not found, retried successfully without ticketing
+  2. create_component - dmarc-customer-service -> DMARC Customer Service  
+     Error: Failed to create component even without ticketing: 400 Client Error
+     Time: 2024-01-15 10:31:45
+```
+
+This reporting feature is **automatically enabled** for all script executions and requires no additional configuration.
 
 ### Basic Command Structure
 
@@ -289,16 +243,67 @@ python run-phx.py <client_id> <client_secret> [options]
 | `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
 | `--action_teams` | Create and manage teams | false | `--action_teams=true` |
 | `--action_create_users_from_teams` | Automatically create users from team configuration | false | `--action_create_users_from_teams=true` |
+| `--create_users_from_responsable` | **NEW**: Auto-create users from Responsable field | **true** | `--create_users_from_responsable=true` |
 | `--action_code` | Create applications and components | false | `--action_code=true` |
 | `--action_cloud` | Create environments and services | false | `--action_cloud=true` |
 | `--action_deployment` | Create deployments | false | `--action_deployment=true` |
 | `--action_autolink_deploymentset` | Auto-create deployments based on name similarity | false | `--action_autolink_deploymentset=true` |
 | `--action_autocreate_teams_from_pteam` | Create teams from pteam tags | false | `--action_autocreate_teams_from_pteam=true` |
 | `--action_create_components_from_assets` | Create components from discovered assets | false | `--action_create_components_from_assets=true` |
+| `--verbose` | Enable detailed debug output for troubleshooting | false | `--verbose` |
+| `--clear-logs` | Clear all error logs and exit | false | `--clear-logs` |
 
 ### Team Configuration and User Management
 
-The script now supports automatic user creation from team configuration files. Users can be created with specific roles based on their `EmployeeRole` in the team configuration.
+The script supports two types of automatic user creation:
+
+1. **NEW in v4.8.3**: From `Responsable` field in applications/environments (enabled by default)
+2. From team configuration files with specific roles
+
+### Automatic User Creation from Responsable Field 🆕
+
+**NEW FEATURE**: The script automatically creates users from the `Responsable` field in your YAML configuration files.
+
+#### Configuration Options:
+
+**Command Line (Recommended):**
+```bash
+# Enable user creation (default)
+--create_users_from_responsable=true
+
+# Disable user creation  
+--create_users_from_responsable=false
+```
+
+**Configuration File (Alternative):**
+```yaml
+# In your core-structure.yaml file
+CreateUsersForApplications: true
+```
+
+#### Features:
+- ✅ **Enabled by default** - No configuration needed
+- ✅ **Hang prevention** - 30-second timeout protection
+- ✅ **Duplicate prevention** - Smart checking against existing users
+- ✅ **Progress tracking** - Shows processing status for each user
+- ✅ **Error resilience** - Continues even if some users fail
+- ✅ **Efficient processing** - Only processes unique emails
+
+#### Example Usage:
+```bash
+# Basic usage (user creation enabled by default)
+python run-phx.py CLIENT_ID CLIENT_SECRET --action_code=true
+
+# Explicitly enable user creation
+python run-phx.py CLIENT_ID CLIENT_SECRET --action_code=true --create_users_from_responsable=true
+
+# Disable user creation
+python run-phx.py CLIENT_ID CLIENT_SECRET --action_code=true --create_users_from_responsable=false
+```
+
+### User Creation from Team Configuration
+
+The script also supports automatic user creation from team configuration files. Users can be created with specific roles based on their `EmployeeRole` in the team configuration.
 
 #### Team Member Configuration Format
 
@@ -361,6 +366,18 @@ The script will:
 - Skip users that already exist
 - Log detailed error messages for troubleshooting
 - Continue processing other users if one fails
+
+### Log Management
+
+**Clear Error Logs**
+```bash
+# Clear all error logs and exit
+python run-phx.py --clear-logs
+```
+This command clears all error logs (errors.log and other *.log files) and exits immediately. Useful for:
+- Starting with clean logs for debugging
+- Maintenance operations
+- Automated script cleanup
 
 ### Common Usage Patterns
 
@@ -459,26 +476,49 @@ python run-phx.py your_client_id your_client_secret \
 
 ### Troubleshooting
 
-1. **API Connection Issues**
+The new reporting feature provides comprehensive error tracking and performance metrics to help identify and resolve issues quickly.
+
+1. **Using the Execution Report**
+   ```bash
+   # Run with verbose output for detailed debugging
+   python run-phx.py your_client_id your_client_secret \
+     --action_teams=true \
+     --verbose
+   ```
+   
+   The execution report will show:
+   - Overall success rates for each operation category
+   - Detailed error messages with context
+   - Performance metrics and timing information
+   - Specific items that failed with reasons
+
+2. **API Connection Issues**
    ```bash
    # Test API connection
    python run-phx.py your_client_id your_client_secret \
      --api_domain=https://api.custom.appsecphx.io
    ```
 
-2. **Team Creation Issues**
+3. **Team Creation Issues**
    ```bash
-   # Verify team configuration
+   # Verify team configuration with detailed reporting
    python run-phx.py your_client_id your_client_secret \
-     --action_teams=true
+     --action_teams=true \
+     --verbose
    ```
 
-3. **Deployment Problems**
+4. **Deployment Problems**
    ```bash
-   # Check deployment configuration
+   # Check deployment configuration with comprehensive reporting
    python run-phx.py your_client_id your_client_secret \
-     --action_deployment=true
+     --action_deployment=true \
+     --verbose
    ```
+
+5. **Interpreting Success Rates**
+   - ✅ **80-100%**: Excellent - Most operations completed successfully
+   - ⚠️ **50-79%**: Warning - Some issues that may need attention
+   - ❌ **<50%**: Critical - Significant problems requiring investigation
 
 # Examples and Detailed Usage
 
@@ -627,7 +667,7 @@ DeploymentGroups:
         MultiConditionRule:
           RepositoryName: company/gateway
           SearchName: gateway-*
-          AssetType: CONTAINER
+          AssetType: REPOSITORY
         MULTI_MultiConditionRules:
           - RepositoryName: company/auth
             SearchName: auth-*
@@ -727,13 +767,14 @@ Environment Groups:
 #### Component Creation from Assets
 ```yaml
 Components:
-  - ComponentName: DatabaseCluster
-    AssetType: CLOUD
+  - ComponentName: DatabaseAPI
+    AssetType: WEBSITE_API
+    SearchName: "database-api"
+    Fqdn:
+      - "db-api.company.com"
     Tags:
       - "type:database"
       - "env:prod"
-    ProviderAccountId: 
-      - "123456789"
 ```
 
 ### 3. Security Integration
@@ -833,11 +874,12 @@ Services:
 ```yaml
 Services:
   - Service: MyService
+    Type: Cloud
     MultiConditionRules:
-      - RepositoryName: repo1
-        SearchName: service1
-      - RepositoryName: repo2
-        SearchName: service2
+      - AssetType: CONTAINER
+        SearchName: service1-container
+      - AssetType: INFRA
+        SearchName: service2-infra
 ```
 
 ### Component Configuration Options
@@ -856,10 +898,12 @@ Components:
 Components:
   - ComponentName: MyComponent
     MultiConditionRule:
+      AssetType: REPOSITORY
       RepositoryName: repo1
       SearchName: component1
     MULTI_MultiConditionRules:
-      - RepositoryName: repo2
+      - AssetType: SOURCE_CODE
+        RepositoryName: repo2
         SearchName: component2
 ```
 
@@ -1812,10 +1856,58 @@ It will also create auto-link rules based on pteam tag.
 
 This action will iterate over all environments, and then for each environment:
 - fetch assets for types ("CONTAINER", "CLOUD")
-- group assets per name similarity (similarity is configurable through ASSET_NAME_SIMILARITY_THRESHOLD variable in Phoenix.py)
-- for each asset group containing more than 5 assets, suggest to user to create a component (component name can be overridden in console)
-    - number of assets in group is configurable through ASSET_GROUP_MIN_SIZE_FOR_COMPONENT_CREATION variable in Phoenix.py
+- group assets per name similarity (configurable via config.ini)
+- for each asset group containing enough similar assets, suggest to user to create a component (component name can be overridden in console)
 - if user confirms the component creation, component is created in that environment
+
+### Configuration Options
+
+You can customize the behavior by creating a `config.ini` file in the `Python script/Resources/` folder:
+
+```ini
+[asset_component_creation]
+# Asset name similarity threshold (0.0 to 1.0)
+# 1.0 = exact match required, 0.8 = 80% similarity, etc.
+asset_name_similarity_threshold = 1.0
+
+# Minimum number of assets with similar names to suggest component creation
+asset_group_min_size_for_component_creation = 5
+```
+
+**Parameters:**
+- `asset_name_similarity_threshold`: Controls how similar asset names must be to group together (default: 1.0 = exact match)
+- `asset_group_min_size_for_component_creation`: Minimum number of assets needed to suggest component creation (default: 5)
+
+Copy `Python script/Resources/config.ini.example` to `config.ini` and customize as needed.
+
+### YAML Export Feature
+
+When components are auto-created, they are saved to both:
+1. **Phoenix Security Platform** (via API)
+2. **Local YAML file** in `Python script/Resources/phx-auto-components_YYYYMMDD_HHMMSS.yaml`
+
+The YAML file contains:
+- All auto-created components with `phx-auto-` prefix
+- Component metadata (team assignments, asset counts, etc.)
+- Structured by Application → Environment → Components
+- Can be used for backup, review, or re-importing components
+
+Example YAML structure:
+```yaml
+Applications:
+  WebApplication:
+    Environments:
+      production:
+        Components:
+          phx-auto-web-server:
+            Status: null
+            Type: null
+            TeamNames: ["web-team"]
+            auto_created: true
+            original_name: web-server
+            asset_count: 25
+            asset_type: CONTAINER
+```
 
 
 ## Overview of commands to run autoconfig, with examples
@@ -2001,30 +2093,29 @@ Set `DEBUG = True` in `Phoenix.py` to enable additional logging:
    - Adjust timeouts and retries as needed
    - Document configuration changes
 
-### Troubleshooting Tips
+### Advanced Troubleshooting
 
-1. **Service Creation Issues**:
+With the new reporting feature in v4.5.2, troubleshooting is significantly easier:
+
+1. **Using the Execution Report**:
+   The automatic report shows exactly what failed and why, making troubleshooting much faster.
+
+2. **Service Creation Issues**:
    ```python
-   # Increase retry attempts and delays
+   # Increase retry attempts and delays in providers/Phoenix.py
    max_retries = 5  # Default: 3
    base_delay = 5   # Default: 2
    ```
 
-2. **Rule Creation Issues**:
-   ```python
-   # Enable debug mode for detailed logging
-   DEBUG = True
-   ```
-
-3. **Component Verification**:
-   ```python
-   # Add verification delay
-   time.sleep(delay)  # Adjust delay as needed
+3. **Enable Debug Mode**:
+   ```bash
+   # Use verbose mode for detailed logging
+   python run-phx.py client_id client_secret --action_teams=true --verbose
    ```
 
 4. **API Rate Limiting**:
    - Monitor response headers for rate limits
-   - Implement exponential backoff
+   - The execution report will show timing-related failures
    - Batch operations when possible 
 
 ### Asset Grouping and Component Creation
@@ -2052,6 +2143,8 @@ For automated component creation from assets:
 - Test configurations in development environments first
 - Keep backup copies of working configurations
 - Review and update team configurations regularly
+- **Use the execution reporting**: Monitor success rates and review error details after each run
+- **Enable verbose mode**: Use `--verbose` flag when troubleshooting issues
 
 ---
 

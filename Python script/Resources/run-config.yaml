@@ -1,16 +1,24 @@
 ConfigFiles:  # list of config files in Resources folder, to load into autoconfig scripts (for apps and environments)
   - core-structure.yaml
 
+# Folder containing team configuration files (relative to Resources folder)
+TeamsFolder: origin/Teams  # Default: Teams
+
+# Hives configuration (organizational hierarchy and leadership)
+EnableHives: false  # Set to false to disable hives completely
+#HivesFile: hives.yaml  # Default: hives.yaml (relative to Resources folder)
+HivesFile: origin/hives.yaml  # Default: hives.yaml (relative to Resources folder)
+
 ## Config for GitHub repos that will serve the config
 
 # List of GitHub repositories that have the config file, to load into autoconfig scripts (for apps and environments)
 GitHubRepositories:
   #- https://github.com/stefanpetrovic/test_config5
-  #- https://github.com/Security-Phoenix-demo/stefan_test_gh_autoconfig
+  #- https://github.com/Security-Phoenix-demo/usr_test_gh_autoconfig
 
 
 # Folder to save the cloned repos to:
-GitHubRepoFolder: C:/Users/Administrator/Projects/autoconfig-GitHubRepos
+GitHubRepoFolder: autoconfig-GitHubRepos
 
 # Name of the config file in GitHub repository to load into autoconfig script
 ConfigFileName: assetconfig.phoenix

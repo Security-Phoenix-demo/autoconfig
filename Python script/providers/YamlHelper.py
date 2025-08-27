@@ -3,8 +3,25 @@ import yaml
 from pathlib import Path
 from providers.Utils import calculate_criticality
 from email_validator import validate_email, EmailNotValidError
-from .Linter import validate_component, validate_application, validate_environment, validate_service
-from .Phoenix import extract_last_two_path_parts
+
+# Handle imports with fallback for both relative and absolute imports
+try:
+    # Try relative imports first (when run as part of a package)
+    from .Linter import validate_component, validate_application, validate_environment, validate_service
+    from .Phoenix import extract_last_two_path_parts
+except (ImportError, ValueError):
+    try:
+        # Fall back to absolute imports (when run standalone or from different context)
+        from Linter import validate_component, validate_application, validate_environment, validate_service
+        from Phoenix import extract_last_two_path_parts
+    except ImportError:
+        # Final fallback - try with full module path
+        import sys
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sys.path.insert(0, current_dir)
+        from Linter import validate_component, validate_application, validate_environment, validate_service
+        from Phoenix import extract_last_two_path_parts
 
 # Check if PyYAML module exists
 try:
@@ -92,6 +109,12 @@ def populate_environments_from_env_groups_from_config(config_file_path):
 
     for row in repos_yaml['Environment Groups']:
         print_linter_result(row.get('Name', 'N/A'), validate_environment(row))
+        
+        # Handle both 'Responsable' and 'Responsible' field names
+        responsable = row.get('Responsable') or row.get('Responsible', '')
+        if responsable:
+            responsable = responsable.lower()
+        
         # Define the environment item
         item = {
             'Name': row['Name'],
@@ -99,7 +122,7 @@ def populate_environments_from_env_groups_from_config(config_file_path):
             'Criticality': calculate_criticality(row['Tier']),
             'CloudAccounts': [""],  # Add CloudAccounts if applicable
             'Status': row['Status'],
-            'Responsable': row['Responsable'].lower(),
+            'Responsable': responsable,
             'TeamName': row.get('TeamName', None),  # Add TeamName from the environment or set as None
             'Ticketing': load_ticketing(row),
             'Messaging': load_messaging(row),
@@ -306,6 +329,8 @@ def populate_applications_from_config(config_file_path):
             'Deployment_set': row.get('Deployment_set', None),
             'Ticketing': load_ticketing(row),
             'Messaging': load_messaging(row),
+            'Tag_label': row.get('Tag_label', None),
+            'Tags_label': row.get('Tags_label', None),
             'Components': []
         }
 
@@ -441,8 +466,15 @@ def load_flag_for_create_users_from_config(config_file_path):
     with open(config_file_path, 'r') as stream:
         repos_yaml = yaml.safe_load(stream)
 
-    if True == repos_yaml.get('CreateUsersForApplications', "False"):
-        return True
+    # Handle both dictionary and list structures
+    if isinstance(repos_yaml, dict):
+        # Dictionary structure - check for CreateUsersForApplications flag
+        if True == repos_yaml.get('CreateUsersForApplications', "False"):
+            return True
+    elif isinstance(repos_yaml, list):
+        # List structure - no CreateUsersForApplications flag, return False
+        return False
+    
     return False
 
 
@@ -618,3 +650,51 @@ def load_github_config_file_name(resource_folder):
         raise Exception("run-config configuration is missing 'ConfigFileName' property")
 
     return repos_yaml['ConfigFileName']
+
+
+def load_teams_folder(resource_folder):
+    """Load the teams folder path from run-config.yaml"""
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return "Teams"  # Default fallback
+
+    config_file = os.path.join(resource_folder, "run-config.yaml")
+    
+    if not os.path.exists(config_file):
+        print(f"run-config.yaml not found, using default Teams folder")
+        return "Teams"
+
+    with open(config_file, 'r') as stream:
+        config = yaml.safe_load(stream)
+
+    if not 'TeamsFolder' in config:
+        print(f"TeamsFolder not found in run-config.yaml, using default: Teams")
+        return "Teams"
+
+    teams_folder = config['TeamsFolder']
+    # Strip leading slash to ensure it's treated as a relative path
+    if teams_folder.startswith('/'):
+        teams_folder = teams_folder[1:]
+    
+    return teams_folder
+
+
+def load_hives_config(resource_folder):
+    """Load hives configuration from run-config.yaml"""
+    if not resource_folder:
+        print("Please supply path for the resources")
+        return True, "hives.yaml"  # Default fallback
+
+    config_file = os.path.join(resource_folder, "run-config.yaml")
+    
+    if not os.path.exists(config_file):
+        print(f"run-config.yaml not found, using default hives configuration")
+        return True, "hives.yaml"
+
+    with open(config_file, 'r') as stream:
+        config = yaml.safe_load(stream)
+
+    enable_hives = config.get('EnableHives', True)
+    hives_file = config.get('HivesFile', 'hives.yaml')
+    
+    return enable_hives, hives_file
