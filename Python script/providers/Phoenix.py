@@ -4,10 +4,19 @@ import json
 import time
 import Levenshtein
 import random
+import os
+from datetime import datetime
 from multipledispatch import dispatch
 
 # Global tracking callback for main script reporting
 component_tracking_callback = None
+
+# Debug response saving
+DEBUG_SAVE_RESPONSE = False
+DEBUG_JSON_TO_SAVE = 10  # Default limit per operation type
+DEBUG_RUN_ID = None  # Will be set when debug mode is enabled
+DEBUG_DOMAIN_NAME = None  # Will be extracted from API domain
+debug_response_counter = {}
 
 def set_component_tracking_callback(callback_func):
     """Set the callback function for tracking component operations from the main script"""
@@ -17,9 +26,113 @@ def set_component_tracking_callback(callback_func):
 def track_application_component_operations(callback_func):
     """Configure component tracking for the main script reporting"""
     set_component_tracking_callback(callback_func)
+
+def extract_domain_name(api_domain):
+    """
+    Extract domain name from API URL for folder naming
+    Examples:
+    - api.bv.securityphoenix.cloud -> bv
+    - api.demo.appsecphx.io -> demo
+    - api.custom.phoenix.com -> custom
+    - localhost:8080 -> localhost
+    """
+    try:
+        # Remove protocol if present
+        domain = api_domain.replace('https://', '').replace('http://', '')
+        
+        # Remove port if present
+        domain = domain.split(':')[0]
+        
+        # Split by dots and look for the pattern api.{name}.{rest}
+        parts = domain.split('.')
+        if len(parts) >= 3 and parts[0] == 'api':
+            return parts[1]  # Return the second part (domain name)
+        elif len(parts) >= 2:
+            return parts[0]  # Fallback to first part
+        elif len(parts) == 1:
+            return parts[0]  # Single domain like 'localhost'
+        else:
+            return 'unknown'
+    except Exception:
+        return 'unknown'
+
+def initialize_debug_session(api_domain):
+    """Initialize debug session with run ID and domain name"""
+    global DEBUG_RUN_ID, DEBUG_DOMAIN_NAME
+    
+    # Generate run ID in yymmddhhmm format
+    DEBUG_RUN_ID = datetime.now().strftime("%y%m%d%H%M")
+    
+    # Extract domain name
+    DEBUG_DOMAIN_NAME = extract_domain_name(api_domain)
+    
+    print(f"🐛 Debug session initialized: {DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}")
+
+def save_debug_response(operation_type, response_data, request_data=None, endpoint=None):
+    """
+    Save API response to a JSON file for debugging purposes
+    
+    Args:
+        operation_type: Type of operation (deployment, component_creation, application_creation, team_fetch, team_creation)
+        response_data: The response data to save
+        request_data: Optional request data to include
+        endpoint: Optional API endpoint information
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    global debug_response_counter
+    
+    # Initialize counter for this operation type
+    if operation_type not in debug_response_counter:
+        debug_response_counter[operation_type] = 0
+    
+    # Check if we've reached the limit for this operation type (0 means unlimited)
+    if DEBUG_JSON_TO_SAVE > 0 and debug_response_counter[operation_type] >= DEBUG_JSON_TO_SAVE:
+        # Only show the limit message once per operation type
+        if debug_response_counter[operation_type] == DEBUG_JSON_TO_SAVE:
+            print(f"🐛 Reached limit of {DEBUG_JSON_TO_SAVE} saved responses for {operation_type}")
+        return  # Skip saving if limit reached
+    
+    debug_response_counter[operation_type] += 1
+    
+    # Create run-specific debug directory if it doesn't exist
+    if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+        print("⚠️  Debug session not initialized - using default folder")
+        debug_dir = "debug_responses"
+    else:
+        debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+    
+    if not os.path.exists(debug_dir):
+        os.makedirs(debug_dir)
+        if DEBUG_RUN_ID and DEBUG_DOMAIN_NAME:
+            print(f"📁 Created debug directory: {debug_dir}")
+        else:
+            print(f"📁 Created debug_responses directory")
+    
+    # Create filename with timestamp and counter
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{operation_type}_{timestamp}_{debug_response_counter[operation_type]:03d}.json"
+    filepath = os.path.join(debug_dir, filename)
+    
+    # Prepare debug data
+    debug_data = {
+        "timestamp": datetime.now().isoformat(),
+        "operation_type": operation_type,
+        "endpoint": endpoint,
+        "request_data": request_data,
+        "response_data": response_data,
+        "counter": debug_response_counter[operation_type]
+    }
+    
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(debug_data, f, indent=2, ensure_ascii=False, default=str)
+        print(f"🐛 Saved {operation_type} response to: {filename}")
+    except Exception as e:
+        print(f"⚠️  Failed to save debug response for {operation_type}: {str(e)}")
 from providers.Utils import group_repos_by_subdomain, calculate_criticality, extract_user_name_from_email, validate_user_role
 import logging
-import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -39,7 +152,7 @@ def log_error(operation_type, name, environment, error_msg, details=None):
         error_msg: Error message
         details: Additional details (optional)
     """
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     error_entry = f"""
 TIME: {timestamp}
 OPERATION: {operation_type}
@@ -152,7 +265,18 @@ def create_environment(environment, headers2):
         response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         print(f"└─ Environment added successfully: {environment['Name']}")
+        return True
     except requests.exceptions.RequestException as e:
+        # Handle 409 conflicts gracefully (environment already exists)
+        if hasattr(response, 'status_code') and response.status_code == 409:
+            response_content = getattr(response, 'content', b'').decode() if hasattr(response, 'content') else ''
+            if 'must be unique' in response_content or 'already exists' in response_content:
+                print(f"└─ Environment '{environment['Name']}' already exists (409 Conflict)")
+                print(f"└─ This is expected behavior - environment will be used as-is")
+                print(f"└─ Continuing with service creation...")
+                return True  # Return success for existing environments
+        
+        # Handle other errors
         error_msg = f"Failed to create environment: {str(e)}"
         error_details = f'Response: {getattr(response, "content", "No response content")}\nPayload: {json.dumps(payload)}'
         log_error(
@@ -165,6 +289,11 @@ def create_environment(environment, headers2):
         print(f"└─ Error: {error_msg}")
         if DEBUG:
             print(f"└─ Response content: {error_details}")
+        
+        # For non-409 errors, re-raise to ensure proper error handling
+        if not (hasattr(response, 'status_code') and response.status_code == 409):
+            raise e
+        return False
 
 
 def update_environment(environment, existing_environment, headers2):
@@ -270,56 +399,124 @@ def update_environment(environment, existing_environment, headers2):
 
 
 # Function to add services and process rules for the environment
-def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2):
+def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2, track_operation_callback=None):
     global access_token
     if not access_token:
         access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
+    print(f"\n[Service Creation Process Started]")
+    print(f"└─ Processing {len(environments)} environments")
+    
     for environment in environments:
         env_name = environment['Name']
         env_id = get_environment_id(application_environments, env_name)
         if not env_id:
             print(f"[Services] Environment {env_name} doesn't have ID! Skipping service and rule creation")
             continue
-        print(f"[Services] for {env_name}:{env_id}")
+        print(f"\n[Services] for {env_name}:{env_id}")
+        
+        if not environment.get('Services'):
+            print(f"└─ No services defined for environment {env_name}")
+            continue
+            
+        services_list = environment['Services']
+        print(f"└─ Found {len(services_list)} services to process in {env_name}")
+        
+        # Log all services that will be processed
+        print(f"└─ Services to process:")
+        for i, svc in enumerate(services_list, 1):
+            svc_name = svc.get('Service', 'Unknown')
+            svc_type = svc.get('Type', 'Unknown')
+            svc_deployment_set = svc.get('Deployment_set', 'None')
+            print(f"   {i:2d}. {svc_name} (Type: {svc_type}, Deployment_set: {svc_deployment_set})")
 
-        if environment['Services']:
-            for service in environment['Services']:
+        for service in environment['Services']:
                 team_name = service.get('TeamName', None)
                 service_name = service['Service']
+                service_type = service.get('Type', 'Unknown')
+                deployment_set = service.get('Deployment_set', 'None')
+                
+                print(f"\n  [Processing Service: {service_name}]")
+                print(f"  └─ Type: {service_type}")
+                print(f"  └─ Team: {team_name}")
+                print(f"  └─ Deployment Set: {deployment_set}")
+                print(f"  └─ Environment: {env_name} (ID: {env_id})")
                 
                 # First verify if service exists with thorough check
+                print(f"  └─ Checking if service already exists...")
                 exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
                 
                 if not exists:
-                    print(f" > Service {service_name} does not exist, attempting to create...")
+                    print(f"  └─ ❌ Service does not exist, attempting to create...")
+                    print(f"  └─ Service details for creation:")
+                    print(f"     └─ Name: {service_name}")
+                    print(f"     └─ Type: {service_type}")
+                    print(f"     └─ Tier: {service.get('Tier', 'Unknown')}")
+                    print(f"     └─ Team: {team_name}")
+                    print(f"     └─ Environment: {env_name} (ID: {env_id})")
+                    
                     creation_success = False
                     try:
                         if team_name:
+                            print(f"  └─ Creating service with team: {team_name}")
                             creation_success = add_service(env_name, env_id, service, service['Tier'], team_name, headers)
                         else:
+                            print(f"  └─ Creating service without team")
                             creation_success = add_service(env_name, env_id, service, service['Tier'], headers)
+                        
+                        if creation_success:
+                            print(f"  └─ ✅ Service {service_name} created successfully")
+                        else:
+                            print(f"  └─ ❌ Service {service_name} creation failed (returned False)")
+                        
+                        # Track service creation operation
+                        if track_operation_callback:
+                            if creation_success:
+                                track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", True)
+                            else:
+                                track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, "Service creation failed")
+                                
                     except NotImplementedError as e:
-                        print(f"Error adding service {service_name} for environment {env_name}: {e}")
+                        error_msg = f"NotImplementedError creating service {service_name}: {e}"
+                        print(f"  └─ ❌ {error_msg}")
+                        if track_operation_callback:
+                            track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, str(e))
+                        continue
+                    except Exception as e:
+                        error_msg = f"Unexpected error creating service {service_name}: {e}"
+                        print(f"  └─ ❌ {error_msg}")
+                        if track_operation_callback:
+                            track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, str(e))
                         continue
                         
                     if not creation_success:
-                        print(f" ! Failed to create service {service_name}, skipping rule creation")
-                        continue
-                        
-                    # Re-verify after creation
-                    exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
-                    if not exists:
-                        print(f" ! Service {service_name} creation verified failed, skipping rule creation")
+                        print(f"  └─ ❌ Failed to create service {service_name}, skipping rule creation")
                         continue
                 else:
-                    update_service(service, service_id, headers)
+                    print(f"  └─ ✅ Service already exists (ID: {service_id})")
                 
-                print(f" > Service {service_name} verified, updating rules...")
+                # Re-verify after creation attempt (if service was created) or use existing service_id
+                if not exists:  # This means we tried to create it
+                    exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
+                    if not exists:
+                        print(f"  └─ ❌ Service {service_name} creation verified failed, skipping rule creation")
+                        if track_operation_callback:
+                            track_operation_callback('services', 'verify_service', f"{service_name} ({env_name})", False, "Service verification failed after creation")
+                        continue
+                
+                # At this point, service exists (either created or was already there)
+                print(f"  └─ Service {service_name} verified, updating service and rules...")
+                update_service(service, service_id, headers)
+                if track_operation_callback:
+                    track_operation_callback('services', 'update_service', f"{service_name} ({env_name})", True)
+                
                 # Always update rules if service exists and is verified
                 add_service_rule_batch(application_environments, environment, service, service_id, headers)
                 time.sleep(1)  # Add small delay between operations
+
+    print(f"\n[Service Creation Process Completed]")
+    print(f"└─ Finished processing services for all environments")
 
 
 # AddContainerRule Function
@@ -751,6 +948,15 @@ def create_application(app, headers2):
         response.raise_for_status()
         print(f"└─ Application created successfully")
         
+        # Save debug response if enabled
+        response_data = response.json() if response.content else {"status": "created", "message": "Application created successfully"}
+        save_debug_response(
+            operation_type="application_creation",
+            response_data=response_data,
+            request_data=payload,
+            endpoint="/v1/applications"
+        )
+        
         # Get the application ID from the response for tag addition
         app_response = response.json()
         app_id = app_response.get('id')
@@ -1139,6 +1345,15 @@ def create_custom_component(applicationName, component, headers2):
         print(f"└─ API Response Content: {response.content.decode('utf-8') if response.content else 'No content'}")
         response.raise_for_status()
         print(f"└─ ✅ Component created successfully")
+        
+        # Save debug response if enabled
+        response_data = response.json() if response.content else {"status": "created", "message": "Component created successfully"}
+        save_debug_response(
+            operation_type="component_creation",
+            response_data=response_data,
+            request_data=payload,
+            endpoint="/v1/components"
+        )
         
         # Track successful component creation for main script reporting
         if component_tracking_callback:
@@ -2417,9 +2632,18 @@ def create_teams(teams, pteams, access_token2):
                 # Make the POST request to add the team
                 response = requests.post(api_url, headers=headers, json=payload)
                 response.raise_for_status()
-                team['id'] = response.json()['id']
-                new_pteams.append(response.json())
+                response_data = response.json()
+                team['id'] = response_data['id']
+                new_pteams.append(response_data)
                 print(f"└─ Team created successfully: {team_name}")
+                
+                # Save debug response if enabled
+                save_debug_response(
+                    operation_type="team_creation",
+                    response_data=response_data,
+                    request_data=payload,
+                    endpoint="/v1/teams"
+                )
             except requests.exceptions.RequestException as e:
                 if response.status_code == 409:
                     print(f"└─ Team {team_name} already exists (409 Conflict)")
@@ -2497,8 +2721,19 @@ def populate_phoenix_teams(access_token2):
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
         
+        response_data = response.json()
+        teams_content = response_data.get('content', [])
+        
+        # Save debug response if enabled
+        save_debug_response(
+            operation_type="team_fetch",
+            response_data=response_data,
+            request_data=None,  # GET request has no body
+            endpoint="/v1/teams"
+        )
+        
         # Return the content of the response (team list)
-        return response.json().get('content', [])
+        return teams_content
     
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
@@ -2982,6 +3217,15 @@ def get_phoenix_components(headers2):
             response.raise_for_status()
             data = response.json()
             
+            # Save debug response if enabled (only save first page to avoid too many files)
+            if page_number == 0:
+                save_debug_response(
+                    operation_type="component_fetch",
+                    response_data=data,
+                    request_data=params,
+                    endpoint="/v1/components"
+                )
+            
             # Add components from current page
             page_components = data.get('content', [])
             components.extend(page_components)
@@ -3093,6 +3337,14 @@ def verify_service_exists(env_name, env_id, service_name, headers2, max_retries=
         response = requests.get(api_url, headers=headers, params=params)
         response.raise_for_status()
         data = response.json()
+        
+        # Save debug response if enabled
+        save_debug_response(
+            operation_type="service_fetch",
+            response_data=data,
+            request_data=params,
+            endpoint="/v1/components"
+        )
         
         total_elements = data.get('totalElements', 0)
         total_pages = data.get('totalPages', 1)
@@ -3449,6 +3701,15 @@ def populate_applications_and_environments(headers2):
         response.raise_for_status()
 
         data = response.json()
+        
+        # Save debug response if enabled
+        save_debug_response(
+            operation_type="application_environment_fetch",
+            response_data=data,
+            request_data=None,  # GET request has no body
+            endpoint="/v1/applications"
+        )
+        
         components = data.get('content', [])
         total_pages = data.get('totalPages', 1)
 
@@ -3493,7 +3754,7 @@ def populate_applications_and_environments(headers2):
 def handle_enum_compatibility_issue(headers):
     """
     Fallback handler for API compatibility issues with enum values
-    Returns minimal data structure to allow script to continue
+    Tries alternative API approaches before falling back to empty list
     """
     print("🛠️  Handling API compatibility issue...")
     print("📝 This might be due to:")
@@ -3501,13 +3762,130 @@ def handle_enum_compatibility_issue(headers):
     print("   • Server-side enum definition changes")
     print("   • Backend configuration issues")
     
-    # Return empty list to allow script to continue
-    # This will mean no existing apps/environments are found,
-    # so new ones will be created if configured
+    # Try alternative API approaches
+    alternative_approaches = [
+        "/v1/applications?minimal=true",
+        "/v1/applications?pageSize=100",
+        "/v1/applications?type=APPLICATION",
+        "/v1/applications?type=ENVIRONMENT"
+    ]
+    
+    for approach in alternative_approaches:
+        try:
+            print(f"🔄 Trying alternative API approach: {approach}")
+            api_url = construct_api_url(approach)
+            response = requests.get(api_url, headers=headers)
+            
+            if response.status_code == 200:
+                print("✅ Alternative API approach successful!")
+                data = response.json()
+                components = data.get('content', [])
+                print(f"📊 Retrieved {len(components)} applications/environments")
+                
+                # Validate the data structure
+                if components and isinstance(components, list):
+                    # Check if we have valid application/environment objects
+                    valid_items = [item for item in components if isinstance(item, dict) and 'name' in item and 'type' in item]
+                    if valid_items:
+                        print(f"✅ Found {len(valid_items)} valid applications/environments")
+                        return valid_items
+                
+            elif response.status_code == 400 and b'ENVIRONMENT_CLOUD' not in response.content:
+                # Different 400 error, might be worth continuing
+                print(f"⚠️  Got 400 status but different error: {response.content}")
+                continue
+            else:
+                print(f"⚠️  Alternative approach failed with status {response.status_code}")
+                
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️  Alternative approach failed with exception: {str(e)}")
+            continue
+        except Exception as e:
+            print(f"⚠️  Unexpected error in alternative approach: {str(e)}")
+            continue
+    
+    print("⚠️  All alternative approaches failed")
+    print("🔄 Attempting direct individual resource checks...")
+    
+    # Try to get individual applications/environments by common names
+    # This helps detect existing resources even when listing fails
+    common_names = ['Production', 'Staging', 'Development', 'Test']
+    found_items = []
+    
+    for name in common_names:
+        try:
+            # Try to get specific application/environment
+            search_url = construct_api_url(f"/v1/applications?name={name}")
+            response = requests.get(search_url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get('content', [])
+                for item in items:
+                    if item.get('name') == name:
+                        found_items.append(item)
+                        print(f"✅ Found existing resource: {name} (type: {item.get('type', 'unknown')})")
+        except:
+            # Silently continue if individual checks fail
+            pass
+    
+    if found_items:
+        print(f"✅ Successfully identified {len(found_items)} existing resources through individual checks")
+        return found_items
+    
+    # Final fallback: return empty list but log the issue thoroughly
     print("⚠️  Returning empty applications/environments list")
     print("💡 Script will proceed assuming no existing apps/environments")
+    print("🚨 WARNING: This may cause duplicate creation attempts")
+    print("🔍 Check Phoenix UI manually to verify existing resources")
     
     return []
+
+
+def get_environment_by_name(env_name, headers):
+    """
+    Try to get a specific environment by name
+    This is a fallback method when the main listing API fails
+    """
+    try:
+        # Try direct search by name
+        api_url = construct_api_url(f"/v1/applications?name={env_name}")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            # Save debug response if enabled
+            try:
+                data = response.json()
+                save_debug_response(
+                    operation_type="environment_fetch",
+                    response_data=data,
+                    request_data={"name": env_name},
+                    endpoint=f"/v1/applications?name={env_name}"
+                )
+            except Exception:
+                pass  # Don't fail if debug saving fails
+            data = response.json()
+            environments = [item for item in data.get('content', []) 
+                          if item.get('type') == 'ENVIRONMENT' and item.get('name') == env_name]
+            if environments:
+                print(f"✅ Found environment '{env_name}' via direct search")
+                return environments[0]
+        
+        # Try alternative pagination approach
+        api_url = construct_api_url("/v1/applications?pageSize=1000")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            for item in data.get('content', []):
+                if item.get('type') == 'ENVIRONMENT' and item.get('name') == env_name:
+                    print(f"✅ Found environment '{env_name}' via pagination search")
+                    return item
+                    
+    except Exception as e:
+        print(f"⚠️  Error searching for environment '{env_name}': {str(e)}")
+    
+    return None
+
 
 @dispatch(str, str, dict, int, dict)
 def add_service(applicationSelectorName, env_id, service, tier, headers2):
@@ -3818,6 +4196,50 @@ def get_environment_id(application_environments, env_name):
     return None
 
 
+def check_application_exists(app_name, headers):
+    """
+    Check if an application exists by trying to find it directly
+    This is a fallback method when the main listing API fails
+    """
+    try:
+        # Try to search for the application by name
+        api_url = construct_api_url(f"/v1/applications?name={app_name}")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Save debug response if enabled
+            save_debug_response(
+                operation_type="application_fetch",
+                response_data=data,
+                request_data={"name": app_name},
+                endpoint=f"/v1/applications?name={app_name}"
+            )
+            
+            applications = [item for item in data.get('content', []) 
+                          if item.get('type') == 'APPLICATION' and item.get('name') == app_name]
+            if applications:
+                print(f"✅ Found application '{app_name}' via direct search (ID: {applications[0].get('id')})")
+                return applications[0]
+        
+        # Try alternative approach - get first page of applications and search
+        api_url = construct_api_url("/v1/applications?pageSize=1000")
+        response = requests.get(api_url, headers=headers)
+        
+        if response.status_code == 200:
+            data = response.json()
+            for item in data.get('content', []):
+                if item.get('type') == 'APPLICATION' and item.get('name') == app_name:
+                    print(f"✅ Found application '{app_name}' via pagination search (ID: {item.get('id')})")
+                    return item
+                    
+    except Exception as e:
+        print(f"⚠️  Error searching for application '{app_name}': {str(e)}")
+    
+    return None
+
+
 def get_phoenix_team_members(team_id, headers2):
     global headers
     if not headers:
@@ -3836,19 +4258,41 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
     if not headers:
         headers = headers2
     application_services = []
-    # Track all available apps and services for validation
-    available_apps = {app['name']: app['id'] for app in phoenix_apps_envs if app.get('type') == "APPLICATION"}
-    available_services = {}
     
     print(f"\n[Deployment Operation]")
     print(f"└─ Found {len(applications)} applications to process")
     print(f"└─ Found {len(environments)} environments to process")
     print(f"└─ Found {len(phoenix_apps_envs)} Phoenix apps/envs")
     
-    # Debug: Show available applications
-    print(f"└─ Available applications in Phoenix:")
-    for app_name, app_id in available_apps.items():
-        print(f"   └─ {app_name} (ID: {app_id})")
+    # Track deployment set to service mismatches
+    deployment_set_mismatches = []
+    
+    # Handle API compatibility issues
+    if not phoenix_apps_envs:
+        print(f"⚠️  No Phoenix apps/envs retrieved - likely due to API compatibility issue")
+        print(f"🔄 Switching to individual application detection mode...")
+        
+        # In this mode, we'll try to create deployments and let the API tell us if apps exist
+        available_apps = {}  # Empty - we'll detect during deployment attempts
+        available_services = {}
+        fallback_mode = True
+    else:
+        # Normal mode - we have the full list
+        available_apps = {app['name']: app['id'] for app in phoenix_apps_envs if app.get('type') == "APPLICATION"}
+        available_services = {}
+        fallback_mode = False
+        
+        # Debug: Show available applications
+        print(f"└─ Available applications in Phoenix:")
+        for app_name, app_id in available_apps.items():
+            print(f"   └─ {app_name} (ID: {app_id})")
+            
+        # Get all services for each environment with proper pagination
+        all_services = get_phoenix_components(headers)
+        for env in phoenix_apps_envs:
+            if env.get('type') == "ENVIRONMENT":
+                available_services[env['name']] = {svc['name']: svc['id'] for svc in all_services if svc['applicationId'] == env['id']}
+                print(f"└─ Total services loaded for '{env['name']}': {len(available_services[env['name']])}")
     
     # Debug: Show applications to process
     print(f"└─ Applications from config to process:")
@@ -3857,45 +4301,46 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
         deployment_set = app.get('Deployment_set', 'None')
         print(f"   └─ {app_name} (Deployment_set: {deployment_set})")
     
-    # Get all services for each environment with proper pagination
-    all_services = get_phoenix_components(headers)
-    for env in phoenix_apps_envs:
-        if env.get('type') == "ENVIRONMENT":
-            available_services[env['name']] = {svc['name']: svc['id'] for svc in all_services if svc['applicationId'] == env['id']}
-            print(f"└─ Total services loaded for '{env['name']}': {len(available_services[env['name']])}")
-    
     # Process each application
     for app in applications:
         app_name = app.get('AppName')
         if not app_name:
             continue
             
-        if app_name not in available_apps:
-            print(f"\n[Processing Application: {app_name}]")
-            print(f"└─ Error: Application not found")
-            continue
-            
+        print(f"\n[Processing Application: {app_name}]")
+        
+        # Check if application exists (normal mode vs fallback mode)
+        app_exists = False
+        app_id = None
+        
+        if fallback_mode:
+            # In fallback mode, try to find the application directly
+            print(f"└─ Checking if application exists (fallback mode)...")
+            app_data = check_application_exists(app_name, headers)
+            if app_data:
+                app_exists = True
+                app_id = app_data.get('id')
+                available_apps[app_name] = app_id  # Cache for future use
+            else:
+                print(f"└─ ⚠️  Application '{app_name}' not found - it may need to be created first")
+                print(f"└─ 💡 Skipping deployment for this application")
+                continue
+        else:
+            # Normal mode - check against the pre-loaded list
+            if app_name not in available_apps:
+                print(f"└─ Error: Application not found in Phoenix listing")
+                continue
+            else:
+                app_exists = True
+                app_id = available_apps[app_name]
+                
         deployment_set = app.get('Deployment_set')
         if not deployment_set:
-            print(f"\n[Processing Application: {app_name}]")
             print(f"└─ Error: No deployment set defined")
             continue
             
-        print(f"\n[Processing Application: {app_name}]")
-        print(f"└─ Deployment Set: {deployment_set}")
-        
-        # Validate app exists
-        if app_name not in available_apps:
-            error_msg = f"Application '{app_name}' not found in available applications"
-            log_error(
-                'Deployment Creation',
-                app_name,
-                'N/A',
-                error_msg,
-                f'Available apps: {", ".join(sorted(available_apps.keys()))}'
-            )
-            print(f"└─ Error: {error_msg}")
-            continue
+        print(f"└─ ✅ Application found (ID: {app_id})")
+        print(f"└─ Processing deployment set: {deployment_set}")
 
         for env in environments:
             if not env.get('Services'):
@@ -3964,6 +4409,16 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
                     matched_services += 1
                 else:
                     print(f"       └─ ✗ No match")
+                    # Log deployment set mismatch
+                    mismatch_info = {
+                        'app_name': app_name,
+                        'deployment_set': deployment_set,
+                        'service_name': service_name,
+                        'service_deployment_set': service.get('Deployment_set'),
+                        'service_deployment_tag': service.get('Deployment_tag'),
+                        'environment': env_name
+                    }
+                    deployment_set_mismatches.append(mismatch_info)
             
             print(f"  └─ Matched {matched_services} out of {total_services} services in environment {env_name}")
     
@@ -4027,6 +4482,16 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
                     response.raise_for_status()
                     print(f"└─ Successfully created deployment for application {app_name} and "
                           f"{'service name: ' + service_info if use_service_name else 'service tag: ' + service_info}")
+                    
+                    # Save debug response if enabled
+                    response_data = response.json() if response.content else {"status": "deployed", "message": "Deployment successful"}
+                    save_debug_response(
+                        operation_type="deployment",
+                        response_data=response_data,
+                        request_data=deployment_payload,
+                        endpoint=f"/v1/applications/{app_id}/deploy"
+                    )
+                    
                     consecutive_400_errors = 0
                     deployment_success = True
                     successful_deployments += 1
@@ -4073,10 +4538,49 @@ def create_deployments(applications, environments, phoenix_apps_envs, headers2):
 
         time.sleep(1)  # Wait for 1 second after processing each batch
     
+    # Report deployment set mismatches
+    if deployment_set_mismatches:
+        print(f"\n[Deployment Set Mismatches Report]")
+        print(f"└─ Found {len(deployment_set_mismatches)} deployment set mismatches:")
+        
+        # Group by deployment set for better readability
+        mismatches_by_deployment_set = {}
+        for mismatch in deployment_set_mismatches:
+            deployment_set = mismatch['deployment_set']
+            if deployment_set not in mismatches_by_deployment_set:
+                mismatches_by_deployment_set[deployment_set] = []
+            mismatches_by_deployment_set[deployment_set].append(mismatch)
+        
+        for deployment_set, mismatches in mismatches_by_deployment_set.items():
+            print(f"\n  [Deployment Set: {deployment_set}]")
+            print(f"  └─ {len(mismatches)} services don't match this deployment set:")
+            
+            for mismatch in mismatches:
+                service_ds = mismatch['service_deployment_set'] or 'None'
+                service_dt = mismatch['service_deployment_tag'] or 'None'
+                print(f"    └─ Service: {mismatch['service_name']}")
+                print(f"       └─ Has Deployment_set: {service_ds}")
+                print(f"       └─ Has Deployment_tag: {service_dt}")
+                print(f"       └─ Required: {deployment_set}")
+                print(f"       └─ Environment: {mismatch['environment']}")
+                
+                # Log to error log as well
+                log_error(
+                    'Deployment Set Mismatch',
+                    f"{mismatch['app_name']} -> {mismatch['service_name']}",
+                    mismatch['environment'],
+                    f"Deployment set mismatch: app requires '{deployment_set}' but service has Deployment_set='{service_ds}', Deployment_tag='{service_dt}'",
+                    f"Service configuration may need to be updated to match application deployment set"
+                )
+    else:
+        print(f"\n[Deployment Set Mismatches Report]")
+        print(f"└─ ✅ No deployment set mismatches found")
+    
     print(f"\n[Final Deployment Summary]")
     print(f"└─ Total deployments processed: {total_deployments}")
     print(f"└─ Successful deployments: {successful_deployments}")
     print(f"└─ Failed deployments: {failed_deployments}")
+    print(f"└─ Deployment set mismatches: {len(deployment_set_mismatches)}")
 
 
 def check_app_name_matches_service_name(app_name, service_name):
@@ -4128,6 +4632,16 @@ def create_autolink_deployments(applications, environments, headers2):
                     response = requests.patch(api_url, headers=headers, json=deployment)
                     response.raise_for_status()
                     print(f" + Deployment for application {deployment['applicationSelector']['name']} to {deployment['serviceSelector']['name']} successful")
+                    
+                    # Save debug response if enabled
+                    response_data = response.json() if response.content else {"status": "deployed", "message": "Deployment successful"}
+                    save_debug_response(
+                        operation_type="deployment",
+                        response_data=response_data,
+                        request_data=deployment,
+                        endpoint="/v1/applications/deploy"
+                    )
+                    
                     break  # Exit the retry loop if successful
                 except requests.exceptions.RequestException as e:
                     if response.status_code == 409:

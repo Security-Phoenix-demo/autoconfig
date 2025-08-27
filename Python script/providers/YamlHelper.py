@@ -649,9 +649,6 @@ def load_github_config_file_name(resource_folder):
     if not 'ConfigFileName' in repos_yaml:
         raise Exception("run-config configuration is missing 'ConfigFileName' property")
 
-<<<<<<< Updated upstream
-    return repos_yaml['ConfigFileName']
-=======
     return repos_yaml['ConfigFileName']
 
 
@@ -701,4 +698,3 @@ def load_hives_config(resource_folder):
     hives_file = config.get('HivesFile', 'hives.yaml')
     
     return enable_hives, hives_file
->>>>>>> Stashed changes
