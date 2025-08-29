@@ -1,0 +1,29 @@
+# Phoenix Security AutoConfig Configuration File
+# Copy this file to config.ini and customize the values as needed
+
+[asset_component_creation]
+# Configuration for automatic component creation from assets
+# These parameters control how the --action_create_components_from_assets feature works
+
+# Asset name similarity threshold (0.0 to 1.0)
+# Controls how similar asset names must be to group together
+# 1.0 = exact match required
+# 0.8 = 80% similarity required
+# 0.6 = 60% similarity required (more lenient grouping)
+asset_name_similarity_threshold = 1.0
+
+# Minimum number of assets with similar names required to suggest component creation
+# If you have 5 assets named "web-server-1", "web-server-2", etc., 
+# and this is set to 5, it will suggest creating a "web-server" component
+# Set to a lower number (e.g., 3) to be more aggressive about component suggestions
+# Set to a higher number (e.g., 10) to be more conservative
+asset_group_min_size_for_component_creation = 5
+
+# Alternative: You can also put these parameters in the [phoenix] section
+# for backward compatibility with existing configurations
+[phoenix]
+# Uncomment and customize these if you prefer to keep all Phoenix settings together
+# asset_name_similarity_threshold = 0.8
+# asset_group_min_size_for_component_creation = 3
+
+# Note: If both sections contain the same parameter, [asset_component_creation] takes precedence

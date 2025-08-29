@@ -68,7 +68,7 @@ def initialize_debug_session(api_domain):
     
     print(f"🐛 Debug session initialized: {DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}")
 
-def save_debug_response(operation_type, response_data, request_data=None, endpoint=None):
+def save_debug_response(operation_type, response_data, request_data=None, endpoint=None, additional_info=None):
     """
     Save API response to a JSON file for debugging purposes
     
@@ -77,6 +77,7 @@ def save_debug_response(operation_type, response_data, request_data=None, endpoi
         response_data: The response data to save
         request_data: Optional request data to include
         endpoint: Optional API endpoint information
+        additional_info: Optional additional information to include in filename
     """
     if not DEBUG_SAVE_RESPONSE:
         return
@@ -112,7 +113,10 @@ def save_debug_response(operation_type, response_data, request_data=None, endpoi
     
     # Create filename with timestamp and counter
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{operation_type}_{timestamp}_{debug_response_counter[operation_type]:03d}.json"
+    if additional_info:
+        filename = f"{operation_type}_{timestamp}_{debug_response_counter[operation_type]:03d}_{additional_info}.json"
+    else:
+        filename = f"{operation_type}_{timestamp}_{debug_response_counter[operation_type]:03d}.json"
     filepath = os.path.join(debug_dir, filename)
     
     # Prepare debug data
@@ -131,6 +135,396 @@ def save_debug_response(operation_type, response_data, request_data=None, endpoi
         print(f"🐛 Saved {operation_type} response to: {filename}")
     except Exception as e:
         print(f"⚠️  Failed to save debug response for {operation_type}: {str(e)}")
+
+def save_initial_cache_debug(env_name, env_id, env_services_cache):
+    """
+    Save initial environment services cache to debug folder for analysis.
+    This helps debug cache consistency issues.
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    try:
+        # Use same debug directory structure as save_debug_response
+        if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+            debug_dir = "debug_responses"
+        else:
+            debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+        
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        
+        # Generate timestamp and filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_env_name = env_name.lower().replace(' ', '_').replace('-', '_')
+        filename = f"initial_cache_{safe_env_name}_{timestamp}_001.json"
+        filepath = os.path.join(debug_dir, filename)
+        
+        # Prepare cache data for saving
+        cache_data = {
+            "timestamp": datetime.now().isoformat(),
+            "operation_type": "initial_cache",
+            "environment_name": env_name,
+            "environment_id": env_id,
+            "cache_size": len(env_services_cache),
+            "services": {
+                service_name: {
+                    "id": service_data.get('id'),
+                    "name": service_data.get('name'),
+                    "applicationId": service_data.get('applicationId'),
+                    "type": service_data.get('type', 'Unknown')
+                }
+                for service_name, service_data in env_services_cache.items()
+            }
+        }
+        
+        # Save to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, indent=2, ensure_ascii=False, default=str)
+            
+        print(f"└─ 💾 Saved initial cache: {filename} ({len(env_services_cache)} services)")
+        
+    except Exception as e:
+        print(f"⚠️  Failed to save initial cache debug: {e}")
+
+def validate_initial_cache_completeness(env_name, env_id, env_services_cache, services_list):
+    """
+    Validate that the initial cache contains expected services and warn about potential issues.
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    try:
+        # Check if key services from configuration are missing from cache
+        missing_services = []
+        expected_services = [svc.get('Service', '') for svc in services_list if svc.get('Service')]
+        
+        for service_name in expected_services:
+            if service_name.lower() not in env_services_cache:
+                missing_services.append(service_name)
+        
+        if missing_services:
+            print(f"\n⚠️  CACHE VALIDATION WARNING for {env_name}:")
+            print(f"└─ {len(missing_services)} services from YAML config missing from initial cache")
+            print(f"└─ This indicates cache was loaded before services were created")
+            print(f"└─ Missing services: {missing_services[:10]}")
+            if len(missing_services) > 10:
+                print(f"└─ ... and {len(missing_services) - 10} more")
+            print(f"└─ 🔄 Cache refresh mechanism will handle these during processing\n")
+        else:
+            print(f"✅ Cache validation passed: All {len(expected_services)} expected services found in initial cache")
+            
+    except Exception as e:
+        print(f"⚠️  Cache validation failed: {e}")
+
+def save_cache_refresh_debug(env_name, env_id, old_cache, services_processed, total_services):
+    """
+    Save cache refresh event for debugging cache consistency.
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    try:
+        # Use same debug directory structure
+        if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+            debug_dir = "debug_responses"
+        else:
+            debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+        
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        
+        # Generate timestamp and filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_env_name = env_name.lower().replace(' ', '_').replace('-', '_')
+        filename = f"cache_refresh_before_{safe_env_name}_{timestamp}_{services_processed:03d}.json"
+        filepath = os.path.join(debug_dir, filename)
+        
+        # Prepare cache refresh data (before refresh)
+        refresh_data = {
+            "timestamp": datetime.now().isoformat(),
+            "operation_type": "cache_refresh_before",
+            "environment_name": env_name,
+            "environment_id": env_id,
+            "services_processed_in_cycle": services_processed,
+            "total_services_processed": total_services,
+            "old_cache_size": len(old_cache),
+            "trigger": f"Every {services_processed} services",
+            "quick_check_interval": services_processed,
+            "old_cache_service_names": list(old_cache.keys())[:50],  # More service names for analysis
+            "note": "Cache state before refresh - will be cleared and refetched with full pagination"
+        }
+        
+        # Save to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(refresh_data, f, indent=2, ensure_ascii=False, default=str)
+            
+        print(f"  └─ 💾 Saved cache refresh event: {filename}")
+        
+    except Exception as e:
+        print(f"⚠️  Failed to save cache refresh debug: {e}")
+
+def save_service_list_debug(env_name, env_id, services_list, total_services_count, env_services_cache):
+    """
+    Save service list from configuration to debug folder for analysis in YAML format.
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    try:
+        # Use same debug directory structure
+        if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+            debug_dir = "debug_responses"
+        else:
+            debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+        
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        
+        # Generate timestamp and filename in YAML format
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"full-list-service_{timestamp}"
+        filepath = os.path.join(debug_dir, filename)
+        
+        # Calculate missing services for accurate cache validation
+        missing_services = []
+        expected_services = [svc.get('Service', '') for svc in services_list if svc.get('Service')]
+        
+        for service_name in expected_services:
+            if service_name.lower() not in env_services_cache:
+                missing_services.append(service_name)
+        
+        # Create YAML-like content similar to the example file
+        yaml_content = []
+        yaml_content.append("")
+        yaml_content.append("")
+        
+        if missing_services:
+            yaml_content.append(f"⚠️  CACHE VALIDATION WARNING for {env_name}:")
+            yaml_content.append(f"└─ {len(missing_services)} services from YAML config missing from initial cache")
+            yaml_content.append(f"└─ This indicates cache was loaded before services were created")
+            yaml_content.append(f"└─ Missing services: {missing_services[:10]}")
+            if len(missing_services) > 10:
+                yaml_content.append(f"└─ ... and {len(missing_services) - 10} more")
+            yaml_content.append(f"└─ 🔄 Cache refresh mechanism will handle these during processing")
+        else:
+            yaml_content.append(f"✅ Cache validation passed: All {len(expected_services)} expected services found in initial cache")
+        
+        yaml_content.append("")
+        yaml_content.append("└─ Services to process:")
+        
+        # Add service list in the same format as the example
+        for i, service in enumerate(services_list, 1):
+            service_name = service.get('Service', 'Unknown')
+            service_type = service.get('Type', 'Unknown')
+            deployment_set = service.get('Deployment_set', 'None')
+            yaml_content.append(f"   {i:2d}. {service_name} (Type: {service_type}, Deployment_set: {deployment_set})")
+        
+        yaml_content.append("")
+        
+        # Save to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(yaml_content))
+            
+        print(f"└─ 💾 Saved service list debug: {filename} ({len(services_list)} services)")
+        
+    except Exception as e:
+        print(f"⚠️  Failed to save service list debug: {e}")
+
+def save_component_list_debug(applications, total_components_count):
+    """
+    Save component list from applications to debug folder for analysis.
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    try:
+        # Use same debug directory structure
+        if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+            debug_dir = "debug_responses"
+        else:
+            debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+        
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        
+        # Generate timestamp and filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"component_list_{timestamp}_001.json"
+        filepath = os.path.join(debug_dir, filename)
+        
+        # Prepare component list data
+        component_list_data = {
+            "timestamp": datetime.now().isoformat(),
+            "operation_type": "component_list_debug",
+            "total_applications": len(applications),
+            "total_components_count": total_components_count,
+            "applications": []
+        }
+        
+        # Add detailed component information
+        global_component_index = 0
+        for app_index, app in enumerate(applications, 1):
+            app_info = {
+                "app_index": app_index,
+                "app_name": app.get('AppName', 'Unknown'),
+                "components_count": len(app.get('Components', [])),
+                "components": []
+            }
+            
+            if app.get('Components'):
+                for comp_index, component in enumerate(app['Components'], 1):
+                    global_component_index += 1
+                    component_info = {
+                        "component_index_in_app": comp_index,
+                        "global_component_index": global_component_index,
+                        "component_name": component.get('ComponentName', 'Unknown'),
+                        "component_type": component.get('Type', 'Unknown'),
+                        "repositories": component.get('Repositories', []),
+                        "raw_data": component
+                    }
+                    app_info["components"].append(component_info)
+            
+            component_list_data["applications"].append(app_info)
+        
+        # Save to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(component_list_data, f, indent=2, ensure_ascii=False, default=str)
+            
+        print(f"└─ 💾 Saved component list debug: {filename} ({total_components_count} components)")
+        
+    except Exception as e:
+        print(f"⚠️  Failed to save component list debug: {e}")
+
+def save_comprehensive_cache_debug(env_name, env_id, env_services_cache, application_environments, phoenix_components, applications=None, services_list=None):
+    """
+    Save comprehensive cache state including all services, components, applications, and environments.
+    """
+    if not DEBUG_SAVE_RESPONSE:
+        return
+        
+    try:
+        # Use same debug directory structure
+        if DEBUG_RUN_ID is None or DEBUG_DOMAIN_NAME is None:
+            debug_dir = "debug_responses"
+        else:
+            debug_dir = f"debug_responses/{DEBUG_DOMAIN_NAME}_{DEBUG_RUN_ID}"
+        
+        if not os.path.exists(debug_dir):
+            os.makedirs(debug_dir)
+        
+        # Generate timestamp and filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"comprehensive-cache-state_{timestamp}"
+        filepath = os.path.join(debug_dir, filename)
+        
+        # Create comprehensive cache content
+        cache_content = []
+        cache_content.append("")
+        cache_content.append("=== COMPREHENSIVE CACHE STATE DEBUG ===")
+        cache_content.append(f"Timestamp: {datetime.now().isoformat()}")
+        cache_content.append(f"Environment: {env_name} (ID: {env_id})")
+        cache_content.append("")
+        
+        # SECTION 1: ENVIRONMENT CACHE SUMMARY
+        cache_content.append("📦 ENVIRONMENT CACHE SUMMARY:")
+        cache_content.append(f"└─ Environment: {env_name}")
+        cache_content.append(f"└─ Environment ID: {env_id}")
+        cache_content.append(f"└─ Cached Services Count: {len(env_services_cache)}")
+        cache_content.append("")
+        
+        # SECTION 2: ALL ENVIRONMENTS IN SYSTEM
+        environments = [env for env in application_environments if env.get('type') == 'ENVIRONMENT']
+        applications_list = [env for env in application_environments if env.get('type') == 'APPLICATION']
+        
+        cache_content.append(f"🏗️  ALL ENVIRONMENTS IN SYSTEM ({len(environments)} total):")
+        for i, env in enumerate(environments, 1):
+            env_name_display = env.get('name', 'Unknown')
+            env_id_display = env.get('id', 'Unknown')
+            cache_content.append(f"   {i:2d}. {env_name_display} (ID: {env_id_display})")
+        cache_content.append("")
+        
+        # SECTION 3: ALL APPLICATIONS IN SYSTEM
+        cache_content.append(f"📱 ALL APPLICATIONS IN SYSTEM ({len(applications_list)} total):")
+        for i, app in enumerate(applications_list, 1):
+            app_name_display = app.get('name', 'Unknown')
+            app_id_display = app.get('id', 'Unknown')
+            cache_content.append(f"   {i:2d}. {app_name_display} (ID: {app_id_display})")
+        cache_content.append("")
+        
+        # SECTION 4: ALL SERVICES IN CURRENT ENVIRONMENT CACHE
+        cache_content.append(f"⚙️  CACHED SERVICES IN {env_name} ({len(env_services_cache)} total):")
+        for i, (service_name_lower, service_data) in enumerate(env_services_cache.items(), 1):
+            service_id = service_data.get('id', 'Unknown')
+            service_name = service_data.get('name', service_name_lower)
+            cache_content.append(f"   {i:3d}. {service_name} (ID: {service_id})")
+        cache_content.append("")
+        
+        # SECTION 5: ALL COMPONENTS IN SYSTEM
+        cache_content.append(f"🔧 ALL COMPONENTS IN SYSTEM ({len(phoenix_components)} total):")
+        for i, component in enumerate(phoenix_components, 1):
+            comp_name = component.get('name', 'Unknown')
+            comp_id = component.get('id', 'Unknown')
+            comp_app_id = component.get('applicationId', 'Unknown')
+            cache_content.append(f"   {i:4d}. {comp_name} (ID: {comp_id}, App: {comp_app_id})")
+        cache_content.append("")
+        
+        # SECTION 6: SERVICES FROM YAML CONFIGURATION (if provided)
+        if services_list:
+            cache_content.append(f"📋 SERVICES FROM YAML CONFIG ({len(services_list)} total):")
+            for i, service in enumerate(services_list, 1):
+                service_name = service.get('Service', 'Unknown')
+                service_type = service.get('Type', 'Unknown')
+                deployment_set = service.get('Deployment_set', 'None')
+                cache_content.append(f"   {i:3d}. {service_name} (Type: {service_type}, Deployment_set: {deployment_set})")
+            cache_content.append("")
+        
+        # SECTION 7: APPLICATIONS FROM YAML CONFIGURATION (if provided)
+        if applications:
+            total_components = sum(len(app.get('Components', [])) for app in applications)
+            cache_content.append(f"📱 APPLICATIONS FROM YAML CONFIG ({len(applications)} apps, {total_components} components total):")
+            for i, app in enumerate(applications, 1):
+                app_name = app.get('AppName', 'Unknown')
+                components_count = len(app.get('Components', []))
+                cache_content.append(f"   {i:2d}. {app_name} ({components_count} components)")
+                if app.get('Components'):
+                    for j, component in enumerate(app['Components'], 1):
+                        comp_name = component.get('ComponentName', 'Unknown')
+                        cache_content.append(f"       {j:2d}. {comp_name}")
+            cache_content.append("")
+        
+        # SECTION 8: CACHE VALIDATION
+        if services_list:
+            missing_services = []
+            expected_services = [svc.get('Service', '') for svc in services_list if svc.get('Service')]
+            
+            for service_name in expected_services:
+                if service_name.lower() not in env_services_cache:
+                    missing_services.append(service_name)
+            
+            cache_content.append("🔍 CACHE VALIDATION RESULTS:")
+            if missing_services:
+                cache_content.append(f"└─ ⚠️  {len(missing_services)} services from YAML missing from cache:")
+                for i, missing_svc in enumerate(missing_services[:20], 1):
+                    cache_content.append(f"   {i:2d}. {missing_svc}")
+                if len(missing_services) > 20:
+                    cache_content.append(f"   ... and {len(missing_services) - 20} more")
+            else:
+                cache_content.append(f"└─ ✅ All {len(expected_services)} expected services found in cache")
+            cache_content.append("")
+        
+        cache_content.append("=== END COMPREHENSIVE CACHE STATE ===")
+        cache_content.append("")
+        
+        # Save to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(cache_content))
+            
+        print(f"└─ 💾 Saved comprehensive cache debug: {filename}")
+        
+    except Exception as e:
+        print(f"⚠️  Failed to save comprehensive cache debug: {e}")
+
 from providers.Utils import group_repos_by_subdomain, calculate_criticality, extract_user_name_from_email, validate_user_role
 import logging
 
@@ -175,6 +569,28 @@ APIdomain = "https://api.demo.appsecphx.io/" #change this with your specific dom
 DEBUG = False #debug settings to trigger debug output 
 access_token = None
 headers = {}
+
+# Global cache for components to reduce API calls in quick-check mode
+_component_cache = {
+    'data': None,
+    'timestamp': None,
+    'ttl': 300  # 5 minutes cache TTL
+}
+
+# Global cache for environment services to optimize service creation
+_environment_services_cache = {
+    'data': {},  # env_id -> {service_name_lower: service_data}
+    'timestamp': {},  # env_id -> timestamp
+    'ttl': 300  # 5 minutes cache TTL
+}
+
+# Global cache for applications and components verification
+_application_verification_cache = {
+    'applications': {},  # app_name -> app_data
+    'components': {},    # (app_name, component_name) -> component_data
+    'timestamp': None,
+    'ttl': 300  # 5 minutes cache TTL
+}
 
 def get_auth_token(clientID, clientSecret, retries=3):
     credentials = f"{clientID}:{clientSecret}".encode('utf-8')
@@ -399,7 +815,7 @@ def update_environment(environment, existing_environment, headers2):
 
 
 # Function to add services and process rules for the environment
-def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2, track_operation_callback=None):
+def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2, track_operation_callback=None, quick_check_interval=10, silent_mode=False):
     global access_token
     if not access_token:
         access_token = access_token2
@@ -408,13 +824,36 @@ def add_environment_services(repos, subdomains, environments, application_enviro
     print(f"\n[Service Creation Process Started]")
     print(f"└─ Processing {len(environments)} environments")
     
+    # Count total services across all environments
+    total_services_count = 0
+    for env in environments:
+        if env.get('Services'):
+            total_services_count += len(env['Services'])
+    
+    print(f"└─ Total services to process: {total_services_count}")
+    
+    # Environment counter
+    current_environment = 0
+    
+    # Quick-check mode information
+    if silent_mode:
+        print(f"└─ 🔇 Silent mode enabled: Service validation suppressed during processing")
+    elif quick_check_interval > 1:
+        print(f"└─ ⚡ Quick-check mode enabled: Validating every {quick_check_interval} services")
+    else:
+        print(f"└─ 🔍 Full validation mode: Validating every service")
+    
+    total_services_processed = 0
+    services_pending_validation = []
+    
     for environment in environments:
+        current_environment += 1
         env_name = environment['Name']
         env_id = get_environment_id(application_environments, env_name)
         if not env_id:
-            print(f"[Services] Environment {env_name} doesn't have ID! Skipping service and rule creation")
+            print(f"[Services] Environment {current_environment}/{len(environments)}: {env_name} doesn't have ID! Skipping service and rule creation")
             continue
-        print(f"\n[Services] for {env_name}:{env_id}")
+        print(f"\n[Services] Environment {current_environment}/{len(environments)}: {env_name} (ID: {env_id})")
         
         if not environment.get('Services'):
             print(f"└─ No services defined for environment {env_name}")
@@ -422,6 +861,26 @@ def add_environment_services(repos, subdomains, environments, application_enviro
             
         services_list = environment['Services']
         print(f"└─ Found {len(services_list)} services to process in {env_name}")
+        
+        # OPTIMIZATION: Pre-load all services for this environment into cache
+        print(f"└─ Pre-loading services cache for environment {env_name}...")
+        env_services_cache = get_environment_services_cached(env_id, headers)
+        print(f"└─ Environment cache loaded with {len(env_services_cache)} existing services")
+        
+        # DEBUGGING: Save initial cache to debug folder
+        save_initial_cache_debug(env_name, env_id, env_services_cache)
+        
+        # DEBUGGING: Save service list from configuration  
+        save_service_list_debug(env_name, env_id, services_list, total_services_count, env_services_cache)
+        
+        # DEBUGGING: Save comprehensive cache state with all entities
+        save_comprehensive_cache_debug(env_name, env_id, env_services_cache, application_environments, phoenix_components, services_list=services_list)
+        
+        # VALIDATION: Check for known missing services that should be in cache
+        validate_initial_cache_completeness(env_name, env_id, env_services_cache, services_list)
+        
+        # Initialize cache refresh counter for this environment
+        cache_refresh_counter = 0
         
         # Log all services that will be processed
         print(f"└─ Services to process:")
@@ -437,38 +896,89 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                 service_type = service.get('Type', 'Unknown')
                 deployment_set = service.get('Deployment_set', 'None')
                 
-                print(f"\n  [Processing Service: {service_name}]")
-                print(f"  └─ Type: {service_type}")
-                print(f"  └─ Team: {team_name}")
-                print(f"  └─ Deployment Set: {deployment_set}")
-                print(f"  └─ Environment: {env_name} (ID: {env_id})")
+                total_services_processed += 1
+                cache_refresh_counter += 1
                 
-                # First verify if service exists with thorough check
-                print(f"  └─ Checking if service already exists...")
-                exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
+                # CACHE REFRESH: Only refresh cache every quick_check_interval services to reduce API calls
+                if cache_refresh_counter >= quick_check_interval:
+                    if not silent_mode:
+                        print(f"\n  🔄 Cache refresh cycle reached ({cache_refresh_counter} services in {env_name})")
+                        print(f"  └─ Refreshing environment cache to include newly created services...")
+                    
+                    # Save cache refresh event for debugging
+                    save_cache_refresh_debug(env_name, env_id, env_services_cache, cache_refresh_counter, total_services_processed)
+                    
+                    # Store old cache size for comparison
+                    old_cache_size = len(env_services_cache)
+                    
+                    # OPTIMIZATION: Force fresh fetch with full pagination to get complete dataset
+                    env_services_cache = get_environment_services_cached(env_id, headers, force_refresh=True)  # Force refresh with global cache clear
+                    cache_refresh_counter = 0  # Reset counter
+                    
+                    new_cache_size = len(env_services_cache)
+                    services_added = new_cache_size - old_cache_size
+                    
+                    if not silent_mode:
+                        if services_added > 0:
+                            print(f"  └─ ✅ Cache refreshed: {old_cache_size} → {new_cache_size} services (+{services_added} new)")
+                        else:
+                            print(f"  └─ ✅ Cache refreshed with {new_cache_size} services (no changes)")
+                
+                if not silent_mode:
+                    print(f"\n  [Processing Service {total_services_processed}/{total_services_count}: {service_name}]")
+                    print(f"  └─ Type: {service_type}")
+                    print(f"  └─ Team: {team_name}")
+                    print(f"  └─ Deployment Set: {deployment_set}")
+                    print(f"  └─ Environment: {env_name} (ID: {env_id})")
+                
+                # Store service info for potential validation
+                service_info = {
+                    'service': service,
+                    'service_name': service_name,
+                    'env_name': env_name,
+                    'env_id': env_id,
+                    'count': total_services_processed
+                }
+                services_pending_validation.append(service_info)
+                
+                # OPTIMIZATION: Use cache lookup instead of API call
+                if not silent_mode:
+                    print(f"  └─ Checking if service already exists in cache...")
+                
+                exists, service_data = service_exists_in_cache(service_name, env_id, env_services_cache, headers, fallback_check=True)
+                service_id = service_data.get('id') if service_data else None
                 
                 if not exists:
-                    print(f"  └─ ❌ Service does not exist, attempting to create...")
-                    print(f"  └─ Service details for creation:")
-                    print(f"     └─ Name: {service_name}")
-                    print(f"     └─ Type: {service_type}")
-                    print(f"     └─ Tier: {service.get('Tier', 'Unknown')}")
-                    print(f"     └─ Team: {team_name}")
-                    print(f"     └─ Environment: {env_name} (ID: {env_id})")
+                    if not silent_mode and DEBUG:
+                        print(f"  └─ 🔍 Cache miss: {service_name} not found in {len(env_services_cache)} cached services")
+                    if not silent_mode:
+                        print(f"  └─ ❌ Service does not exist, attempting to create...")
+                        print(f"  └─ Service details for creation:")
+                        print(f"     └─ Name: {service_name}")
+                        print(f"     └─ Type: {service_type}")
+                        print(f"     └─ Tier: {service.get('Tier', 'Unknown')}")
+                        print(f"     └─ Team: {team_name}")
+                        print(f"     └─ Environment: {env_name} (ID: {env_id})")
+                    elif total_services_processed % 50 == 0:  # Progress indicator in silent mode
+                        print(f"  🔄 Processed {total_services_processed} services...")
                     
                     creation_success = False
+                    service_id = None
                     try:
                         if team_name:
-                            print(f"  └─ Creating service with team: {team_name}")
-                            creation_success = add_service(env_name, env_id, service, service['Tier'], team_name, headers)
+                            if not silent_mode:
+                                print(f"  └─ Creating service with team: {team_name}")
+                            creation_success, service_id = add_service(env_name, env_id, service, service['Tier'], team_name, headers)
                         else:
-                            print(f"  └─ Creating service without team")
-                            creation_success = add_service(env_name, env_id, service, service['Tier'], headers)
+                            if not silent_mode:
+                                print(f"  └─ Creating service without team")
+                            creation_success, service_id = add_service(env_name, env_id, service, service['Tier'], headers)
                         
-                        if creation_success:
-                            print(f"  └─ ✅ Service {service_name} created successfully")
-                        else:
-                            print(f"  └─ ❌ Service {service_name} creation failed (returned False)")
+                        if not silent_mode:
+                            if creation_success:
+                                print(f"  └─ ✅ Service {service_name} created successfully (ID: {service_id})")
+                            else:
+                                print(f"  └─ ❌ Service {service_name} creation failed (returned False)")
                         
                         # Track service creation operation
                         if track_operation_callback:
@@ -479,44 +989,86 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                                 
                     except NotImplementedError as e:
                         error_msg = f"NotImplementedError creating service {service_name}: {e}"
-                        print(f"  └─ ❌ {error_msg}")
+                        if not silent_mode:
+                            print(f"  └─ ❌ {error_msg}")
                         if track_operation_callback:
                             track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, str(e))
                         continue
                     except Exception as e:
                         error_msg = f"Unexpected error creating service {service_name}: {e}"
-                        print(f"  └─ ❌ {error_msg}")
+                        if not silent_mode:
+                            print(f"  └─ ❌ {error_msg}")
                         if track_operation_callback:
                             track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, str(e))
                         continue
                         
                     if not creation_success:
-                        print(f"  └─ ❌ Failed to create service {service_name}, skipping rule creation")
+                        if not silent_mode:
+                            print(f"  └─ ❌ Failed to create service {service_name}, skipping rule creation")
                         continue
                 else:
-                    print(f"  └─ ✅ Service already exists (ID: {service_id})")
+                    if not silent_mode:
+                        print(f"  └─ ✅ Service already exists (ID: {service_id})")
                 
-                # Re-verify after creation attempt (if service was created) or use existing service_id
-                if not exists:  # This means we tried to create it
-                    exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
-                    if not exists:
-                        print(f"  └─ ❌ Service {service_name} creation verified failed, skipping rule creation")
-                        if track_operation_callback:
-                            track_operation_callback('services', 'verify_service', f"{service_name} ({env_name})", False, "Service verification failed after creation")
-                        continue
+                # OPTIMIZATION: Add created service to cache, but don't force full cache refresh
+                if not exists and creation_success:  # Service was just created
+                    # Add to local cache only (lightweight update)
+                    new_service_data = {
+                        'id': service_id,
+                        'name': service_name,
+                        'applicationId': env_id
+                    }
+                    # Update only the local env_services_cache for immediate lookup
+                    env_services_cache[service_name.lower()] = new_service_data
+                    exists = True  # Update status for rule creation logic
+                    if not silent_mode and DEBUG:
+                        print(f"  └─ ✅ Added {service_name} to local cache")
                 
                 # At this point, service exists (either created or was already there)
-                print(f"  └─ Service {service_name} verified, updating service and rules...")
-                update_service(service, service_id, headers)
-                if track_operation_callback:
-                    track_operation_callback('services', 'update_service', f"{service_name} ({env_name})", True)
+                if not silent_mode:
+                    print(f"  └─ Service {service_name} verified, updating service and rules...")
                 
-                # Always update rules if service exists and is verified
-                add_service_rule_batch(application_environments, environment, service, service_id, headers)
-                time.sleep(1)  # Add small delay between operations
+                # OPTIMIZATION: Only update service and rules if we have a valid service_id
+                if service_id and exists:
+                    update_service(service, service_id, headers)
+                    if track_operation_callback:
+                        track_operation_callback('services', 'update_service', f"{service_name} ({env_name})", True)
+                    
+                    # Always update rules if service exists and is verified
+                    add_service_rule_batch(application_environments, environment, service, service_id, headers)
+                
+                if not silent_mode:
+                    time.sleep(1)  # Add small delay between operations in verbose mode
+
+    # Final validation phase for silent mode or quick-check mode
+    if silent_mode or quick_check_interval > 1:
+        print(f"\n[Final Validation Phase]")
+        print(f"└─ Validating {len(services_pending_validation)} services that were processed...")
+        
+        validation_success = 0
+        validation_failed = 0
+        
+        for service_info in services_pending_validation:
+            service_name = service_info['service_name']
+            env_name = service_info['env_name']
+            env_id = service_info['env_id']
+            
+            exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
+            if exists:
+                validation_success += 1
+            else:
+                validation_failed += 1
+                if not silent_mode:  # Only show details if not in silent mode
+                    print(f"   ❌ Service {service_name} in {env_name} - validation failed")
+        
+        print(f"└─ Final validation results:")
+        print(f"   ✅ Successfully validated: {validation_success} services")
+        if validation_failed > 0:
+            print(f"   ❌ Failed validation: {validation_failed} services")
+        print(f"   📊 Success rate: {(validation_success/(validation_success+validation_failed)*100):.1f}%")
 
     print(f"\n[Service Creation Process Completed]")
-    print(f"└─ Finished processing services for all environments")
+    print(f"└─ Finished processing {total_services_processed} services across all environments")
 
 
 # AddContainerRule Function
@@ -755,15 +1307,40 @@ def create_applications(applications, application_environments, phoenix_componen
     print('[Applications]')
     print(f'└─ Processing {len(applications)} applications from config')
     
+    # Count total components across all applications
+    total_components_count = 0
+    for app in applications:
+        if app.get('Components'):
+            total_components_count += len(app['Components'])
+    
+    print(f'└─ Total components to process: {total_components_count}')
+    
+    # DEBUGGING: Save component list from configuration
+    save_component_list_debug(applications, total_components_count)
+    
+    # DEBUGGING: Save comprehensive cache state for applications and components
+    # Note: We'll call this when we have an environment context
+    
     # Debug: Show existing applications
     existing_apps = [env for env in application_environments if env.get('type') == "APPLICATION"]
     print(f'└─ Found {len(existing_apps)} existing applications in Phoenix:')
     for app in existing_apps:
         print(f'   └─ {app.get("name", "Unknown")}')
     
+    # PHASE 2 OPTIMIZATION: Track applications for batch verification
+    created_applications = []
+    updated_applications = []
+    
+    # Component processing counter
+    global_component_processed = 0
+    
+    # Application processing counter
+    current_application = 0
+    
     for application in applications:
+        current_application += 1
         app_name = application['AppName']
-        print(f'\n└─ Processing application: {app_name}')
+        print(f'\n└─ Processing application {current_application}/{len(applications)}: {app_name}')
         
         # Check if application exists
         existing_app = next((env for env in application_environments if env['name'] == app_name and env['type'] == "APPLICATION"), None)
@@ -771,10 +1348,12 @@ def create_applications(applications, application_environments, phoenix_componen
         if not existing_app:
             print(f'   └─ Application does not exist, creating...')
             create_application(application, headers)
+            created_applications.append(application)
         else:
             print(f'   └─ Application exists (ID: {existing_app.get("id", "Unknown")}), updating...')
             try:
                 update_application(application, application_environments, phoenix_components, headers)
+                updated_applications.append(application)
             except Exception as e:
                 error_msg = f"Failed to update application {app_name}: {str(e)}"
                 log_error(
@@ -786,6 +1365,24 @@ def create_applications(applications, application_environments, phoenix_componen
                 )
                 print(f'   └─ Error: {error_msg}')
                 continue
+    
+    # PHASE 2 OPTIMIZATION: Batch verify created applications
+    if created_applications:
+        print(f'\n[Batch Verification Phase]')
+        try:
+            verification_results = verify_application_creation_batch(created_applications, headers)
+            
+            failed_apps = verification_results.get('failed', [])
+            if failed_apps:
+                print(f'└─ ⚠️  {len(failed_apps)} applications failed verification:')
+                for app in failed_apps:
+                    print(f'   └─ ❌ {app.get("AppName", "Unknown")}')
+            else:
+                print(f'└─ ✅ All {len(created_applications)} created applications verified successfully')
+        
+        except Exception as e:
+            print(f'└─ ⚠️  Batch verification failed: {e}')
+            print(f'└─ Individual verification may be needed')
 
 def create_application(app, headers2):
     global headers
@@ -1120,7 +1717,8 @@ def create_application(app, headers2):
     if app.get('Components'):
         print(f"└─ Processing {len(app['Components'])} components")
         for component in app['Components']:
-            create_custom_component(app['AppName'], component, headers)
+            global_component_processed += 1
+            create_custom_component(app['AppName'], component, headers, global_component_processed, total_components_count)
 
 def process_tag_string(tag_string):
     """Helper function to properly process tag strings, especially RiskFactor tags with multiple colons"""
@@ -1191,13 +1789,16 @@ def add_application_tag_custom(app_id, tag, headers):
             f'Tag data: {json.dumps(tag)}\nException type: {type(e).__name__}'
         )
 
-def create_custom_component(applicationName, component, headers2):
+def create_custom_component(applicationName, component, headers2, component_number=None, total_components=None):
     global headers
     if not headers:
         headers = headers2
     print(f"\n[Component Creation]")
+    if component_number and total_components:
+        print(f"└─ Processing Component {component_number}/{total_components}: {component['ComponentName']}")
+    else:
+        print(f"└─ Component: {component['ComponentName']}")
     print(f"└─ Application: {applicationName}")
-    print(f"└─ Component: {component['ComponentName']}")
     print(f"└─ Component Data: {component}")
 
     # Ensure valid tag values by filtering out empty or None 
@@ -1362,7 +1963,85 @@ def create_custom_component(applicationName, component, headers2):
         time.sleep(2)
     except requests.exceptions.RequestException as e:
         if response.status_code == 409:
-            print(f"└─ Component already exists")
+            # Component name conflict - determine if it's a legitimate duplicate or cross-application naming
+            print(f"└─ Component name '{component['ComponentName']}' conflicts with existing component - analyzing...")
+            
+            try:
+                # Check if component exists in the TARGET application (legitimate duplicate)
+                print(f"└─ Checking if component exists in target application '{applicationName}'...")
+                
+                # Get all components for verification
+                all_components = get_phoenix_components_lazy(headers)
+                
+                # Get applications to map names to IDs
+                print(f"└─ Getting application list to resolve application ID...")
+                app_list_response = requests.get(construct_api_url("/v1/applications"), headers=headers)
+                applications = app_list_response.json().get('content', []) if app_list_response.status_code == 200 else []
+                
+                # Find target application ID by name
+                target_app_id = None
+                for app in applications:
+                    if app.get('name', '').lower() == applicationName.lower():
+                        target_app_id = app.get('id')
+                        print(f"└─ Found target application ID: {target_app_id}")
+                        break
+                
+                if not target_app_id:
+                    print(f"└─ ⚠️ Could not find application ID for '{applicationName}'")
+                    print(f"└─ Assuming cross-application conflict")
+                
+                # Find all components with the same name
+                matching_components = []
+                for comp in all_components:
+                    if comp.get('name', '').lower() == component['ComponentName'].lower():
+                        matching_components.append(comp)
+                        print(f"└─ Found component '{comp['name']}' in application ID: {comp.get('applicationId')}")
+                
+                # Check if any exist in our target application
+                same_app_components = [comp for comp in matching_components if comp.get('applicationId') == target_app_id]
+                
+                if same_app_components:
+                    # COMPONENT UPDATE: Component exists in same application - check if rules can be updated
+                    existing_component = same_app_components[0]
+                    print(f"└─ ✓ COMPONENT UPDATE: Component '{component['ComponentName']}' already exists in target application '{applicationName}'")
+                    print(f"└─ ✓ Business rule: Check if rules can be updated for existing component")
+                    print(f"└─ ✓ Using existing component for rule updates (ID: {existing_component.get('id')})")
+                    
+                    if component_tracking_callback:
+                        component_tracking_callback('components', 'component_update', f"{applicationName} -> {component['ComponentName']}", True)
+                    return
+                    
+                elif matching_components:
+                    # Component exists in DIFFERENT application - this should be allowed
+                    print(f"└─ Component '{component['ComponentName']}' exists in different application(s)")
+                    print(f"└─ This is allowed - components can have same name across applications")
+                    
+                    # Use application-specific naming to avoid global conflicts
+                    unique_component_name = f"{component['ComponentName']}-{applicationName.lower()}"
+                    print(f"└─ Creating component with application-specific name: {unique_component_name}")
+                    
+                    # Update payload and retry
+                    payload["name"] = unique_component_name
+                    print(f"└─ Retrying with unique name: {unique_component_name}")
+                    
+                    retry_response = requests.post(api_url, headers=headers, json=payload)
+                    if retry_response.status_code in [200, 201]:
+                        print(f"└─ ✅ Created application-specific component: {unique_component_name}")
+                        if component_tracking_callback:
+                            component_tracking_callback('components', 'create_component_unique', f"{applicationName} -> {unique_component_name}", True)
+                        return
+                    elif retry_response.status_code == 409:
+                        print(f"└─ Application-specific component already exists: {unique_component_name}")
+                        if component_tracking_callback:
+                            component_tracking_callback('components', 'component_exists', f"{applicationName} -> {unique_component_name}", True)
+                        return
+                    else:
+                        print(f"└─ Failed to create application-specific component: {retry_response.status_code}")
+                        
+            except Exception as analysis_error:
+                print(f"└─ Error analyzing component conflict: {analysis_error}")
+                print(f"└─ Treating as existing component")
+                
         elif response.status_code == 400:
             # Handle specific 400 errors
             try:
@@ -1461,7 +2140,32 @@ def create_custom_component(applicationName, component, headers2):
             return
 
     try:
-        create_component_rules(applicationName, component, headers)
+        # PHASE 1 OPTIMIZATION: Use batch rule creation
+        rule_batch = RuleBatch(applicationName, component['ComponentName'])
+        
+        # Collect rules first for verification
+        collected_rules = []
+        create_component_rules_batch(applicationName, component, headers)
+        
+        # PHASE 2 OPTIMIZATION: Verify rules were created correctly
+        if rule_batch.rules:
+            try:
+                verification_results = verify_rules_creation_batch(
+                    applicationName, 
+                    component['ComponentName'], 
+                    rule_batch.rules, 
+                    headers
+                )
+                
+                failed_rules = verification_results.get('failed', [])
+                if failed_rules:
+                    print(f"└─ ⚠️  {len(failed_rules)} rules failed verification")
+                else:
+                    print(f"└─ ✅ All rules verified successfully")
+                    
+            except Exception as verify_error:
+                print(f"└─ ⚠️  Rule verification failed: {verify_error}")
+        
     except Exception as e:
         error_msg = f"Failed to create component rules: {str(e)}"
         log_error(
@@ -1471,6 +2175,13 @@ def create_custom_component(applicationName, component, headers2):
             error_msg
         )
         print(f"└─ Warning: {error_msg}")
+        
+        # Fallback to original individual rule creation
+        try:
+            print(f"└─ 🔄 Falling back to individual rule creation...")
+            create_component_rules(applicationName, component, headers)
+        except Exception as fallback_error:
+            print(f"└─ ❌ Fallback also failed: {fallback_error}")
 
 
 def update_application(application, existing_apps_envs, existing_components, headers2):
@@ -1618,15 +2329,16 @@ def update_application(application, existing_apps_envs, existing_components, hea
         print(f"└─ Processing {len(application['Components'])} components")
         for component in application['Components']:
             try:
+                global_component_processed += 1
                 existing_component = next((comp for comp in existing_components 
                                         if comp['name'] == component['ComponentName'] 
                                         and comp['applicationId'] == existing_app['id']), None)
                 if existing_component:
-                    print(f"   └─ Updating component: {component['ComponentName']}")
+                    print(f"   └─ Updating component {global_component_processed}/{total_components_count}: {component['ComponentName']}")
                     update_component(application, component, existing_component, headers)
                 else:
-                    print(f"   └─ Creating new component: {component['ComponentName']}")
-                    create_custom_component(application['AppName'], component, headers)
+                    print(f"   └─ Creating new component {global_component_processed}/{total_components_count}: {component['ComponentName']}")
+                    create_custom_component(application['AppName'], component, headers, global_component_processed, total_components_count)
             except Exception as e:
                 error_msg = f"Failed to process component {component.get('ComponentName', 'Unknown')}: {str(e)}"
                 log_error(
@@ -1867,7 +2579,12 @@ def update_component(application, component, existing_component, headers2):
                     component_tracking_callback('components', 'update_component', f"{application['AppName']} -> {component['ComponentName']}", False, error_msg)
     
     try:
-        create_component_rules(application['AppName'], component, headers)
+        # PHASE 1 OPTIMIZATION: Use batch rule creation
+        try:
+            create_component_rules_batch(application['AppName'], component, headers)
+        except Exception as e:
+            print(f"└─ ⚠️  Batch rule creation failed, using fallback: {e}")
+            create_component_rules(application['AppName'], component, headers)
     except Exception as e:
         error_msg = f"Failed to create component rules: {str(e)}"
         log_error(
@@ -3175,6 +3892,10 @@ def delete_team_member(email, team_id, access_token2):
 
 @dispatch(str)
 def get_phoenix_components(access_token2):
+    """
+    Legacy function that converts access token to headers format.
+    Now redirects to the enhanced pagination implementation.
+    """
     global access_token
     if not access_token:
         access_token = access_token2
@@ -3182,10 +3903,1005 @@ def get_phoenix_components(access_token2):
     return get_phoenix_components(headers)
 
 
+def _is_cache_valid():
+    """Check if the component cache is still valid"""
+    import time
+    return (_component_cache['data'] is not None and 
+            _component_cache['timestamp'] is not None and 
+            time.time() - _component_cache['timestamp'] < _component_cache['ttl'])
+
+def _update_component_cache(components):
+    """Update the component cache with new data"""
+    import time
+    _component_cache['data'] = components
+    _component_cache['timestamp'] = time.time()
+
+def clear_component_cache():
+    """Clear the component cache to force fresh data on next fetch"""
+    _component_cache['data'] = None
+    _component_cache['timestamp'] = None
+    print("🗑️  Component cache cleared - next fetch will retrieve fresh data")
+
+def force_fresh_component_fetch(headers):
+    """
+    Force a fresh fetch of all components, bypassing cache.
+    Useful for testing the pagination improvements.
+    """
+    clear_component_cache()
+    print("\n🔄 Forcing fresh component fetch...")
+    return get_phoenix_components(headers)
+
+def validate_service_dataset_completeness(headers):
+    """
+    Validate that service fetching and caching is working with complete dataset.
+    Returns statistics about the services and environments.
+    """
+    print("\n📊 Validating Service Dataset Completeness...")
+    
+    # Force fresh fetch to get latest data
+    all_components = force_fresh_component_fetch(headers)
+    
+    # Analyze the dataset
+    env_breakdown = {}
+    total_services = len(all_components)
+    
+    for service in all_components:
+        app_id = service.get('applicationId', 'Unknown')
+        env_breakdown[app_id] = env_breakdown.get(app_id, 0) + 1
+    
+    print(f"✅ Total services in system: {total_services}")
+    print(f"✅ Number of environments: {len(env_breakdown)}")
+    print(f"✅ Top 10 environments by service count:")
+    
+    for i, (app_id, count) in enumerate(sorted(env_breakdown.items(), key=lambda x: x[1], reverse=True)[:10], 1):
+        print(f"   {i:2d}. Environment {app_id}: {count} services")
+    
+    return {
+        'total_services': total_services,
+        'environments': len(env_breakdown),
+        'env_breakdown': env_breakdown,
+        'all_services': all_components
+    }
+
+def test_environment_filtering(env_id, headers):
+    """
+    Test environment filtering to ensure it's working correctly.
+    
+    Args:
+        env_id: Environment ID to test
+        headers: Authentication headers
+        
+    Returns:
+        dict: Test results
+    """
+    print(f"\n🧪 Testing Environment Filtering for ID: {env_id}")
+    
+    # Get all services
+    all_services = get_phoenix_components_lazy(headers)
+    print(f" * Total services in system: {len(all_services)}")
+    
+    # Filter by environment using our function
+    env_services = get_phoenix_components_in_environment(env_id, headers)
+    print(f" * Services in environment {env_id}: {len(env_services)}")
+    
+    # Validate filtering
+    invalid_services = [s for s in env_services if s.get('applicationId') != env_id]
+    if invalid_services:
+        print(f" ❌ FILTERING ERROR: {len(invalid_services)} services have wrong environment ID!")
+        for svc in invalid_services[:3]:
+            print(f"   └─ {svc.get('name')} has applicationId: {svc.get('applicationId')}")
+    else:
+        print(f" ✅ Environment filtering working correctly")
+    
+    # Test double filtering (should yield same result)
+    double_filtered = [s for s in all_services if s.get('applicationId') == env_id]
+    if len(double_filtered) == len(env_services):
+        print(f" ✅ Consistent filtering results")
+    else:
+        print(f" ❌ Inconsistent filtering: {len(double_filtered)} vs {len(env_services)}")
+    
+    return {
+        'env_id': env_id,
+        'total_services': len(all_services),
+        'env_services_count': len(env_services),
+        'filtering_errors': len(invalid_services),
+        'consistent_filtering': len(double_filtered) == len(env_services)
+    }
+
+def analyze_service_locations(service_name, headers):
+    """
+    Analyze where a service exists across environments and applications.
+    
+    Args:
+        service_name: Name of the service to analyze
+        headers: Authentication headers
+        
+    Returns:
+        dict: Analysis results showing all locations
+    """
+    print(f"\n🔍 Analyzing Service Locations for: {service_name}")
+    
+    all_services = get_phoenix_components_lazy(headers)
+    service_name_lower = service_name.lower()
+    
+    # Find all instances of this service
+    matching_services = [s for s in all_services if s['name'].lower() == service_name_lower]
+    
+    if not matching_services:
+        print(f" ❌ Service '{service_name}' not found anywhere in the system")
+        return {'found': False, 'locations': []}
+    
+    print(f" ✅ Found {len(matching_services)} instance(s) of service '{service_name}':")
+    
+    locations = []
+    for i, svc in enumerate(matching_services, 1):
+        app_id = svc.get('applicationId', 'Unknown')
+        svc_id = svc.get('id', 'Unknown')
+        
+        # Determine if this looks like an environment or application
+        if len(app_id) > 30 and app_id.count('-') >= 4:
+            location_type = "Environment"
+        else:
+            location_type = "Application"
+        
+        location_info = {
+            'service_id': svc_id,
+            'location_id': app_id,
+            'location_type': location_type,
+            'service_name': svc.get('name')
+        }
+        locations.append(location_info)
+        
+        print(f"   {i}. {location_type}: {app_id}")
+        print(f"      └─ Service ID: {svc_id}")
+        print(f"      └─ Service Name: {svc.get('name')}")
+    
+    # Categorize by type
+    environments = [loc for loc in locations if loc['location_type'] == 'Environment']
+    applications = [loc for loc in locations if loc['location_type'] == 'Application']
+    
+    print(f"\n📊 Summary:")
+    print(f" * Found in {len(environments)} environment(s)")
+    print(f" * Found in {len(applications)} application(s)")
+    
+    return {
+        'found': True,
+        'total_instances': len(matching_services),
+        'environments': environments,
+        'applications': applications,
+        'locations': locations
+    }
+
+def validate_cross_environment_service_creation(service_name, env1_name, env1_id, env2_name, env2_id, headers):
+    """
+    Validate that services can be created with the same name in different environments.
+    This tests the core business rule: same names allowed across environments.
+    
+    Args:
+        service_name: Service name to test
+        env1_name, env1_id: First environment
+        env2_name, env2_id: Second environment  
+        headers: Authentication headers
+        
+    Returns:
+        dict: Validation results
+    """
+    print(f"\n🧪 Testing Cross-Environment Service Creation")
+    print(f" * Service: {service_name}")
+    print(f" * Environment 1: {env1_name} ({env1_id})")
+    print(f" * Environment 2: {env2_name} ({env2_id})")
+    
+    results = {
+        'service_name': service_name,
+        'env1': {'name': env1_name, 'id': env1_id, 'exists': False, 'service_id': None},
+        'env2': {'name': env2_name, 'id': env2_id, 'exists': False, 'service_id': None},
+        'cross_env_allowed': False,
+        'same_env_duplicate_blocked': False
+    }
+    
+    # Check current state
+    print(f"\n📊 Current State Analysis:")
+    
+    # Check environment 1
+    exists1, service1_id = verify_service_exists(env1_name, env1_id, service_name, headers)
+    results['env1']['exists'] = exists1
+    results['env1']['service_id'] = service1_id
+    print(f" * {env1_name}: {'✅ EXISTS' if exists1 else '❌ NOT FOUND'}")
+    
+    # Check environment 2  
+    exists2, service2_id = verify_service_exists(env2_name, env2_id, service_name, headers)
+    results['env2']['exists'] = exists2
+    results['env2']['service_id'] = service2_id
+    print(f" * {env2_name}: {'✅ EXISTS' if exists2 else '❌ NOT FOUND'}")
+    
+    # Analyze cross-environment behavior
+    if exists1 and exists2:
+        print(f"\n✅ VALIDATION PASSED: Service exists in both environments")
+        print(f" * This proves cross-environment services are working correctly")
+        results['cross_env_allowed'] = True
+    elif exists1 or exists2:
+        print(f"\n⚠️  PARTIAL: Service exists in one environment but not the other")
+        print(f" * This is normal and shows environment isolation is working")
+        results['cross_env_allowed'] = True
+    else:
+        print(f"\n❌ Service not found in either environment")
+        
+    # Check for environment-specific versions
+    env1_specific = f"{service_name}-{env1_name.lower()}"
+    env2_specific = f"{service_name}-{env2_name.lower()}"
+    
+    print(f"\n🔍 Checking Environment-Specific Versions:")
+    exists1_specific, _ = verify_service_exists(env1_name, env1_id, env1_specific, headers)
+    exists2_specific, _ = verify_service_exists(env2_name, env2_id, env2_specific, headers)
+    
+    print(f" * {env1_specific}: {'✅ EXISTS' if exists1_specific else '❌ NOT FOUND'}")
+    print(f" * {env2_specific}: {'✅ EXISTS' if exists2_specific else '❌ NOT FOUND'}")
+    
+    return results
+
+def validate_component_duplicate_detection(component_name, app1_name, app2_name, headers):
+    """
+    Validate that component duplicate detection works correctly.
+    Tests the rule: same component name in same application = blocked, different applications = allowed.
+    
+    Args:
+        component_name: Component name to test
+        app1_name: First application name
+        app2_name: Second application name
+        headers: Authentication headers
+        
+    Returns:
+        dict: Validation results
+    """
+    print(f"\n🧪 Testing Component Duplicate Detection")
+    print(f" * Component: {component_name}")
+    print(f" * Application 1: {app1_name}")
+    print(f" * Application 2: {app2_name}")
+    
+    results = {
+        'component_name': component_name,
+        'app1': {'name': app1_name, 'components': [], 'has_component': False},
+        'app2': {'name': app2_name, 'components': [], 'has_component': False},
+        'cross_app_allowed': False,
+        'same_app_duplicate_properly_handled': False
+    }
+    
+    # Get all components and applications
+    all_components = get_phoenix_components_lazy(headers)
+    
+    # Get applications to map names to IDs
+    app_list_response = requests.get(construct_api_url("/v1/applications"), headers=headers)
+    applications = app_list_response.json().get('content', []) if app_list_response.status_code == 200 else []
+    
+    # Find application IDs
+    app1_id = None
+    app2_id = None
+    for app in applications:
+        if app.get('name', '').lower() == app1_name.lower():
+            app1_id = app.get('id')
+        elif app.get('name', '').lower() == app2_name.lower():
+            app2_id = app.get('id')
+    
+    print(f"\n📊 Application Analysis:")
+    print(f" * {app1_name} ID: {app1_id}")
+    print(f" * {app2_name} ID: {app2_id}")
+    
+    # Find all instances of this component
+    matching_components = [comp for comp in all_components 
+                          if comp.get('name', '').lower() == component_name.lower()]
+    
+    print(f"\n🔍 Component Instance Analysis:")
+    print(f" * Found {len(matching_components)} instance(s) of component '{component_name}':")
+    
+    for i, comp in enumerate(matching_components, 1):
+        comp_app_id = comp.get('applicationId')
+        comp_id = comp.get('id')
+        
+        # Determine which application this belongs to
+        app_name = "Unknown"
+        if comp_app_id == app1_id:
+            app_name = app1_name
+            results['app1']['components'].append(comp)
+            results['app1']['has_component'] = True
+        elif comp_app_id == app2_id:
+            app_name = app2_name
+            results['app2']['components'].append(comp)
+            results['app2']['has_component'] = True
+        else:
+            # Find application name for this ID
+            for app in applications:
+                if app.get('id') == comp_app_id:
+                    app_name = app.get('name', 'Unknown')
+                    break
+        
+        print(f"   {i}. Application: {app_name} (ID: {comp_app_id})")
+        print(f"      └─ Component ID: {comp_id}")
+    
+    # Analyze cross-application behavior
+    if results['app1']['has_component'] and results['app2']['has_component']:
+        print(f"\n✅ CROSS-APPLICATION SUCCESS: Component exists in both applications")
+        print(f" * This proves cross-application components are working correctly")
+        results['cross_app_allowed'] = True
+    elif results['app1']['has_component'] or results['app2']['has_component']:
+        print(f"\n⚠️  PARTIAL: Component exists in one application but not the other")
+        print(f" * This is normal and shows application isolation is working")
+        results['cross_app_allowed'] = True
+    else:
+        print(f"\n❌ Component not found in either application")
+    
+    # Check for same-application duplicate handling
+    app1_count = len(results['app1']['components'])
+    app2_count = len(results['app2']['components'])
+    
+    if app1_count > 1 or app2_count > 1:
+        print(f"\n🚫 SAME-APPLICATION DUPLICATES DETECTED:")
+        if app1_count > 1:
+            print(f" * {app1_name}: {app1_count} instances (should be 1)")
+        if app2_count > 1:
+            print(f" * {app2_name}: {app2_count} instances (should be 1)")
+        print(f" * This indicates duplicate detection may not be working properly")
+        results['same_app_duplicate_properly_handled'] = False
+    else:
+        print(f"\n✅ SAME-APPLICATION DUPLICATES: Properly handled (max 1 per application)")
+        results['same_app_duplicate_properly_handled'] = True
+    
+    return results
+
+def _is_service_cache_valid(env_id):
+    """Check if the service cache for a specific environment is still valid"""
+    import time
+    return (env_id in _environment_services_cache['data'] and 
+            env_id in _environment_services_cache['timestamp'] and 
+            time.time() - _environment_services_cache['timestamp'][env_id] < _environment_services_cache['ttl'])
+
+def _update_service_cache(env_id, services):
+    """Update the service cache for a specific environment"""
+    import time
+    if env_id not in _environment_services_cache['data']:
+        _environment_services_cache['data'][env_id] = {}
+    
+    # Create lookup dictionary with lowercase names for fast access
+    service_lookup = {}
+    for service in services:
+        service_name_lower = service['name'].lower()
+        service_lookup[service_name_lower] = service
+    
+    _environment_services_cache['data'][env_id] = service_lookup
+    _environment_services_cache['timestamp'][env_id] = time.time()
+
+def clear_service_cache(env_id=None):
+    """Clear the service cache for specific environment or all environments"""
+    if env_id:
+        if env_id in _environment_services_cache['data']:
+            del _environment_services_cache['data'][env_id]
+        if env_id in _environment_services_cache['timestamp']:
+            del _environment_services_cache['timestamp'][env_id]
+        # IMPORTANT: Also clear global component cache to ensure fresh fetch with pagination
+        clear_component_cache()
+    else:
+        _environment_services_cache['data'] = {}
+        _environment_services_cache['timestamp'] = {}
+        # Clear global component cache when clearing all service caches
+        clear_component_cache()
+
+def get_environment_services_cached(env_id, headers, force_refresh=False):
+    """
+    Get all services for an environment with caching.
+    Returns a dictionary with lowercase service names as keys.
+    
+    Args:
+        env_id: Environment ID
+        headers: Request headers
+        force_refresh: If True, bypass cache and fetch fresh data
+    """
+    # Check if we have valid cached data for this environment (unless forced refresh)
+    if not force_refresh and _is_service_cache_valid(env_id):
+        cached_services = _environment_services_cache['data'][env_id]
+        print(f" * Using cached services for environment {env_id} ({len(cached_services)} services)")
+        return cached_services
+    
+    # Cache miss or forced refresh - fetch fresh data
+    if force_refresh:
+        print(f" * Force refreshing services for environment {env_id}...")
+        # Clear global component cache to ensure fresh pagination
+        clear_component_cache()
+    else:
+        print(f" * Fetching services for environment {env_id}...")
+    
+    services = get_phoenix_components_in_environment(env_id, headers)
+    
+    # Update cache
+    _update_service_cache(env_id, services)
+    
+    print(f" * Environment cache updated with {len(_environment_services_cache['data'][env_id])} services")
+    return _environment_services_cache['data'][env_id]
+
+def _is_application_verification_cache_valid():
+    """Check if the application verification cache is still valid"""
+    import time
+    return (_application_verification_cache['timestamp'] is not None and 
+            time.time() - _application_verification_cache['timestamp'] < _application_verification_cache['ttl'])
+
+def _update_application_verification_cache(applications, components):
+    """Update the application verification cache with fresh data"""
+    import time
+    
+    # Cache applications by name
+    for app in applications:
+        if app.get('name'):
+            _application_verification_cache['applications'][app['name']] = app
+    
+    # Cache components by (app_name, component_name)
+    for component in components:
+        if component.get('name') and component.get('applicationId'):
+            # Find application name for this component
+            app_name = None
+            for app in applications:
+                if app.get('id') == component['applicationId']:
+                    app_name = app.get('name')
+                    break
+            
+            if app_name:
+                cache_key = (app_name, component['name'])
+                _application_verification_cache['components'][cache_key] = component
+    
+    _application_verification_cache['timestamp'] = time.time()
+
+def clear_application_verification_cache():
+    """Clear the application verification cache"""
+    _application_verification_cache['applications'] = {}
+    _application_verification_cache['components'] = {}
+    _application_verification_cache['timestamp'] = None
+
+def service_exists_in_cache(service_name, env_id, env_services_cache, headers=None, fallback_check=True):
+    """
+    Fast lookup to check if service exists in cache with optional fallback.
+    Returns (exists, service_data) tuple.
+    
+    Args:
+        service_name: Name of the service to check
+        env_id: Environment ID
+        env_services_cache: Current environment services cache
+        headers: Request headers for fallback API check
+        fallback_check: If True, perform fresh API check on cache miss
+    """
+    service_name_lower = service_name.lower()
+    
+    # First check cache
+    if service_name_lower in env_services_cache:
+        service_data = env_services_cache[service_name_lower]
+        return True, service_data
+    
+    # Cache miss - perform fallback check if enabled and headers provided
+    if fallback_check and headers:
+        print(f"  └─ 🔍 Cache miss for '{service_name}' - performing fresh API check...")
+        try:
+            # Force refresh the environment cache and check again
+            fresh_cache = get_environment_services_cached(env_id, headers, force_refresh=True)
+            if service_name_lower in fresh_cache:
+                service_data = fresh_cache[service_name_lower]
+                print(f"  └─ ✅ Found '{service_name}' in fresh cache (was missing from stale cache)")
+                return True, service_data
+            else:
+                print(f"  └─ ❌ '{service_name}' confirmed missing from environment {env_id}")
+        except Exception as e:
+            print(f"  └─ ⚠️  Fallback check failed: {e}")
+    
+    return False, None
+
+def add_service_to_cache(service_name, service_data, env_id):
+    """
+    Add a newly created service to the cache for immediate lookup.
+    """
+    if env_id in _environment_services_cache['data']:
+        service_name_lower = service_name.lower()
+        _environment_services_cache['data'][env_id][service_name_lower] = service_data
+
+# ============================================================================
+# PHASE 1: RULE BATCHING IMPLEMENTATION
+# ============================================================================
+
+class RuleBatch:
+    """Container for batched rules with validation and fallback support"""
+    
+    def __init__(self, application_name, component_name):
+        self.application_name = application_name
+        self.component_name = component_name
+        self.rules = []
+        self.validation_errors = []
+        self.created_rules = []
+        self.failed_rules = []
+    
+    def add_rule(self, rule_name, filter_type, filter_value):
+        """Add a rule to the batch with validation"""
+        try:
+            validated_rule = self._validate_and_build_rule(rule_name, filter_type, filter_value)
+            if validated_rule:
+                self.rules.append(validated_rule)
+                return True
+            else:
+                self.validation_errors.append(f"Invalid rule: {rule_name}")
+                return False
+        except Exception as e:
+            self.validation_errors.append(f"Rule validation error for {rule_name}: {str(e)}")
+            return False
+    
+    def _validate_and_build_rule(self, rule_name, filter_type, filter_value):
+        """Validate and build a rule structure for API submission"""
+        
+        # Helper function to validate value
+        def is_valid_value(value):
+            if value is None:
+                return False
+            if isinstance(value, str) and (not value.strip() or value.lower() == 'null'):
+                return False
+            if isinstance(value, list) and len(value) == 0:
+                return False
+            return True
+        
+        if not is_valid_value(filter_value):
+            return None
+        
+        # Map filter names to their correct API case-sensitive versions
+        filter_name_mapping = {
+            'keylike': 'keyLike',
+            'searchname': 'keyLike',
+            'searchName': 'keyLike',
+            'osnames': 'osNames',
+            'provideraccountid': 'providerAccountId',
+            'provideraccountname': 'providerAccountName',
+            'resourcegroup': 'resourceGroup',
+            'assettype': 'assetType',
+            'tags': 'tags',
+            'repository': 'repository',
+            'cidr': 'cidr',
+            'fqdn': 'fqdn',
+            'netbios': 'netbios'
+        }
+        
+        api_filter_name = filter_name_mapping.get(filter_type.lower(), filter_type)
+        
+        # Special handling for different filter types
+        if api_filter_name == 'tags':
+            if isinstance(filter_value, list) and all(isinstance(tag, dict) and ('value' in tag or ('key' in tag and 'value' in tag)) for tag in filter_value):
+                filter_content = filter_value
+            else:
+                tags = filter_value if isinstance(filter_value, list) else [filter_value]
+                filter_content = [{"value": tag} for tag in tags if tag and len(str(tag).strip()) >= 3]
+        elif api_filter_name == 'keyLike':
+            if isinstance(filter_value, (list, dict)):
+                if isinstance(filter_value, list):
+                    filter_content = filter_value[0] if filter_value else ""
+                elif isinstance(filter_value, dict):
+                    filter_content = str(filter_value.get('value', ''))
+            else:
+                filter_content = filter_value
+        else:
+            filter_content = filter_value
+        
+        # Build the rule structure
+        rule = {
+            "name": rule_name,
+            "filter": {
+                api_filter_name: filter_content
+            }
+        }
+        
+        return rule
+    
+    def get_batch_payload(self):
+        """Generate the API payload for batch rule creation"""
+        return {
+            "selector": {
+                "applicationSelector": {"name": self.application_name, "caseSensitive": False},
+                "componentSelector": {"name": self.component_name, "caseSensitive": False}
+            },
+            "rules": self.rules
+        }
+
+def create_component_rules_batch(application_name, component, headers):
+    """
+    PHASE 1 OPTIMIZATION: Create all component rules in batches
+    """
+    
+    print(f"\n[Batch Rule Creation]")
+    print(f"└─ Application: {application_name}")
+    print(f"└─ Component: {component['ComponentName']}")
+    
+    # Create rule batch container
+    rule_batch = RuleBatch(application_name, component['ComponentName'])
+    
+    # Helper function to validate value (same as original)
+    def is_valid_value(value):
+        if value is None:
+            return False
+        if isinstance(value, str) and (not value.strip() or value.lower() == 'null'):
+            return False
+        return True
+    
+    # Collect all rules for this component
+    rules_added = 0
+    
+    # SearchName rule
+    if component.get('SearchName') and is_valid_value(component.get('SearchName')):
+        rule_name = f"Rule for keyLike for {component['ComponentName']}"
+        if rule_batch.add_rule(rule_name, 'keyLike', component['SearchName']):
+            rules_added += 1
+    
+    # Tags rule
+    if component.get('Tags') and is_valid_value(component.get('Tags')):
+        rule_name = f"Rule for tags for {component['ComponentName']}"
+        if rule_batch.add_rule(rule_name, 'tags', component['Tags']):
+            rules_added += 1
+    
+    # Repository rule
+    repository_names = get_repositories_from_component(component)
+    if repository_names:
+        rule_name = f"Rule for repository for {component['ComponentName']}"
+        if rule_batch.add_rule(rule_name, 'repository', repository_names):
+            rules_added += 1
+    
+    # Other standard rules
+    rule_mappings = [
+        ('Cidr', 'cidr'),
+        ('Fqdn', 'fqdn'),
+        ('Netbios', 'netbios'),
+        ('Hostnames', 'hostnames'),
+        ('OsNames', 'osNames'),
+        ('ProviderAccountId', 'providerAccountId'),
+        ('ProviderAccountName', 'providerAccountName'),
+        ('ResourceGroup', 'resourceGroup'),
+        ('AssetType', 'assetType')
+    ]
+    
+    for yaml_key, api_key in rule_mappings:
+        if component.get(yaml_key) and is_valid_value(component.get(yaml_key)):
+            rule_name = f"Rule for {api_key} for {component['ComponentName']}"
+            if rule_batch.add_rule(rule_name, api_key, component[yaml_key]):
+                rules_added += 1
+    
+    print(f"└─ Collected {rules_added} standard rules for batch creation")
+    
+    # Report validation errors
+    if rule_batch.validation_errors:
+        print(f"└─ ⚠️  {len(rule_batch.validation_errors)} validation errors:")
+        for error in rule_batch.validation_errors:
+            print(f"   └─ {error}")
+    
+    # Create rules in batch if we have any valid rules
+    batch_success = False
+    if rule_batch.rules:
+        batch_success = _execute_rule_batch(rule_batch, headers)
+    
+    # Handle MultiCondition rules separately (these use different API structure)
+    multicondition_success = True
+    multicondition_types = ['MultiConditionRule', 'MultiConditionRules', 'MULTI_MultiConditionRules', 'MultiMultiConditionRules']
+    
+    for rule_type in multicondition_types:
+        if component.get(rule_type) and is_valid_value(component.get(rule_type)):
+            try:
+                print(f"└─ Creating {rule_type} rules separately...")
+                if rule_type == 'MultiConditionRule':
+                    create_multicondition_component_rules(application_name, component['ComponentName'], [component.get(rule_type)], headers)
+                else:
+                    create_multicondition_component_rules(application_name, component['ComponentName'], component.get(rule_type), headers)
+            except Exception as e:
+                print(f"└─ ❌ Error creating {rule_type}: {e}")
+                multicondition_success = False
+    
+    overall_success = batch_success and multicondition_success
+    
+    if overall_success:
+        print(f"└─ ✅ All rules created successfully for {component['ComponentName']}")
+    else:
+        print(f"└─ ⚠️  Some rules failed for {component['ComponentName']}")
+    
+    return overall_success
+
+def _execute_rule_batch(rule_batch, headers):
+    """Execute a batch of rules with fallback to individual creation"""
+    
+    if not rule_batch.rules:
+        return True
+    
+    print(f"└─ Attempting batch creation of {len(rule_batch.rules)} rules...")
+    
+    try:
+        # Attempt batch creation
+        api_url = construct_api_url("/v1/components/rules")
+        payload = rule_batch.get_batch_payload()
+        
+        if DEBUG:
+            print(f"└─ Batch payload:")
+            print(json.dumps(payload, indent=2))
+        
+        response = requests.post(api_url, headers=headers, json=payload)
+        
+        if response.status_code == 201:
+            print(f"└─ ✅ Batch creation successful: {len(rule_batch.rules)} rules created")
+            rule_batch.created_rules = rule_batch.rules.copy()
+            return True
+        elif response.status_code == 409:
+            print(f"└─ ℹ️  Some rules already exist (409), considering as success")
+            rule_batch.created_rules = rule_batch.rules.copy()
+            return True
+        else:
+            print(f"└─ ⚠️  Batch creation failed (HTTP {response.status_code}), falling back to individual creation")
+            return _fallback_to_individual_rules(rule_batch, headers)
+    
+    except Exception as e:
+        print(f"└─ ❌ Batch creation error: {e}")
+        print(f"└─ 🔄 Falling back to individual rule creation...")
+        return _fallback_to_individual_rules(rule_batch, headers)
+
+def _fallback_to_individual_rules(rule_batch, headers):
+    """Fallback to creating rules individually when batch fails"""
+    
+    success_count = 0
+    total_rules = len(rule_batch.rules)
+    
+    print(f"└─ Creating {total_rules} rules individually...")
+    
+    for rule in rule_batch.rules:
+        try:
+            # Create individual rule payload
+            individual_payload = {
+                "selector": {
+                    "applicationSelector": {"name": rule_batch.application_name, "caseSensitive": False},
+                    "componentSelector": {"name": rule_batch.component_name, "caseSensitive": False}
+                },
+                "rules": [rule]
+            }
+            
+            api_url = construct_api_url("/v1/components/rules")
+            response = requests.post(api_url, headers=headers, json=individual_payload)
+            
+            if response.status_code in [201, 409]:  # Created or already exists
+                rule_batch.created_rules.append(rule)
+                success_count += 1
+                if response.status_code == 201:
+                    print(f"   └─ ✅ Created: {rule['name']}")
+                else:
+                    print(f"   └─ ℹ️  Exists: {rule['name']}")
+            else:
+                rule_batch.failed_rules.append(rule)
+                print(f"   └─ ❌ Failed: {rule['name']} (HTTP {response.status_code})")
+                
+        except Exception as e:
+            rule_batch.failed_rules.append(rule)
+            print(f"   └─ ❌ Error creating {rule['name']}: {e}")
+    
+    print(f"└─ Individual creation complete: {success_count}/{total_rules} successful")
+    
+    return success_count == total_rules
+
+# ============================================================================
+# PHASE 2: BATCH VERIFICATION IMPLEMENTATION
+# ============================================================================
+
+class BatchVerificationEngine:
+    """Handles batch verification of applications and components"""
+    
+    def __init__(self, headers):
+        self.headers = headers
+    
+    def verify_applications_batch(self, applications):
+        """Verify multiple applications were created correctly"""
+        
+        print(f"\n[Batch Application Verification]")
+        print(f"└─ Verifying {len(applications)} applications...")
+        
+        # Check if we have valid cached data
+        if _is_application_verification_cache_valid():
+            print(f"└─ Using cached application data for verification")
+            cached_apps = _application_verification_cache['applications']
+        else:
+            print(f"└─ Fetching fresh application data for verification...")
+            # Fetch all applications in one API call
+            try:
+                all_apps = self._fetch_all_applications()
+                all_components = self._fetch_all_components()
+                
+                # Update cache with fresh data
+                _update_application_verification_cache(all_apps, all_components)
+                cached_apps = _application_verification_cache['applications']
+                
+            except Exception as e:
+                print(f"└─ ❌ Error fetching applications for verification: {e}")
+                return {'successful': [], 'failed': applications, 'partial': []}
+        
+        verification_results = {
+            'successful': [],
+            'failed': [],
+            'partial': []
+        }
+        
+        for app in applications:
+            app_name = app.get('AppName')
+            if app_name in cached_apps:
+                verification_results['successful'].append({
+                    'application': app,
+                    'phoenix_data': cached_apps[app_name]
+                })
+                print(f"   └─ ✅ {app_name}: Verified")
+            else:
+                verification_results['failed'].append(app)
+                print(f"   └─ ❌ {app_name}: Not found")
+        
+        print(f"└─ Verification complete: {len(verification_results['successful'])}/{len(applications)} successful")
+        
+        return verification_results
+    
+    def verify_components_batch(self, application_name, components):
+        """Verify multiple components for an application were created correctly"""
+        
+        print(f"\n[Batch Component Verification]")
+        print(f"└─ Verifying {len(components)} components for {application_name}...")
+        
+        verification_results = {
+            'successful': [],
+            'failed': [],
+            'partial': []
+        }
+        
+        # Use cached component data
+        cached_components = _application_verification_cache['components']
+        
+        for component in components:
+            component_name = component.get('ComponentName')
+            cache_key = (application_name, component_name)
+            
+            if cache_key in cached_components:
+                verification_results['successful'].append({
+                    'component': component,
+                    'phoenix_data': cached_components[cache_key]
+                })
+                print(f"   └─ ✅ {component_name}: Verified")
+            else:
+                verification_results['failed'].append(component)
+                print(f"   └─ ❌ {component_name}: Not found")
+        
+        print(f"└─ Component verification complete: {len(verification_results['successful'])}/{len(components)} successful")
+        
+        return verification_results
+    
+    def verify_rules_batch(self, application_name, component_name, expected_rules):
+        """Verify all rules for a component were created"""
+        
+        if not expected_rules:
+            return {'created': [], 'failed': [], 'duplicates': []}
+        
+        print(f"\n[Batch Rule Verification]")
+        print(f"└─ Verifying {len(expected_rules)} rules for {application_name}/{component_name}...")
+        
+        try:
+            # Fetch existing rules for component in single API call
+            existing_rules = self._fetch_component_rules(application_name, component_name)
+            
+            verification_matrix = self._compare_rule_sets(expected_rules, existing_rules)
+            
+            print(f"└─ Rule verification complete:")
+            print(f"   └─ Created: {len(verification_matrix['created'])}")
+            print(f"   └─ Failed: {len(verification_matrix['failed'])}")  
+            print(f"   └─ Duplicates: {len(verification_matrix['duplicates'])}")
+            
+            return verification_matrix
+            
+        except Exception as e:
+            print(f"└─ ❌ Error verifying rules: {e}")
+            return {'created': [], 'failed': expected_rules, 'duplicates': []}
+    
+    def _fetch_all_applications(self):
+        """Fetch all applications from Phoenix"""
+        api_url = construct_api_url("/v1/applications")
+        params = {"pageSize": 1000}  # Large page size to get most apps
+        
+        response = requests.get(api_url, headers=self.headers, params=params)
+        response.raise_for_status()
+        
+        data = response.json()
+        applications = data.get('content', [])
+        
+        # Handle pagination if needed
+        total_pages = data.get('totalPages', 1)
+        for page in range(1, total_pages):
+            params['pageNumber'] = page
+            response = requests.get(api_url, headers=self.headers, params=params)
+            response.raise_for_status()
+            applications.extend(response.json().get('content', []))
+        
+        return applications
+    
+    def _fetch_all_components(self):
+        """Fetch all components from Phoenix"""
+        api_url = construct_api_url("/v1/components")
+        params = {"pageSize": 1000}  # Large page size
+        
+        response = requests.get(api_url, headers=self.headers, params=params)
+        response.raise_for_status()
+        
+        data = response.json()
+        components = data.get('content', [])
+        
+        # Handle pagination if needed
+        total_pages = data.get('totalPages', 1)
+        for page in range(1, total_pages):
+            params['pageNumber'] = page
+            response = requests.get(api_url, headers=self.headers, params=params)
+            response.raise_for_status()
+            components.extend(response.json().get('content', []))
+        
+        return components
+    
+    def _fetch_component_rules(self, application_name, component_name):
+        """Fetch all rules for a specific component"""
+        api_url = construct_api_url("/v1/components/rules")
+        params = {
+            "applicationSelector": {"name": application_name, "caseSensitive": False},
+            "componentSelector": {"name": component_name, "caseSensitive": False}
+        }
+        
+        response = requests.get(api_url, headers=self.headers, params=params)
+        response.raise_for_status()
+        
+        return response.json()
+    
+    def _compare_rule_sets(self, expected_rules, existing_rules):
+        """Compare expected rules with existing rules"""
+        
+        verification_matrix = {
+            'created': [],
+            'failed': [],
+            'duplicates': []
+        }
+        
+        # Create lookup sets for comparison
+        existing_rule_signatures = set()
+        for rule in existing_rules:
+            if rule.get('filter'):
+                # Create a signature based on filter content
+                filter_str = json.dumps(rule['filter'], sort_keys=True)
+                existing_rule_signatures.add(filter_str)
+        
+        for expected_rule in expected_rules:
+            if expected_rule.get('filter'):
+                expected_signature = json.dumps(expected_rule['filter'], sort_keys=True)
+                
+                if expected_signature in existing_rule_signatures:
+                    verification_matrix['created'].append(expected_rule)
+                else:
+                    verification_matrix['failed'].append(expected_rule)
+            else:
+                verification_matrix['failed'].append(expected_rule)
+        
+        return verification_matrix
+
+def verify_application_creation_batch(applications, headers):
+    """
+    PHASE 2 OPTIMIZATION: Verify batch of applications were created correctly
+    """
+    verifier = BatchVerificationEngine(headers)
+    return verifier.verify_applications_batch(applications)
+
+def verify_components_creation_batch(application_name, components, headers):
+    """
+    PHASE 2 OPTIMIZATION: Verify batch of components were created correctly
+    """
+    verifier = BatchVerificationEngine(headers)
+    return verifier.verify_components_batch(application_name, components)
+
+def verify_rules_creation_batch(application_name, component_name, expected_rules, headers):
+    """
+    PHASE 2 OPTIMIZATION: Verify batch of rules were created correctly
+    """
+    verifier = BatchVerificationEngine(headers)
+    return verifier.verify_rules_batch(application_name, component_name, expected_rules)
+
 @dispatch(dict)
 def get_phoenix_components(headers2):
     """
     Fetches all Phoenix components with proper pagination handling.
+    Uses caching to reduce API calls in quick-check mode.
     
     Args:
         headers: Request headers containing authorization
@@ -3196,13 +4912,21 @@ def get_phoenix_components(headers2):
     global headers
     if not headers:
         headers = headers2
+    
+    # Check if we have valid cached data
+    if _is_cache_valid():
+        print(f" * Using cached components data ({len(_component_cache['data'])} components)")
+        return _component_cache['data']
+    
     components = []
-    page_size = 100
+    page_size = 1000  # Use maximum page size to minimize API calls
     page_number = 0
     total_pages = None
+    total_elements = 0
+    all_requests = []  # Store all request/response data
     
     print("\n[Component Listing]")
-    print(" * Fetching all components with pagination...")
+    print(" * Fetching all components with optimized pagination (page size: 1000)...")
     
     while total_pages is None or page_number < total_pages:
         try:
@@ -3217,14 +4941,29 @@ def get_phoenix_components(headers2):
             response.raise_for_status()
             data = response.json()
             
-            # Save debug response if enabled (only save first page to avoid too many files)
-            if page_number == 0:
-                save_debug_response(
-                    operation_type="component_fetch",
-                    response_data=data,
-                    request_data=params,
-                    endpoint="/v1/components"
-                )
+            # Store this request/response for debugging
+            request_info = {
+                "page_number": page_number,
+                "params": params,
+                "response_summary": {
+                    "components_count": len(data.get('content', [])),
+                    "total_elements": data.get('totalElements', 0),
+                    "total_pages": data.get('totalPages', 0),
+                    "page_size": data.get('pageSize', 0),
+                    "is_last": data.get('last', False),
+                    "is_first": data.get('first', False)
+                }
+            }
+            all_requests.append(request_info)
+            
+            # Save debug response for ALL pages to track complete pagination
+            save_debug_response(
+                operation_type="component_fetch",
+                response_data=data,
+                request_data=params,
+                endpoint="/v1/components",
+                additional_info=f"page_{page_number:02d}_of_{total_pages or 'unknown'}"
+            )
             
             # Add components from current page
             page_components = data.get('content', [])
@@ -3234,21 +4973,28 @@ def get_phoenix_components(headers2):
             if total_pages is None:
                 total_pages = data.get('totalPages', 1)
                 total_elements = data.get('totalElements', 0)
-                print(f" * Found {total_elements} total components across {total_pages} pages")
+                print(f" * Found {total_elements} total components across {total_pages} pages (page size: {page_size})")
+                
+                # If there are a lot of pages, try to increase page size further
+                if total_pages > 20:
+                    print(f" * High page count detected, will use larger page size for remaining pages")
             
-            print(f" * Fetched page {page_number + 1}/{total_pages} ({len(page_components)} components)")
+            print(f" * Fetched page {page_number + 1}/{total_pages} ({len(page_components)} components) - Total so far: {len(components)}")
             
-            # Print components from this page if in debug mode
-            if DEBUG:
-                for comp in page_components:
+            # Print sample components from this page if in debug mode
+            if DEBUG and page_components:
+                print(f"   Sample components from page {page_number + 1}:")
+                for i, comp in enumerate(page_components[:3]):  # Show first 3 components
                     env_name = comp.get('applicationId', 'Unknown')
                     print(f"   - [{env_name}] {comp.get('name', 'Unknown')}")
+                if len(page_components) > 3:
+                    print(f"   ... and {len(page_components) - 3} more components")
             
             page_number += 1
             
-            # Add small delay between pages to avoid rate limiting
+            # Add minimal delay between pages to avoid rate limiting (with larger page size, fewer requests needed)
             if page_number < total_pages:
-                time.sleep(0.5)
+                time.sleep(0.1)
                 
         except requests.exceptions.RequestException as e:
             error_msg = f"Error fetching components page {page_number}: {str(e)}"
@@ -3261,27 +5007,116 @@ def get_phoenix_components(headers2):
             )
             print(f" ! {error_msg}")
             
-            if response.status_code in [429, 503]:  # Rate limit or service unavailable
-                retry_after = int(response.headers.get('Retry-After', 5))
-                print(f" * Rate limited, waiting {retry_after} seconds...")
-                time.sleep(retry_after)
-                continue
-            elif response.status_code >= 500:  # Server error
-                print(" * Server error, retrying after 5 seconds...")
-                time.sleep(5)
-                continue
+            if hasattr(response, 'status_code'):
+                if response.status_code in [429, 503]:  # Rate limit or service unavailable
+                    retry_after = int(response.headers.get('Retry-After', 5))
+                    print(f" * Rate limited, waiting {retry_after} seconds...")
+                    time.sleep(retry_after)
+                    continue
+                elif response.status_code >= 500:  # Server error
+                    print(" * Server error, retrying after 5 seconds...")
+                    time.sleep(5)
+                    continue
+                else:
+                    print(f" * HTTP {response.status_code} error, stopping pagination")
+                    break
             else:
+                print(" * Network error, stopping pagination")
                 break
     
+    print(f"\n[Component Fetch Complete]")
     print(f" * Total components fetched: {len(components)}")
+    print(f" * Expected total: {total_elements}")
+    print(f" * Pages fetched: {len(all_requests)}")
+    print(f" * Page size used: {page_size}")
+    print(f" * Total API requests: {len(all_requests)}")
+    
+    if len(components) != total_elements:
+        print(f" ! WARNING: Fetched {len(components)} components but expected {total_elements}")
+        print(f" ! This may indicate pagination issues or API errors")
+        
+        # Save detailed request summary for debugging
+        save_debug_response(
+            operation_type="component_fetch_summary",
+            response_data={
+                "total_components_fetched": len(components),
+                "expected_total": total_elements,
+                "pages_fetched": len(all_requests),
+                "page_size": page_size,
+                "all_requests": all_requests,
+                "discrepancy": total_elements - len(components)
+            },
+            request_data={"operation": "complete_pagination_summary"},
+            endpoint="/v1/components",
+            additional_info="pagination_issue_detected"
+        )
+    else:
+        print(f" ✓ Successfully fetched all components!")
+        
+        # Save successful pagination summary
+        save_debug_response(
+            operation_type="component_fetch_summary",
+            response_data={
+                "total_components_fetched": len(components),
+                "expected_total": total_elements,
+                "pages_fetched": len(all_requests),
+                "page_size": page_size,
+                "all_requests": all_requests,
+                "status": "success"
+            },
+            request_data={"operation": "complete_pagination_summary"},
+            endpoint="/v1/components",
+            additional_info="success"
+        )
+    
+    # Cache the fetched components for future use
+    _update_component_cache(components)
+    
     return components
 
 
+def get_phoenix_components_lazy(access_token2=None):
+    """
+    Get components with lazy loading support. Uses cached data if available,
+    otherwise fetches from API and caches for future use.
+    """
+    global access_token
+    if access_token2 and not access_token:
+        access_token = access_token2
+    
+    # If we have cached data, use it
+    if _is_cache_valid():
+        return _component_cache['data']
+    
+    # Otherwise fetch and cache
+    return get_phoenix_components(access_token)
+
 def get_phoenix_components_in_environment(env_id, access_token2):
+    """
+    Get all components/services for a specific environment.
+    Filters the complete dataset by environment ID.
+    
+    Args:
+        env_id: The environment ID to filter by
+        access_token2: Authentication token
+        
+    Returns:
+        list: Components filtered by environment ID
+    """
     global access_token
     if not access_token:
         access_token = access_token2
-    return list(x for x in get_phoenix_components(access_token) if x.get('applicationId', None) == env_id)
+    
+    all_components = get_phoenix_components_lazy(access_token)
+    
+    # Filter by environment ID with validation
+    env_components = [x for x in all_components if x.get('applicationId') == env_id]
+    
+    if DEBUG:
+        print(f" * get_phoenix_components_in_environment: {len(env_components)} components in environment {env_id}")
+        print(f" * Total components in system: {len(all_components)}")
+    
+    return env_components
 
 
 def environment_service_exist(env_id, phoenix_components, service_name):
@@ -3290,7 +5125,7 @@ def environment_service_exist(env_id, phoenix_components, service_name):
     
     Args:
         env_id: Environment ID
-        phoenix_components: List of Phoenix components
+        phoenix_components: List of Phoenix components (pre-filtered or all components)
         service_name: Name of the service to check
         
     Returns:
@@ -3298,17 +5133,34 @@ def environment_service_exist(env_id, phoenix_components, service_name):
     """
     service_name_lower = service_name.lower()
     
-    # First try the cached components with case-insensitive comparison
-    for component in phoenix_components:
-        if (component['applicationId'] == env_id and 
-            component['name'].lower() == service_name_lower):
+    # If phoenix_components is empty (lazy loading), fetch on-demand
+    if not phoenix_components:
+        phoenix_components = get_phoenix_components_lazy()
+    
+    # Filter components by environment ID if not already filtered
+    env_specific_components = [
+        comp for comp in phoenix_components 
+        if comp.get('applicationId') == env_id
+    ]
+    
+    if DEBUG:
+        print(f" * environment_service_exist: Checking {len(env_specific_components)} services in environment {env_id}")
+        print(f" * Looking for service: {service_name}")
+    
+    # Search for the service in the environment-specific components
+    for component in env_specific_components:
+        if component['name'].lower() == service_name_lower:
             if DEBUG:
-                print(f" * Found service {service_name} in cached components")
+                print(f" * Found service {service_name} in environment {env_id}")
             return True
     
-    # If not found in cache, return False to trigger a fresh check
+    # If not found, return False
     if DEBUG:
-        print(f" * Service {service_name} not found in cached components")
+        print(f" * Service {service_name} not found in environment {env_id}")
+        print(f" * Available services in environment: {[comp['name'] for comp in env_specific_components[:5]]}")
+        if len(env_specific_components) > 5:
+            print(f" * ... and {len(env_specific_components) - 5} more services")
+    
     return False
 
 
@@ -3327,52 +5179,189 @@ def verify_service_exists(env_name, env_id, service_name, headers2, max_retries=
     api_url = construct_api_url("/v1/components")
     
     try:
-        # Get all services in one go with a larger page size
-        params = {
-            "pageSize": 1000,  # Use larger page size to reduce pagination
-            "sort": "name,asc"  # Consistent sorting
+        # Try to fetch services filtered by environment first (if API supports it)
+        print(f" * Attempting to fetch services filtered by environment ID: {env_id}")
+        
+        # First attempt: Try filtering by applicationId directly via API
+        params_filtered = {
+            "pageSize": 1000,
+            "sort": "name,asc",
+            "applicationId": env_id  # Try environment-specific filtering
         }
         
-        print(" * Fetching all services...")
-        response = requests.get(api_url, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
+        filtered_response = requests.get(api_url, headers=headers, params=params_filtered)
         
-        # Save debug response if enabled
-        save_debug_response(
-            operation_type="service_fetch",
-            response_data=data,
-            request_data=params,
-            endpoint="/v1/components"
-        )
-        
-        total_elements = data.get('totalElements', 0)
-        total_pages = data.get('totalPages', 1)
-        print(f" * Found {total_elements} total services across {total_pages} pages")
-        
-        all_services = data.get('content', [])
-        
-        # If more pages exist, fetch them
-        for page in range(1, total_pages):
-            params['pageNumber'] = page
+        if filtered_response.status_code == 200:
+            # API supports filtering by applicationId
+            print(" * Using API-level environment filtering")
+            data = filtered_response.json()
+            
+            save_debug_response(
+                operation_type="service_fetch_filtered",
+                response_data=data,
+                request_data=params_filtered,
+                endpoint="/v1/components",
+                additional_info=f"env_{env_id[:8]}"
+            )
+            
+            total_elements = data.get('totalElements', 0)
+            total_pages = data.get('totalPages', 1)
+            print(f" * Found {total_elements} services in environment {env_name} across {total_pages} pages")
+            
+            all_services_fetched = data.get('content', [])
+            
+            # Fetch remaining pages if needed
+            for page in range(1, total_pages):
+                params_filtered['pageNumber'] = page
+                response = requests.get(api_url, headers=headers, params=params_filtered)
+                response.raise_for_status()
+                all_services_fetched.extend(response.json().get('content', []))
+                print(f" * Fetched page {page + 1}/{total_pages}")
+            
+            # CRITICAL FIX: API filtering by applicationId is not working correctly
+            # We need to filter client-side to ensure we only get services from the target environment
+            print(f" * Client-side filtering by environment ID: {env_id}")
+            env_services = [service for service in all_services_fetched if service.get('applicationId') == env_id]
+            print(f" * After client-side filtering: {len(env_services)} services confirmed in target environment")
+            
+            # For debugging, also check if service exists in other environments
+            all_services = all_services_fetched  # Will be used for cross-environment check
+            
+        else:
+            # API doesn't support filtering, fall back to fetch all and filter
+            print(" * API doesn't support environment filtering, fetching all services...")
+            
+            params = {
+                "pageSize": 1000,  # Use larger page size to reduce pagination
+                "sort": "name,asc"  # Consistent sorting
+            }
+            
             response = requests.get(api_url, headers=headers, params=params)
             response.raise_for_status()
-            all_services.extend(response.json().get('content', []))
-            print(f" * Fetched page {page + 1}/{total_pages}")
+            data = response.json()
+            
+            # Save debug response if enabled
+            save_debug_response(
+                operation_type="service_fetch",
+                response_data=data,
+                request_data=params,
+                endpoint="/v1/components"
+            )
+            
+            total_elements = data.get('totalElements', 0)
+            total_pages = data.get('totalPages', 1)
+            print(f" * Found {total_elements} total services across {total_pages} pages")
+            
+            all_services = data.get('content', [])
+            
+            # If more pages exist, fetch them
+            for page in range(1, total_pages):
+                params['pageNumber'] = page
+                response = requests.get(api_url, headers=headers, params=params)
+                response.raise_for_status()
+                all_services.extend(response.json().get('content', []))
+                print(f" * Fetched page {page + 1}/{total_pages}")
+            
+            # Filter services by environment ID
+            print(f" * Filtering services by environment ID: {env_id}")
+            env_services = [service for service in all_services if service.get('applicationId') == env_id]
+            print(f" * After filtering: {len(env_services)} services in environment {env_name}")
         
-        # filter out services that are not part of the given environment
-        all_services = list(x for x in all_services if x.get('applicationId', None) == env_id)
-        # First try exact case-insensitive match
-        for service in all_services:
+        # Validate that all services in env_services actually belong to the target environment
+        print(f" * Validating client-side filtering for {len(env_services)} services...")
+        invalid_services = [s for s in env_services if s.get('applicationId') != env_id]
+        if invalid_services:
+            print(f" ! ERROR: Client-side filtering failed! Found {len(invalid_services)} services with incorrect environment ID!")
+            for svc in invalid_services[:3]:  # Show first 3 invalid services
+                print(f"   └─ {svc.get('name', 'Unknown')} has applicationId: {svc.get('applicationId')}")
+            print(f" ! This indicates a bug in the filtering logic - please report this issue")
+        else:
+            print(f" ✓ All {len(env_services)} services correctly filtered for environment {env_id}")
+        
+        # Debug: Check if service exists in ANY location (only if we fetched all services)
+        if 'all_services' in locals() and len(all_services) > len(env_services):
+            services_found_elsewhere = []
+            for service in all_services:
+                if service['name'].lower() == service_name_lower:
+                    services_found_elsewhere.append(service)
+            
+            if services_found_elsewhere:
+                print(f" * Service '{service_name}' found {len(services_found_elsewhere)} time(s) in system:")
+                for i, svc in enumerate(services_found_elsewhere, 1):
+                    app_id = svc.get('applicationId')
+                    svc_id = svc.get('id', 'Unknown')
+                    
+                    # Try to determine if this is an environment or application
+                    # Environment IDs are typically longer UUIDs, application IDs can be shorter
+                    if len(app_id) > 30 and '-' in app_id:
+                        location_type = "Environment"
+                    else:
+                        location_type = "Application"
+                    
+                    print(f"   {i}. {location_type} ID: {app_id} (Service ID: {svc_id})")
+                    
+                    if app_id == env_id:
+                        print(f"      ✓ This matches our target environment!")
+                    else:
+                        print(f"      ! Different from target environment: {env_id}")
+                
+                # Check if any match our target environment
+                matching_services = [s for s in services_found_elsewhere if s.get('applicationId') == env_id]
+                if not matching_services:
+                    print(f" ! Service exists in {len(services_found_elsewhere)} other location(s) but NOT in target environment")
+                    print(f" ! Target environment ID: {env_id}")
+                    
+                    # Show if any are in applications vs environments
+                    app_locations = [s for s in services_found_elsewhere if len(s.get('applicationId', '')) <= 30]
+                    env_locations = [s for s in services_found_elsewhere if len(s.get('applicationId', '')) > 30]
+                    
+                    if app_locations:
+                        print(f" ! Found {len(app_locations)} instance(s) as application components")
+                    if env_locations:
+                        print(f" ! Found {len(env_locations)} instance(s) as environment services")
+        
+        print(f" * Environment-specific services count: {len(env_services)}")
+        
+        # Add detailed debug info about pagination results
+        if DEBUG:
+            print(f" * Debug: Total services fetched across all pages: {len(all_services)}")
+            print(f" * Debug: Services by environment breakdown:")
+            env_breakdown = {}
+            for service in all_services:
+                app_id = service.get('applicationId', 'Unknown')
+                env_breakdown[app_id] = env_breakdown.get(app_id, 0) + 1
+            for app_id, count in sorted(env_breakdown.items(), key=lambda x: x[1], reverse=True)[:10]:
+                print(f"   └─ Environment {app_id}: {count} services")
+            if len(env_breakdown) > 10:
+                print(f"   └─ ... and {len(env_breakdown) - 10} more environments")
+        
+        # First try exact case-insensitive match in the correct environment
+        matched_services = []
+        for service in env_services:
             if service['name'].lower() == service_name_lower:
+                matched_services.append(service)
                 print(f" + Service found: {service['name']} (ID: {service.get('id')})")
-                if DEBUG:
-                    print(f"   └─ Application: {service.get('applicationId')}")
-                return True, service.get('id')
+                print(f"   └─ Environment: {service.get('applicationId')}")
+                
+                # Double-check this is actually in the target environment (should always be true after client-side filtering)
+                if service.get('applicationId') == env_id:
+                    print(f" ✓ Service confirmed in target environment {env_name}")
+                    return True, service.get('id')
+                else:
+                    print(f" ! ERROR: Service found in filtered results but wrong environment ID!")
+                    print(f"   └─ Expected: {env_id}")
+                    print(f"   └─ Found: {service.get('applicationId')}")
+                    print(f" ! This indicates a critical filtering bug - please report this issue")
+                    continue
         
-        # If not found, look for similar services
+        # If we found matches but none were in the right environment, something is wrong
+        if matched_services:
+            print(f" ! Found {len(matched_services)} service(s) with name '{service_name}' but none in target environment")
+            print(f" ! This suggests the client-side filtering is not working correctly")
+        
+        # If not found, look for similar services in the same environment
         similar_services = []
-        for service in all_services:
+        for service in env_services:
             ratio = Levenshtein.ratio(service['name'].lower(), service_name_lower)
             if ratio > SERVICE_LOOKUP_SIMILARITY_THRESHOLD:  # 80% similarity threshold
                 similar_services.append((service['name'], ratio, service.get('id')))
@@ -3388,12 +5377,33 @@ def verify_service_exists(env_name, env_id, service_name, headers2, max_retries=
                 print(f" + Using similar service: {best_match[0]} (similarity: {best_match[1]:.2f})")
                 return True, best_match[2]
         
-        # Print available services only in debug mode
+        # Check if we should look for environment-specific version
+        env_specific_name = f"{service_name}-{env_name.lower()}"
+        print(f" * Checking for environment-specific service name: {env_specific_name}")
+        
+        for service in env_services:
+            if service['name'].lower() == env_specific_name.lower():
+                print(f" ✓ Found environment-specific service: {service['name']} (ID: {service.get('id')})")
+                print(f" ✓ This resolves cross-environment naming conflicts")
+                return True, service.get('id')
+        
+        # Service not found in target environment
         print(f" ! Service '{service_name}' not found in environment '{env_name}'")
+        
+        # Show helpful information about where it exists
+        if 'services_found_elsewhere' in locals() and services_found_elsewhere:
+            print(f" ! Service exists in {len(services_found_elsewhere)} other location(s)")
+            print(f" ! This is normal - services can exist in multiple environments")
+            print(f" ! Consider:")
+            print(f"   1. Creating '{service_name}' in environment '{env_name}'")
+            print(f"   2. Or using environment-specific name '{env_specific_name}'")
+        
         if DEBUG:
-            print(f" ! Available services:")
-            for service in sorted(all_services, key=lambda x: x['name']):
+            print(f" ! Available services in environment {env_name}:")
+            for service in sorted(env_services[:10], key=lambda x: x['name']):  # Show first 10
                 print(f"   └─ {service['name']}")
+            if len(env_services) > 10:
+                print(f"   └─ ... and {len(env_services) - 10} more services")
         else:
             print(f" ! Use DEBUG=True to see list of available services")
         
@@ -3765,7 +5775,7 @@ def handle_enum_compatibility_issue(headers):
     # Try alternative API approaches
     alternative_approaches = [
         "/v1/applications?minimal=true",
-        "/v1/applications?pageSize=100",
+        "/v1/applications?pageSize=1000",
         "/v1/applications?type=APPLICATION",
         "/v1/applications?type=ENVIRONMENT"
     ]
@@ -3889,6 +5899,10 @@ def get_environment_by_name(env_name, headers):
 
 @dispatch(str, str, dict, int, dict)
 def add_service(applicationSelectorName, env_id, service, tier, headers2):
+    """
+    OPTIMIZED: Create service without redundant verifications.
+    Returns (success, service_id) tuple.
+    """
     global headers
     if not headers:
         headers = headers2
@@ -3922,66 +5936,65 @@ def add_service(applicationSelectorName, env_id, service, tier, headers2):
         api_url = construct_api_url("/v1/components")
         response = requests.post(api_url, headers=headers, json=payload)
         
-        # Even if we get a 409, we need to verify the service exists in the correct environment
+        # Handle 409 conflict - service already exists
         if response.status_code == 409:
-            print(f" * Service creation returned 409 (conflict), verifying correct environment...")
-            components = get_phoenix_components_in_environment(env_id, headers)
-            service_exists = any(
-                comp['name'].lower() == service_name.lower() 
-                for comp in components
-            )
-            
-            if service_exists:
-                print(f" + Service {service_name} verified in correct environment")
-                return True
-            else:
-                print(f" ! Service {service_name} exists but not in environment {applicationSelectorName}")
-                return False
+            print(f" * Service name '{service_name}' conflicts with existing service - analyzing...")
+            # Check if it exists in the target environment (legitimate duplicate)
+            try:
+                env_services_cache = get_environment_services_cached(env_id, headers)
+                if service_name.lower() in env_services_cache:
+                    existing_service = env_services_cache[service_name.lower()]
+                    print(f" ✓ SERVICE UPDATE: Service '{service_name}' already exists in target environment '{applicationSelectorName}'")
+                    print(f" ✓ Business rule: Update rules for existing service in same environment")
+                    print(f" ✓ Using existing service for rule updates (ID: {existing_service.get('id')})")
+                    return True, existing_service.get('id')  # Service exists - update rules
+                else:
+                    # Service exists in DIFFERENT environment - this should be allowed
+                    print(f" * Service {service_name} exists in different environment(s)")
+                    print(f" * This is allowed - creating environment-specific version")
+                    
+                    # Use environment-specific naming to avoid global conflicts
+                    unique_service_name = f"{service_name}-{applicationSelectorName.lower()}"
+                    print(f" * Retrying with environment-specific name: {unique_service_name}")
+                    
+                    # Update payload and retry
+                    payload["name"] = unique_service_name
+                    response = requests.post(api_url, headers=headers, json=payload)
+                    
+                    if response.status_code == 200 or response.status_code == 201:
+                        response_data = response.json()
+                        service_id = response_data.get('id')
+                        print(f" ✓ Created environment-specific service: {unique_service_name} (ID: {service_id})")
+                        return True, service_id
+                    else:
+                        print(f" ! Failed to create environment-specific service: {response.status_code}")
+                        return False, None
+                        
+            except Exception as cache_error:
+                print(f" ! Error checking service cache: {cache_error}")
+                return False, None
         
         response.raise_for_status()
-        print(f" + Added Service: {service_name}")
         
-        # Verify service was created with retries
-        max_retries = 5
-        base_delay = 3
-        for attempt in range(max_retries):
-            delay = base_delay * (2 ** attempt)
-            print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
-            time.sleep(delay)
-            
-            try:
-                components = get_phoenix_components_in_environment(env_id, headers)
-                
-                service_exists = any(
-                    comp['name'].lower() == service_name.lower() 
-                    for comp in components
-                )
-                
-                if service_exists:
-                    print(f" + Service {service_name} verified successfully")
-                    return True
-                else:
-                    print(f" ! Service {service_name} not found in verification attempt {attempt + 1}")
-                    if attempt == max_retries - 1:
-                        print(f" ! Service {service_name} could not be verified after {max_retries} attempts")
-                        return False
-                    
-            except requests.exceptions.RequestException as e:
-                print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
-                if attempt == max_retries - 1:
-                    return False
-                continue
+        # Extract service ID from response
+        response_data = response.json()
+        service_id = response_data.get('id')
         
-        return False
+        print(f" + Added Service: {service_name} (ID: {service_id})")
+        return True, service_id
         
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
+        print(f"Error creating service {service_name}: {e}")
         if hasattr(response, 'content'):
             print(f"Response content: {response.content}")
-        return False
+        return False, None
 
 @dispatch(str, str, dict, int, str, dict)
 def add_service(applicationSelectorName, env_id, service, tier, team, headers2):
+    """
+    OPTIMIZED: Create service with team support without redundant verifications.
+    Returns (success, service_id) tuple.
+    """
     global headers
     if not headers:
         headers = headers2
@@ -3993,14 +6006,7 @@ def add_service(applicationSelectorName, env_id, service, tier, team, headers2):
     print(f" └─ Team: {team}")
     
     try:
-        # First verify if service exists in the target environment
-        components = get_phoenix_components_in_environment(env_id, headers)
-        
-        if any(comp['name'].lower() == service_name.lower() for comp in components):
-            print(f" + Service {service_name} already exists in {applicationSelectorName}")
-            return True
-            
-        # Service doesn't exist in target environment, try to create it
+        # Create service payload directly (existence already checked by caller)
         payload = {
             "name": service_name,
             "criticality": criticality,
@@ -4038,56 +6044,82 @@ def add_service(applicationSelectorName, env_id, service, tier, team, headers2):
         response = requests.post(api_url, headers=headers, json=payload)
         
         if response.status_code == 409:
-            # Service exists somewhere else, try with a suffix
-            unique_service = f"{service_name}-{applicationSelectorName.lower()}"
-            print(f" ! Service {service_name} exists in another environment")
-            print(f" * Attempting to create service as {unique_service}")
-            
-            payload["name"] = unique_service
-            response = requests.post(api_url, headers=headers, json=payload)
-        
-        response.raise_for_status()
-        created_service_name = payload["name"]
-        print(f" + Service creation request successful: {created_service_name}")
-        
-        # Verify service was created with retries
-        max_retries = 5
-        base_delay = 3
-        for attempt in range(max_retries):
-            delay = base_delay * (2 ** attempt)
-            print(f" * Verifying service creation (attempt {attempt + 1}/{max_retries}, waiting {delay}s)...")
-            time.sleep(delay)
+            # Service name conflict - determine if it's a legitimate duplicate or cross-environment naming
+            print(f" * Service name '{service_name}' conflicts with existing service - analyzing...")
             
             try:
-                all_components = get_phoenix_components_in_environment(env_id, headers)
-                
-                print(f" * Total components fetched: {len(all_components)}")
-                print(" * Available components:")
-                for comp in sorted(all_components, key=lambda x: x['name']):
-                    print(f"   └─ {comp['name']}")
-                
-                if any(comp['name'].lower() == created_service_name.lower() for comp in all_components):
-                    print(f" + Service {created_service_name} found in full component listing")
-                    return True
-                
-                print(f" ! Service {created_service_name} not found in verification attempt {attempt + 1}")
-                if attempt == max_retries - 1:
-                    print(f" ! Service {created_service_name} could not be verified after {max_retries} attempts")
-                    return False
-                
-            except requests.exceptions.RequestException as e:
-                print(f" ! Error verifying service on attempt {attempt + 1}: {e}")
-                if attempt == max_retries - 1:
-                    return False
-                continue
+                # Check if service exists in the TARGET environment (update rules)
+                env_services_cache = get_environment_services_cached(env_id, headers)
+                print(f" * Refreshed cache now contains {len(env_services_cache)} services for environment {env_id}")
+                if service_name.lower() in env_services_cache:
+                    existing_service = env_services_cache[service_name.lower()]
+                    print(f" ✓ SERVICE UPDATE: Service '{service_name}' already exists in target environment '{applicationSelectorName}'")
+                    print(f" ✓ Business rule: Update rules for existing service in same environment")
+                    print(f" ✓ Using existing service for rule updates (ID: {existing_service.get('id')})")
+                    return True, existing_service.get('id')  # Service exists - update rules
+                else:
+                    # Service exists in DIFFERENT environment - this is the key fix!
+                    print(f" * Service {service_name} exists in different environment(s)")
+                    print(f" * This is allowed - services can have same name across environments")
+                    
+                    # CRITICAL FIX: Don't treat cross-environment naming as an error
+                    # The 409 conflict is likely due to global name constraints in the API
+                    # We should use environment-specific naming to avoid conflicts
+                    
+                    unique_service_name = f"{service_name}-{applicationSelectorName.lower()}"
+                    print(f" * Creating service with environment-specific name: {unique_service_name}")
+                    
+                    # Check if the environment-specific name already exists
+                    if unique_service_name.lower() in env_services_cache:
+                        existing_service = env_services_cache[unique_service_name.lower()]
+                        print(f" ✓ Environment-specific service already exists (ID: {existing_service.get('id')})")
+                        return True, existing_service.get('id')
+                    
+                    # Create with environment-specific name
+                    payload["name"] = unique_service_name
+                    print(f" * Retrying creation with unique name: {unique_service_name}")
+                    response = requests.post(api_url, headers=headers, json=payload)
+                        
+            except Exception as cache_error:
+                print(f" ! Error checking service cache: {cache_error}")
+                # Fallback to original suffix logic
+                unique_service = f"{service_name}-{applicationSelectorName.lower()}"
+                print(f" * Attempting to create service as {unique_service}")
+                payload["name"] = unique_service
+                response = requests.post(api_url, headers=headers, json=payload)
         
-        return False
+        # Handle second 409 conflict (suffixed name also exists)
+        if response.status_code == 409:
+            print(f" ! Suffixed service name also exists - checking if it's in target environment...")
+            try:
+                env_services_cache = get_environment_services_cached(env_id, headers)
+                suffixed_name = payload["name"]  # This is the suffixed name
+                if suffixed_name.lower() in env_services_cache:
+                    existing_service = env_services_cache[suffixed_name.lower()]
+                    print(f" + Found existing suffixed service: {suffixed_name} (ID: {existing_service.get('id')})")
+                    return True, existing_service.get('id')  # Use existing suffixed service
+                else:
+                    print(f" ! Suffixed service exists in different environment - cannot create service")
+                    return False, None
+            except Exception as e:
+                print(f" ! Error checking suffixed service: {e}")
+                return False, None
+        
+        response.raise_for_status()
+        
+        # Extract service ID from response
+        response_data = response.json()
+        service_id = response_data.get('id')
+        created_service_name = payload["name"]
+        
+        print(f" + Service creation successful: {created_service_name} (ID: {service_id})")
+        return True, service_id
         
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
+        print(f"Error creating service {service_name}: {e}")
         if hasattr(response, 'content'):
             print(f"Response content: {response.content}")
-        return False
+        return False, None
 
 
 def update_service(service, existing_service_id, headers2):
@@ -4675,7 +6707,7 @@ def get_assets(applicationEnvironmentId, type, headers2):
     }
     try:
         print(f"Fetching assets for {applicationEnvironmentId} and {type}")
-        api_url = construct_api_url(f"/v1/assets?pageNumber=0&pageSize=100")
+        api_url = construct_api_url(f"/v1/assets?pageNumber=0&pageSize=1000")
         response = requests.post(api_url, headers=headers, json = asset_request)
         response.raise_for_status()
 
@@ -4683,7 +6715,7 @@ def get_assets(applicationEnvironmentId, type, headers2):
         assets = [asset['name'] for asset in data.get('content', [])]
         total_pages = data.get('totalPages', 1)
         for i in range(1, total_pages):
-            api_url = construct_api_url(f"/v1/assets?pageNumber={i}&pageSize=100")
+            api_url = construct_api_url(f"/v1/assets?pageNumber={i}&pageSize=1000")
             response = requests.post(api_url, headers=headers, json = asset_request)
             new_assets = [asset['name'] for asset in response.json().get('content', [])]
             assets += new_assets
@@ -5174,7 +7206,7 @@ def load_users_from_phoenix(access_token2):
     if not access_token:
         access_token = access_token2
     users = []
-    page_size = 100
+    page_size = 1000
     page_number = 0
     total_pages = None
     

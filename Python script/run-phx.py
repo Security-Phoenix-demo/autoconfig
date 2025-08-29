@@ -821,7 +821,7 @@ def perform_actions(args, config_file_path):
         print("\n[Service Updates]")
         app_environments = populate_applications_and_environments(headers)
         try:
-            add_environment_services(repos, subdomains, environments, app_environments, phoenix_components, subdomain_owners, teams, access_token, track_operation)
+            add_environment_services(repos, subdomains, environments, app_environments, phoenix_components, subdomain_owners, teams, access_token, track_operation, args.quick_check, args.silent)
             # Note: Individual service tracking is now handled within add_environment_services
             track_operation('cloud_assets', 'process_environment_services', f"{len(environments)} environments", True)
         except Exception as e:
@@ -1067,6 +1067,10 @@ if __name__ == "__main__":
                         help="Save sample JSON responses for each API operation type (deployment, component, application, team operations)")
     parser.add_argument("--json-to-save", type=int, default=10,
                         help="Number of JSON responses to save for each operation type (default: 10, use 0 for unlimited)")
+    parser.add_argument("--quick-check", type=int, default=10,
+                        help="Enable quick-check mode: validate service creation every N services (default: 10, use 1 to validate every service)")
+    parser.add_argument("--silent", action="store_true",
+                        help="Enable silent mode: suppress service creation validation during processing, only validate at the end")
     
     # Parse arguments
     args = parser.parse_args()

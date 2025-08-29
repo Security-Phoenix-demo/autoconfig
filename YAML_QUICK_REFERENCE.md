@@ -124,7 +124,7 @@ MultiConditionRule:
 MULTI_MultiConditionRules:
   - AssetType: "REPOSITORY"
     RepositoryName: "web-frontend-repo"
-    Tags: ["web"]
+    Tags: ["repo"]
   - AssetType: "WEBSITE_API"
     SearchName: "api-service"
     Tags: ["api"]
