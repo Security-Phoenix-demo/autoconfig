@@ -124,7 +124,7 @@ MultiConditionRule:
 MULTI_MultiConditionRules:
   - AssetType: "REPOSITORY"
     RepositoryName: "web-frontend-repo"
-    Tags: ["repo"]
+    Tags: ["web"]
   - AssetType: "WEBSITE_API"
     SearchName: "api-service"
     Tags: ["api"]
@@ -172,6 +172,81 @@ Messaging:
   ProviderAccountId: ["12345678-1234-1234-1234-123456789012"]
   Tags: ["database", "storage"]
 ```
+##AND  / OR Multi config GUIDE
+
+DeploymentGroups:
+- AppName: ExampleApp
+  Status: Production
+  Deployment_set: example
+  ReleaseDefinitions: []
+  Responsable: admin@example.com
+  Tier: 1
+  TeamNames:
+  - ExampleTeam
+  Components:
+  - ComponentName: web_service
+    Status: Production
+    Tier: 1
+    Domain: example
+    TeamNames:
+    - ExampleTeam
+    
+    # These are component labels/metadata - added directly to the component in Phoenix
+    Tag_label: 'Environment: Production'
+    Tags_label:
+      - 'ComponentType: service'
+      - 'Owner: ExampleTeam'
+    
+    # These create asset matching rules - match assets based on their tags
+    Tags:
+      - 'Environment: Production'
+      - 'Service: web'
+    
+    # Multi-condition rules with different tag rule types
+    MULTI_MultiConditionRules:
+      - RepositoryName: example/web-service
+        Tags: ['Environment: Production']  # Asset matching rule
+      - SearchName: "web-service"
+        Tag_rule: "Environment:Production"  # Asset matching rule (alternative syntax)
+      - ProviderAccountId: "12345"
+        Tags_rule:  # Asset matching rule (alternative syntax)
+          - "Environment:Production"
+          - "Team:ExampleTeam"
+
+Environment Groups:
+- Name: Example-Prod
+  Type: CLOUD
+  Status: Production
+  Responsable: admin@example.com
+  Tier: 1
+  Tag: Environment:Production
+  TeamName: example
+  Services:
+  - Service: Example-Service
+    Type: Cloud
+    Deployment_set: example
+    
+    # Service-level component labels/metadata
+    Tag_label: 'Environment: Production'
+    Tags_label:
+      - 'ServiceType: Cloud'
+      - 'Owner: ExampleTeam'
+    
+    # Service-level asset matching rules
+    Tags: ['Environment: Production']
+    Tag_rule: "ServiceType:Cloud"
+    Tags_rule:
+      - "Environment:Production"
+      - "Team:ExampleTeam"
+    
+    # Multi-condition rules for services
+    MULTI_MultiConditionRules:
+      - SearchName: "example-service"
+        Tag_rule: "Environment:Production"
+      - ProviderAccountId: "12345"
+        Tags_rule:
+          - "Environment:Production"
+          - "ServiceType:Cloud" 
 
 ## Running the Linter
 

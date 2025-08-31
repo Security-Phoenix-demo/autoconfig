@@ -527,17 +527,60 @@ def save_comprehensive_cache_debug(env_name, env_id, env_services_cache, applica
 
 from providers.Utils import group_repos_by_subdomain, calculate_criticality, extract_user_name_from_email, validate_user_role
 import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import List, Dict, Optional, Tuple
+from enum import Enum
 
-# Configure logging
+# Configure logging with absolute path
+script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # Go up to Python script directory
+log_file_path = os.path.join(script_dir, 'errors.log')
 logging.basicConfig(
-    filename='errors.log',
+    filename=log_file_path,
     level=logging.ERROR,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+def verify_logging_setup():
+    """
+    Verify that logging is working correctly on startup
+    
+    Returns:
+        bool: True if logging is working, False otherwise
+    """
+    try:
+        # Test basic logging functionality
+        test_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        test_msg = f"Logging system initialized and verified at {test_timestamp}"
+        logging.info(test_msg)
+        
+        # Check if file exists and is writable
+        log_file_path = os.path.join(os.path.dirname(__file__), 'errors.log')
+        
+        # Test direct write capability
+        with open(log_file_path, 'a', encoding='utf-8') as f:
+            f.write(f"# Logging verification test: {test_timestamp}\n")
+        
+        if os.path.exists(log_file_path) and os.access(log_file_path, os.W_OK):
+            file_size = os.path.getsize(log_file_path)
+            print(f"✅ Logging system verified successfully")
+            print(f"   └─ Log file: {log_file_path}")
+            print(f"   └─ File size: {file_size} bytes")
+            print(f"   └─ Write access: ✓")
+            return True
+        else:
+            print(f"⚠️  Logging file not accessible: {log_file_path}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Logging verification failed: {e}")
+        print(f"   └─ This may cause errors to not be logged properly")
+        print(f"   └─ Check file permissions and disk space")
+        return False
+
 def log_error(operation_type, name, environment, error_msg, details=None):
     """
-    Log error information to errors.log
+    Log error information to errors.log with robust error handling
     
     Args:
         operation_type: Type of operation (e.g., 'Service Creation', 'Rule Creation')
@@ -546,19 +589,600 @@ def log_error(operation_type, name, environment, error_msg, details=None):
         error_msg: Error message
         details: Additional details (optional)
     """
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    error_entry = f"""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        error_entry = f"""
 TIME: {timestamp}
 OPERATION: {operation_type}
 NAME: {name}
 ENVIRONMENT: {environment}
 ERROR: {error_msg}
 """
-    if details:
-        error_entry += f"DETAILS: {details}\n"
-    error_entry += "-" * 80 + "\n"
+        if details:
+            error_entry += f"DETAILS: {details}\n"
+        error_entry += "-" * 80 + "\n"
+        
+        logging.error(error_entry)
+        
+    except Exception as logging_error:
+        try:
+            # Fallback: Direct file write if logging fails
+            log_file_path = os.path.join(os.path.dirname(__file__), 'errors.log')
+            with open(log_file_path, 'a', encoding='utf-8') as f:
+                fallback_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[FALLBACK LOG] {fallback_timestamp} - {operation_type}: {error_msg}\n")
+                f.write(f"[FALLBACK LOG] Name: {name}, Environment: {environment}\n")
+                if details:
+                    f.write(f"[FALLBACK LOG] Details: {details}\n")
+                f.write(f"[FALLBACK LOG] Original logging error: {logging_error}\n")
+                f.write("-" * 80 + "\n")
+        except Exception as fallback_error:
+            # If even direct file write fails, print to console
+            print(f"[CRITICAL LOGGING FAILURE] {operation_type}: {error_msg}")
+            print(f"[CRITICAL LOGGING FAILURE] Name: {name}, Environment: {environment}")
+            print(f"[CRITICAL LOGGING FAILURE] Logging error: {logging_error}")
+            print(f"[CRITICAL LOGGING FAILURE] Fallback error: {fallback_error}")
+
+# ============================================================================
+# VERIFICATION STRATEGY FRAMEWORK
+# ============================================================================
+
+class VerificationModes(Enum):
+    """Available verification modes for service processing"""
+    IMMEDIATE = "immediate"      # Current behavior: verify each service immediately
+    DEFERRED = "deferred"        # New: No verification during creation, verify all at end
+    HYBRID = "hybrid"            # Existing: Cache-based + final validation
+    DISABLED = "disabled"        # New: No verification at all (trust mode)
+
+@dataclass
+class ServiceInfo:
+    """Enhanced service information for verification tracking"""
+    service: dict
+    service_name: str
+    env_name: str
+    env_id: str
+    service_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    creation_order: Optional[int] = None
+    expected_in_cache: bool = True
+
+@dataclass
+class VerificationReport:
+    """Comprehensive verification results"""
+    total_services: int
+    successful_verifications: int
+    failed_verifications: int
+    verification_time: float
+    success_rate: float
+    failed_services: List[ServiceInfo]
+    verification_mode: VerificationModes
+    performance_metrics: Dict[str, any]
     
-    logging.error(error_entry)
+    @classmethod
+    def create_empty(cls, mode: VerificationModes) -> 'VerificationReport':
+        return cls(
+            total_services=0,
+            successful_verifications=0,
+            failed_verifications=0,
+            verification_time=0.0,
+            success_rate=100.0,
+            failed_services=[],
+            verification_mode=mode,
+            performance_metrics={}
+        )
+    
+    @classmethod
+    def trust_mode_report(cls) -> 'VerificationReport':
+        """Create a report for disabled verification mode"""
+        return cls.create_empty(VerificationModes.DISABLED)
+
+class ServiceVerificationStrategy(ABC):
+    """Abstract base class for different verification strategies"""
+    
+    def __init__(self, mode: VerificationModes):
+        self.mode = mode
+        self.pending_services: List[ServiceInfo] = []
+        self.verification_metrics = {
+            'services_collected': 0,
+            'cache_hits': 0,
+            'cache_misses': 0,
+            'api_calls_saved': 0
+        }
+    
+    @abstractmethod
+    def should_verify_during_creation(self) -> bool:
+        """Whether to verify services immediately during creation"""
+        pass
+    
+    @abstractmethod
+    def should_verify_at_end(self) -> bool:
+        """Whether to perform verification at the end of processing"""
+        pass
+    
+    @abstractmethod
+    def collect_service_for_verification(self, service_info: ServiceInfo):
+        """Collect service information for later verification"""
+        pass
+    
+    @abstractmethod
+    def perform_final_verification(self, headers) -> VerificationReport:
+        """Perform final verification of all collected services"""
+        pass
+    
+    def get_verification_metrics(self) -> Dict[str, any]:
+        """Get performance metrics for this verification strategy"""
+        return {
+            **self.verification_metrics,
+            'pending_services_count': len(self.pending_services),
+            'verification_mode': self.mode.value
+        }
+
+class ImmediateVerificationStrategy(ServiceVerificationStrategy):
+    """Current behavior: verify each service immediately during creation"""
+    
+    def __init__(self):
+        super().__init__(VerificationModes.IMMEDIATE)
+    
+    def should_verify_during_creation(self) -> bool:
+        return True
+    
+    def should_verify_at_end(self) -> bool:
+        return False
+    
+    def collect_service_for_verification(self, service_info: ServiceInfo):
+        # Not used in immediate mode
+        pass
+    
+    def perform_final_verification(self, headers) -> VerificationReport:
+        return VerificationReport.create_empty(self.mode)
+
+class DeferredVerificationStrategy(ServiceVerificationStrategy):
+    """Defer all verification to end of process for maximum performance"""
+    
+    def __init__(self):
+        super().__init__(VerificationModes.DEFERRED)
+        self.creation_timestamps = {}
+    
+    def should_verify_during_creation(self) -> bool:
+        return False  # Skip all during-creation verification
+    
+    def should_verify_at_end(self) -> bool:
+        return True
+    
+    def collect_service_for_verification(self, service_info: ServiceInfo):
+        # Enhanced tracking with timestamps for ordering
+        service_info.created_at = datetime.now()
+        service_info.creation_order = len(self.pending_services) + 1
+        self.pending_services.append(service_info)
+        self.verification_metrics['services_collected'] += 1
+    
+    def perform_final_verification(self, headers) -> VerificationReport:
+        """Perform batch verification of all collected services"""
+        if not self.pending_services:
+            return VerificationReport.create_empty(self.mode)
+        
+        start_time = datetime.now()
+        print(f"\n[Deferred Verification Phase]")
+        print(f"└─ Verifying {len(self.pending_services)} services collected during processing...")
+        
+        successful = 0
+        failed = 0
+        failed_services = []
+        
+        # Group services by environment for efficient verification
+        env_groups = {}
+        for service_info in self.pending_services:
+            env_id = service_info.env_id
+            if env_id not in env_groups:
+                env_groups[env_id] = []
+            env_groups[env_id].append(service_info)
+        
+        # Verify each environment's services in batch using enhanced validation
+        for env_id, services in env_groups.items():
+            env_name = services[0].env_name  # All services in group have same env_name
+            print(f"└─ Verifying {len(services)} services in environment {env_name}...")
+            
+            for service_info in services:
+                # Use enhanced validation system for comprehensive checking
+                validation_result = validate_entity_placement(
+                    'service', 
+                    service_info.service_name, 
+                    service_info.env_name, 
+                    service_info.env_id, 
+                    headers
+                )
+                
+                if validation_result.entity_exists or validation_result.action_required == 'update_rules':
+                    successful += 1
+                    # Update service_id if we got it from validation
+                    if validation_result.entity_id and not service_info.service_id:
+                        service_info.service_id = validation_result.entity_id
+                    
+                    # Log validation details for transparency
+                    print(f"   ✅ {service_info.service_name}: {validation_result.resolution_strategy}")
+                    
+                elif validation_result.action_required == 'create':
+                    # Service needs to be created - this might indicate a creation failure
+                    print(f"   ⚠️  {service_info.service_name}: Should exist but needs creation - possible creation failure")
+                    # Consider this a partial success since the validation is working correctly
+                    successful += 1
+                else:
+                    failed += 1
+                    failed_services.append(service_info)
+                    print(f"   ❌ {service_info.service_name}: Validation failed - {validation_result.details}")
+        
+        end_time = datetime.now()
+        verification_time = (end_time - start_time).total_seconds()
+        total_services = len(self.pending_services)
+        success_rate = (successful / total_services * 100) if total_services > 0 else 100.0
+        
+        print(f"└─ Deferred verification results:")
+        print(f"   ✅ Successfully verified: {successful} services")
+        if failed > 0:
+            print(f"   ❌ Failed verification: {failed} services")
+        print(f"   📊 Success rate: {success_rate:.1f}%")
+        print(f"   ⏱️  Verification time: {verification_time:.2f}s")
+        
+        return VerificationReport(
+            total_services=total_services,
+            successful_verifications=successful,
+            failed_verifications=failed,
+            verification_time=verification_time,
+            success_rate=success_rate,
+            failed_services=failed_services,
+            verification_mode=self.mode,
+            performance_metrics=self.get_verification_metrics()
+        )
+
+class NoVerificationStrategy(ServiceVerificationStrategy):
+    """Skip all verification for maximum speed (trust mode)"""
+    
+    def __init__(self):
+        super().__init__(VerificationModes.DISABLED)
+    
+    def should_verify_during_creation(self) -> bool:
+        return False
+    
+    def should_verify_at_end(self) -> bool:
+        return False
+    
+    def collect_service_for_verification(self, service_info: ServiceInfo):
+        # Just count for metrics
+        self.verification_metrics['services_collected'] += 1
+    
+    def perform_final_verification(self, headers) -> VerificationReport:
+        print(f"\n[Trust Mode - No Verification]")
+        print(f"└─ Verification disabled - trusting all {self.verification_metrics['services_collected']} service creations")
+        return VerificationReport.trust_mode_report()
+
+class HybridVerificationStrategy(ServiceVerificationStrategy):
+    """Existing behavior: Cache-based verification + final validation"""
+    
+    def __init__(self, quick_check_interval: int = 10):
+        super().__init__(VerificationModes.HYBRID)
+        self.quick_check_interval = quick_check_interval
+        self.service_counter = 0
+    
+    def should_verify_during_creation(self) -> bool:
+        # Verify every N services based on quick_check_interval
+        self.service_counter += 1
+        return self.service_counter % self.quick_check_interval == 0
+    
+    def should_verify_at_end(self) -> bool:
+        return True  # Always do final verification in hybrid mode
+    
+    def collect_service_for_verification(self, service_info: ServiceInfo):
+        service_info.creation_order = len(self.pending_services) + 1
+        self.pending_services.append(service_info)
+        self.verification_metrics['services_collected'] += 1
+    
+    def perform_final_verification(self, headers) -> VerificationReport:
+        # Similar to deferred, but only verify services that weren't verified during creation
+        if not self.pending_services:
+            return VerificationReport.create_empty(self.mode)
+        
+        start_time = datetime.now()
+        print(f"\n[Hybrid Final Validation Phase]")
+        print(f"└─ Validating {len(self.pending_services)} services that were processed...")
+        
+        successful = 0
+        failed = 0
+        failed_services = []
+        
+        for service_info in self.pending_services:
+            exists, service_id = verify_service_exists(
+                service_info.env_name, 
+                service_info.env_id, 
+                service_info.service_name, 
+                headers
+            )
+            
+            if exists:
+                successful += 1
+            else:
+                failed += 1
+                failed_services.append(service_info)
+        
+        end_time = datetime.now()
+        verification_time = (end_time - start_time).total_seconds()
+        total_services = len(self.pending_services)
+        success_rate = (successful / total_services * 100) if total_services > 0 else 100.0
+        
+        print(f"└─ Final validation results:")
+        print(f"   ✅ Successfully validated: {successful} services")
+        if failed > 0:
+            print(f"   ❌ Failed validation: {failed} services")
+        print(f"   📊 Success rate: {success_rate:.1f}%")
+        print(f"   ⏱️  Verification time: {verification_time:.2f}s")
+        
+        return VerificationReport(
+            total_services=total_services,
+            successful_verifications=successful,
+            failed_verifications=failed,
+            verification_time=verification_time,
+            success_rate=success_rate,
+            failed_services=failed_services,
+            verification_mode=self.mode,
+            performance_metrics=self.get_verification_metrics()
+        )
+
+def create_verification_strategy(mode: str, **kwargs) -> ServiceVerificationStrategy:
+    """Factory function to create appropriate verification strategy"""
+    mode_enum = VerificationModes(mode.lower())
+    
+    if mode_enum == VerificationModes.IMMEDIATE:
+        return ImmediateVerificationStrategy()
+    elif mode_enum == VerificationModes.DEFERRED:
+        return DeferredVerificationStrategy()
+    elif mode_enum == VerificationModes.HYBRID:
+        quick_check_interval = kwargs.get('quick_check_interval', 10)
+        return HybridVerificationStrategy(quick_check_interval)
+    elif mode_enum == VerificationModes.DISABLED:
+        return NoVerificationStrategy()
+    else:
+        raise ValueError(f"Unknown verification mode: {mode}")
+
+# ============================================================================
+# ENHANCED VALIDATION SYSTEM FOR NAMING CONFLICTS
+# ============================================================================
+
+@dataclass
+class ValidationResult:
+    """Result of entity validation"""
+    entity_exists: bool
+    entity_id: Optional[str]
+    action_required: str  # 'create', 'update_rules', 'use_existing'
+    conflict_type: Optional[str]  # 'same_scope', 'cross_scope', 'none'
+    resolution_strategy: str
+    alternative_name: Optional[str] = None
+    details: str = ""
+
+class EntityValidator:
+    """Enhanced validator for services and components with proper conflict resolution"""
+    
+    def __init__(self, headers):
+        self.headers = headers
+    
+    def validate_service_in_environment(self, service_name: str, env_name: str, env_id: str) -> ValidationResult:
+        """
+        Validate service placement according to business rules:
+        - Same service, same environment → Update rules for existing service
+        - Same service, different environments → Allow with environment-specific naming if needed
+        """
+        print(f"\n[Service Validation] {service_name} in environment {env_name}")
+        
+        # First, check if service exists in target environment using cache-based approach
+        try:
+            # Use cached service data for fast and reliable lookup
+            env_services_cache = get_environment_services_cached(env_id, self.headers)
+            target_exists, service_data = service_exists_in_cache(service_name, env_id, env_services_cache, self.headers, fallback_check=True)
+            target_service_id = service_data.get('id') if service_data else None
+            
+            if target_exists and target_service_id:
+                print(f"✅ Service '{service_name}' found in cache for environment '{env_name}' (ID: {target_service_id})")
+            else:
+                print(f"❌ Service '{service_name}' not found in cache for environment '{env_name}'")
+        except Exception as e:
+            print(f"⚠️  Cache-based validation failed, falling back to API verification: {e}")
+            # Fallback to original API-based approach
+            target_exists, target_service_id = verify_service_exists(env_name, env_id, service_name, self.headers)
+        
+        if target_exists:
+            print(f"✅ Service '{service_name}' already exists in target environment '{env_name}'")
+            print(f"└─ Business Rule: UPDATE RULES for existing service")
+            return ValidationResult(
+                entity_exists=True,
+                entity_id=target_service_id,
+                action_required='update_rules',
+                conflict_type='same_scope',
+                resolution_strategy='use_existing_and_update_rules',
+                details=f"Service exists in target environment - will update rules"
+            )
+        
+        # Check if service exists in OTHER environments
+        cross_env_conflicts = self._find_cross_environment_services(service_name, env_id)
+        
+        if cross_env_conflicts:
+            print(f"ℹ️  Service '{service_name}' exists in {len(cross_env_conflicts)} other environment(s)")
+            for conflict in cross_env_conflicts:
+                print(f"   └─ Found in: {conflict['env_name']} (ID: {conflict['service_id']})")
+            print(f"└─ Business Rule: ALLOW - Services can have same name across environments")
+            
+            # Check if we can create with original name or need env-specific naming
+            return ValidationResult(
+                entity_exists=False,
+                entity_id=None,
+                action_required='create',
+                conflict_type='cross_scope',
+                resolution_strategy='create_in_target_environment',
+                details=f"Service exists in other environments but not in target - will create new instance"
+            )
+        
+        # Service doesn't exist anywhere - create new
+        print(f"ℹ️  Service '{service_name}' is new - will create in environment '{env_name}'")
+        return ValidationResult(
+            entity_exists=False,
+            entity_id=None,
+            action_required='create',
+            conflict_type='none',
+            resolution_strategy='create_new',
+            details=f"New service - will create in target environment"
+        )
+    
+    def validate_component_in_application(self, component_name: str, app_name: str, app_id: str) -> ValidationResult:
+        """
+        Validate component placement according to business rules:
+        - Same component, same application → Update rules for existing component
+        - Same component, different applications → Allow with application-specific naming if needed
+        """
+        print(f"\n[Component Validation] {component_name} in application {app_name}")
+        
+        # Get all components to analyze conflicts
+        all_components = get_phoenix_components_lazy(self.headers)
+        
+        # Find components with same name
+        matching_components = [comp for comp in all_components 
+                             if comp.get('name', '').lower() == component_name.lower()]
+        
+        # Check if exists in target application
+        target_component = None
+        cross_app_conflicts = []
+        
+        for comp in matching_components:
+            if comp.get('applicationId') == app_id:
+                target_component = comp
+            else:
+                cross_app_conflicts.append(comp)
+        
+        if target_component:
+            print(f"✅ Component '{component_name}' already exists in target application '{app_name}'")
+            print(f"└─ Business Rule: UPDATE RULES for existing component")
+            return ValidationResult(
+                entity_exists=True,
+                entity_id=target_component.get('id'),
+                action_required='update_rules',
+                conflict_type='same_scope',
+                resolution_strategy='use_existing_and_update_rules',
+                details=f"Component exists in target application - will update rules"
+            )
+        
+        if cross_app_conflicts:
+            print(f"ℹ️  Component '{component_name}' exists in {len(cross_app_conflicts)} other application(s)")
+            for conflict in cross_app_conflicts:
+                conflict_app_id = conflict.get('applicationId')
+                print(f"   └─ Found in application ID: {conflict_app_id} (Component ID: {conflict.get('id')})")
+            print(f"└─ Business Rule: ALLOW - Components can have same name across applications")
+            
+            return ValidationResult(
+                entity_exists=False,
+                entity_id=None,
+                action_required='create',
+                conflict_type='cross_scope',
+                resolution_strategy='create_in_target_application',
+                details=f"Component exists in other applications but not in target - will create new instance"
+            )
+        
+        # Component doesn't exist anywhere - create new
+        print(f"ℹ️  Component '{component_name}' is new - will create in application '{app_name}'")
+        return ValidationResult(
+            entity_exists=False,
+            entity_id=None,
+            action_required='create',
+            conflict_type='none',
+            resolution_strategy='create_new',
+            details=f"New component - will create in target application"
+        )
+    
+    def _find_cross_environment_services(self, service_name: str, exclude_env_id: str) -> list:
+        """Find services with same name in other environments using cached data where possible"""
+        try:
+            cross_env_services = []
+            
+            # First try to use cached component data for faster lookup
+            try:
+                all_components = get_phoenix_components_lazy(self.headers)
+                service_name_lower = service_name.lower()
+                
+                for service in all_components:
+                    if (service.get('name', '').lower() == service_name_lower and 
+                        service.get('applicationId') != exclude_env_id):
+                        
+                        # Get environment name for this service
+                        env_name = self._get_environment_name_by_id(service.get('applicationId'))
+                        cross_env_services.append({
+                            'service_id': service.get('id'),
+                            'env_id': service.get('applicationId'),
+                            'env_name': env_name or f"env-{service.get('applicationId', 'unknown')[:8]}"
+                        })
+                
+                print(f"✅ Found {len(cross_env_services)} cross-environment instances using cached data")
+                return cross_env_services
+                
+            except Exception as cache_error:
+                print(f"⚠️  Cache-based cross-environment lookup failed: {cache_error}")
+                print(f"⚠️  Falling back to API-based lookup...")
+            
+            # Fallback to API-based approach if cache fails
+            api_url = construct_api_url("/v1/components")
+            params = {"pageSize": 1000, "sort": "name,asc"}
+            
+            response = requests.get(api_url, headers=self.headers, params=params)
+            if response.status_code != 200:
+                return []
+            
+            data = response.json()
+            all_services = data.get('content', [])
+            
+            # Find services with same name in different environments
+            for service in all_services:
+                if (service.get('name', '').lower() == service_name.lower() and 
+                    service.get('applicationId') != exclude_env_id):
+                    
+                    # Get environment name for this service
+                    env_name = self._get_environment_name_by_id(service.get('applicationId'))
+                    cross_env_services.append({
+                        'service_id': service.get('id'),
+                        'env_id': service.get('applicationId'),
+                        'env_name': env_name or 'Unknown'
+                    })
+            
+            return cross_env_services
+            
+        except Exception as e:
+            print(f"⚠️  Error finding cross-environment services: {e}")
+            return []
+    
+    def _get_environment_name_by_id(self, env_id: str) -> Optional[str]:
+        """Get environment name by ID"""
+        try:
+            # This would need to be implemented based on your application/environment mapping
+            # For now, return the ID as a fallback
+            return f"env-{env_id[:8]}"
+        except Exception:
+            return None
+
+def validate_entity_placement(entity_type: str, entity_name: str, target_scope: str, target_scope_id: str, headers) -> ValidationResult:
+    """
+    Unified validation function for both services and components
+    
+    Args:
+        entity_type: 'service' or 'component'
+        entity_name: Name of the entity
+        target_scope: Environment name (for services) or Application name (for components)
+        target_scope_id: Environment ID (for services) or Application ID (for components)
+        headers: Authentication headers
+    
+    Returns:
+        ValidationResult with validation details and recommended action
+    """
+    validator = EntityValidator(headers)
+    
+    if entity_type.lower() == 'service':
+        return validator.validate_service_in_environment(entity_name, target_scope, target_scope_id)
+    elif entity_type.lower() == 'component':
+        return validator.validate_component_in_application(entity_name, target_scope, target_scope_id)
+    else:
+        raise ValueError(f"Unknown entity type: {entity_type}")
 
 AUTOLINK_DEPLOYMENT_SIMILARITY_THRESHOLD = 1 # Levenshtein ratio for comparing app name with service name. (1 means being equal)
 SERVICE_LOOKUP_SIMILARITY_THRESHOLD = 0.99 # Levenshtein ratio for comparing service name with existing services, in case service was not found by exact match
@@ -815,14 +1439,31 @@ def update_environment(environment, existing_environment, headers2):
 
 
 # Function to add services and process rules for the environment
-def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2, track_operation_callback=None, quick_check_interval=10, silent_mode=False):
+def add_environment_services(repos, subdomains, environments, application_environments, phoenix_components, subdomain_owners, teams, access_token2, track_operation_callback=None, quick_check_interval=10, silent_mode=False, verification_strategy=None):
     global access_token
     if not access_token:
         access_token = access_token2
     headers = {'Authorization': f"Bearer {access_token}", 'Content-Type': 'application/json'}
 
+    # Verify logging system is working before starting service operations
     print(f"\n[Service Creation Process Started]")
+    verify_logging_setup()
     print(f"└─ Processing {len(environments)} environments")
+    
+    # Initialize verification strategy if not provided
+    if verification_strategy is None:
+        # Determine strategy based on legacy parameters for backward compatibility
+        if silent_mode:
+            verification_strategy = create_verification_strategy("hybrid", quick_check_interval=1000)  # Essentially deferred
+        elif quick_check_interval > 1:
+            verification_strategy = create_verification_strategy("hybrid", quick_check_interval=quick_check_interval)
+        else:
+            verification_strategy = create_verification_strategy("immediate")
+    
+    # Display verification mode information
+    print(f"└─ Verification Strategy: {verification_strategy.mode.value.upper()}")
+    if hasattr(verification_strategy, 'quick_check_interval'):
+        print(f"└─ Quick-check interval: {verification_strategy.quick_check_interval}")
     
     # Count total services across all environments
     total_services_count = 0
@@ -834,17 +1475,10 @@ def add_environment_services(repos, subdomains, environments, application_enviro
     
     # Environment counter
     current_environment = 0
-    
-    # Quick-check mode information
-    if silent_mode:
-        print(f"└─ 🔇 Silent mode enabled: Service validation suppressed during processing")
-    elif quick_check_interval > 1:
-        print(f"└─ ⚡ Quick-check mode enabled: Validating every {quick_check_interval} services")
-    else:
-        print(f"└─ 🔍 Full validation mode: Validating every service")
-    
     total_services_processed = 0
-    services_pending_validation = []
+    
+    # Performance tracking
+    process_start_time = datetime.now()
     
     for environment in environments:
         current_environment += 1
@@ -931,24 +1565,71 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                     print(f"  └─ Deployment Set: {deployment_set}")
                     print(f"  └─ Environment: {env_name} (ID: {env_id})")
                 
-                # Store service info for potential validation
-                service_info = {
-                    'service': service,
-                    'service_name': service_name,
-                    'env_name': env_name,
-                    'env_id': env_id,
-                    'count': total_services_processed
-                }
-                services_pending_validation.append(service_info)
+                # Create service info for verification strategy
+                service_info = ServiceInfo(
+                    service=service,
+                    service_name=service_name,
+                    env_name=env_name,
+                    env_id=env_id,
+                    service_id=None,
+                    created_at=None,
+                    creation_order=total_services_processed
+                )
                 
-                # OPTIMIZATION: Use cache lookup instead of API call
-                if not silent_mode:
-                    print(f"  └─ Checking if service already exists in cache...")
+                # Check if we should verify during creation based on strategy
+                should_verify_now = verification_strategy.should_verify_during_creation()
+                validation_result = None  # Initialize validation_result
                 
-                exists, service_data = service_exists_in_cache(service_name, env_id, env_services_cache, headers, fallback_check=True)
-                service_id = service_data.get('id') if service_data else None
+                # ENHANCED VALIDATION: Use new validation system to determine proper action
+                if should_verify_now or verification_strategy.mode == VerificationModes.IMMEDIATE:
+                    if not silent_mode:
+                        print(f"  └─ Performing enhanced validation for service placement...")
+                    
+                    # Use enhanced validation system
+                    validation_result = validate_entity_placement('service', service_name, env_name, env_id, headers)
+                    
+                    exists = validation_result.entity_exists
+                    service_id = validation_result.entity_id
+                    
+                    # Display validation results
+                    if not silent_mode:
+                        print(f"  └─ Validation Result: {validation_result.resolution_strategy}")
+                        print(f"      └─ Action: {validation_result.action_required}")
+                        print(f"      └─ Details: {validation_result.details}")
+                    
+                    # Set service_data for consistency
+                    service_data = {'id': service_id} if service_id else None
+                    
+                else:
+                    # In deferred/disabled modes, use faster cache-based lookup
+                    if verification_strategy.mode == VerificationModes.DEFERRED:
+                        if not silent_mode:
+                            print(f"  └─ Deferred mode: Using cache lookup (full validation deferred)")
+                        # Use cache for performance, but defer comprehensive validation
+                        exists, service_data = service_exists_in_cache(service_name, env_id, env_services_cache, headers, fallback_check=False)
+                        service_id = service_data.get('id') if service_data else None
+                    else:
+                        # For other modes, still do basic cache lookup for performance
+                        exists, service_data = service_exists_in_cache(service_name, env_id, env_services_cache, headers, fallback_check=False)
+                        service_id = service_data.get('id') if service_data else None
                 
-                if not exists:
+                # Determine if service creation is needed based on validation results
+                should_create_service = False
+                
+                if verification_strategy and verification_strategy.mode in [VerificationModes.IMMEDIATE, VerificationModes.HYBRID]:
+                    # Use enhanced validation results to determine action
+                    if validation_result:
+                        should_create_service = validation_result.action_required == 'create'
+                        if not should_create_service and not silent_mode:
+                            print(f"  └─ ✅ Service {service_name} already exists (ID: {validation_result.entity_id}) - skipping creation")
+                            print(f"      └─ Action: {validation_result.action_required} (Business rule: {validation_result.resolution_strategy})")
+                    else:
+                        should_create_service = not exists
+                else:
+                    # For other modes, use traditional existence check
+                    should_create_service = not exists
+                
+                if should_create_service:
                     if not silent_mode and DEBUG:
                         print(f"  └─ 🔍 Cache miss: {service_name} not found in {len(env_services_cache)} cached services")
                     if not silent_mode:
@@ -980,15 +1661,54 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                             else:
                                 print(f"  └─ ❌ Service {service_name} creation failed (returned False)")
                         
+                        # Enhanced error logging when service creation fails
+                        if not creation_success:
+                            # Try to get more specific error details by attempting a diagnostic call
+                            error_msg = f"Service creation failed for {service_name}"
+                            
+                            # Check if it's a naming conflict (409) by looking for existing service
+                            conflict_details = ""
+                            try:
+                                env_services_cache = get_environment_services_cached(env_id, headers)
+                                if service_name.lower() in env_services_cache:
+                                    existing_service = env_services_cache[service_name.lower()]
+                                    conflict_details = f" (CONFLICT: Service already exists with ID {existing_service.get('id')})"
+                                    error_msg += f" - Service already exists in environment{conflict_details}"
+                                else:
+                                    # Check for environment-specific name conflicts
+                                    env_specific_name = f"{service_name}-{env_name.lower()}"
+                                    if env_specific_name.lower() in env_services_cache:
+                                        existing_service = env_services_cache[env_specific_name.lower()]
+                                        conflict_details = f" (CONFLICT: Environment-specific version exists with ID {existing_service.get('id')})"
+                                        error_msg += f" - Environment-specific service already exists{conflict_details}"
+                            except Exception as check_error:
+                                conflict_details = f" (Error checking conflicts: {check_error})"
+                            
+                            error_details = f'Service type: {service.get("Tier", "Unknown")}, Team: {team_name}, Environment ID: {env_id}{conflict_details}'
+                            log_error(
+                                'Service Creation - API Failure',
+                                service_name,
+                                env_name,
+                                error_msg,
+                                error_details
+                            )
+                        
                         # Track service creation operation
                         if track_operation_callback:
                             if creation_success:
                                 track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", True)
                             else:
-                                track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, "Service creation failed")
+                                track_operation_callback('services', 'create_service', f"{service_name} ({env_name})", False, "Service creation failed - check error log for details")
                                 
                     except NotImplementedError as e:
                         error_msg = f"NotImplementedError creating service {service_name}: {e}"
+                        log_error(
+                            'Service Creation - NotImplementedError',
+                            service_name,
+                            env_name,
+                            error_msg,
+                            f'Exception type: {type(e).__name__}, Service details: Type={service_type}, Team={team_name}'
+                        )
                         if not silent_mode:
                             print(f"  └─ ❌ {error_msg}")
                         if track_operation_callback:
@@ -996,6 +1716,13 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                         continue
                     except Exception as e:
                         error_msg = f"Unexpected error creating service {service_name}: {e}"
+                        log_error(
+                            'Service Creation - Unexpected Error',
+                            service_name,
+                            env_name,
+                            error_msg,
+                            f'Exception type: {type(e).__name__}, Service details: Type={service_type}, Team={team_name}'
+                        )
                         if not silent_mode:
                             print(f"  └─ ❌ {error_msg}")
                         if track_operation_callback:
@@ -1024,9 +1751,21 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                     if not silent_mode and DEBUG:
                         print(f"  └─ ✅ Added {service_name} to local cache")
                 
+                # Update service info with creation results
+                service_info.service_id = service_id
+                service_info.created_at = datetime.now()
+                
+                # Collect service for verification based on strategy
+                verification_strategy.collect_service_for_verification(service_info)
+                
                 # At this point, service exists (either created or was already there)
-                if not silent_mode:
+                # Only show verification message if we actually verified
+                if should_verify_now and not silent_mode:
                     print(f"  └─ Service {service_name} verified, updating service and rules...")
+                elif not silent_mode and verification_strategy.mode == VerificationModes.DEFERRED:
+                    print(f"  └─ Service {service_name} created (verification deferred), updating service and rules...")
+                elif not silent_mode:
+                    print(f"  └─ Service {service_name} processed, updating service and rules...")
                 
                 # OPTIMIZATION: Only update service and rules if we have a valid service_id
                 if service_id and exists:
@@ -1040,35 +1779,30 @@ def add_environment_services(repos, subdomains, environments, application_enviro
                 if not silent_mode:
                     time.sleep(1)  # Add small delay between operations in verbose mode
 
-    # Final validation phase for silent mode or quick-check mode
-    if silent_mode or quick_check_interval > 1:
-        print(f"\n[Final Validation Phase]")
-        print(f"└─ Validating {len(services_pending_validation)} services that were processed...")
-        
-        validation_success = 0
-        validation_failed = 0
-        
-        for service_info in services_pending_validation:
-            service_name = service_info['service_name']
-            env_name = service_info['env_name']
-            env_id = service_info['env_id']
-            
-            exists, service_id = verify_service_exists(env_name, env_id, service_name, headers)
-            if exists:
-                validation_success += 1
-            else:
-                validation_failed += 1
-                if not silent_mode:  # Only show details if not in silent mode
-                    print(f"   ❌ Service {service_name} in {env_name} - validation failed")
-        
-        print(f"└─ Final validation results:")
-        print(f"   ✅ Successfully validated: {validation_success} services")
-        if validation_failed > 0:
-            print(f"   ❌ Failed validation: {validation_failed} services")
-        print(f"   📊 Success rate: {(validation_success/(validation_success+validation_failed)*100):.1f}%")
-
+    # Perform final verification based on strategy
+    verification_report = VerificationReport.create_empty(verification_strategy.mode)
+    if verification_strategy.should_verify_at_end():
+        verification_report = verification_strategy.perform_final_verification(headers)
+    
+    # Calculate total processing time
+    process_end_time = datetime.now()
+    total_processing_time = (process_end_time - process_start_time).total_seconds()
+    
+    # Display final summary with performance metrics
     print(f"\n[Service Creation Process Completed]")
     print(f"└─ Finished processing {total_services_processed} services across all environments")
+    print(f"└─ Total processing time: {total_processing_time:.2f} seconds")
+    print(f"└─ Average time per service: {(total_processing_time/total_services_processed):.2f}s" if total_services_processed > 0 else "└─ No services processed")
+    
+    # Display verification metrics
+    if verification_report.verification_mode != VerificationModes.DISABLED:
+        print(f"└─ Verification mode: {verification_report.verification_mode.value}")
+        if verification_report.verification_time > 0:
+            print(f"└─ Verification time: {verification_report.verification_time:.2f}s")
+        print(f"└─ Final verification success rate: {verification_report.success_rate:.1f}%")
+    
+    # Return verification report for analysis
+    return verification_report
 
 
 # AddContainerRule Function
@@ -1305,6 +2039,7 @@ def create_applications(applications, application_environments, phoenix_componen
     if not headers:
         headers = headers2
     print('[Applications]')
+    verify_logging_setup()
     print(f'└─ Processing {len(applications)} applications from config')
     
     # Count total components across all applications
@@ -1930,6 +2665,51 @@ def create_custom_component(applicationName, component, headers2, component_numb
             }
         else:
             print(f"└─ Warning: Skipping messaging configuration - missing required Channel field")
+
+    # ENHANCED VALIDATION: Check component placement before creation
+    app_id = None
+    try:
+        # Get application ID for validation
+        app_list_response = requests.get(construct_api_url("/v1/applications"), headers=headers)
+        if app_list_response.status_code == 200:
+            applications = app_list_response.json().get('content', [])
+            for app in applications:
+                if app.get('name', '').lower() == applicationName.lower():
+                    app_id = app.get('id')
+                    break
+        
+        if app_id:
+            print(f"└─ Performing enhanced validation for component placement...")
+            validation_result = validate_entity_placement('component', component['ComponentName'], applicationName, app_id, headers)
+            
+            print(f"└─ Validation Result: {validation_result.resolution_strategy}")
+            print(f"   └─ Action: {validation_result.action_required}")
+            print(f"   └─ Details: {validation_result.details}")
+            
+            if validation_result.action_required == 'update_rules':
+                print(f"└─ ✅ Component exists - will update rules instead of creating")
+                # Component exists, use existing ID and skip creation
+                existing_component_id = validation_result.entity_id
+                print(f"└─ Using existing component ID: {existing_component_id}")
+                
+                # Track successful component reference
+                if component_tracking_callback:
+                    component_tracking_callback('components', 'reference_component', f"{applicationName} -> {component['ComponentName']}", True)
+                
+                # Skip to rule creation
+                try:
+                    create_component_rules_batch(applicationName, component, headers)
+                    print(f"└─ ✅ Rules updated for existing component")
+                except Exception as rule_error:
+                    print(f"└─ ⚠️  Error updating rules: {rule_error}")
+                
+                return
+                
+        else:
+            print(f"└─ ⚠️  Could not find application '{applicationName}' for validation")
+    
+    except Exception as validation_error:
+        print(f"└─ ⚠️  Validation error (continuing with creation): {validation_error}")
 
     # Always show the full payload being sent to the API
     print(f"└─ SENDING COMPONENT CREATION REQUEST:")
