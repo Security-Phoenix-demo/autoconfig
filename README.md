@@ -108,25 +108,20 @@ The Phoenix-based endpoint for API requests is: [https://api.YOURDOMAIN.security
 
 The following AssetType values are supported and validated by the Phoenix Security API:
 
-### **Components (Software-Focused Assets)**
 | AssetType | Purpose | Use Cases |
 |-----------|---------|-----------|
 | `REPOSITORY` | Source code repositories | GitHub repos, GitLab repos |
 | `SOURCE_CODE` | Source code assets | Code files, source artifacts |
 | `BUILD` | Build artifacts | JAR files, executables |
 | `WEBSITE_API` | Web applications & APIs | REST APIs, web services |
+| `CONTAINER` | Container images/instances | Docker, Kubernetes pods |
+| `INFRA` | Infrastructure components | Servers, networks |
+| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
 | `WEB` | Web assets | Websites, web applications |
 | `FOSS` | Open source components | Third-party libraries |
 | `SAST` | Static analysis assets | Security scan results |
 
-### **Services (Infrastructure-Focused Assets)**
-| AssetType | Purpose | Use Cases |
-|-----------|---------|-----------|
-| `CONTAINER` | Container images/instances | Docker, Kubernetes pods |
-| `INFRA` | Infrastructure components | Servers, networks |
-| `CLOUD` | Cloud resources | AWS/Azure/GCP services |
-
-**Note**: Components handle software assets while Services handle infrastructure assets. Values are case-sensitive and must be used exactly as shown. For detailed usage examples, see the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md).
+**Note**: These values are case-sensitive and must be used exactly as shown. For detailed usage examples, see the [YAML Configuration Guide](YAML_CONFIGURATION_GUIDE.md).
 
 ## Versioning
 
@@ -243,7 +238,6 @@ python run-phx.py <client_id> <client_secret> [options]
 | `--api_domain` | Override the default Phoenix API domain | https://api.demo.appsecphx.io | `--api_domain=https://api.custom.appsecphx.io` |
 | `--action_teams` | Create and manage teams | false | `--action_teams=true` |
 | `--action_create_users_from_teams` | Automatically create users from team configuration | false | `--action_create_users_from_teams=true` |
-| `--create_users_from_responsable` | **NEW**: Auto-create users from Responsable field | **true** | `--create_users_from_responsable=true` |
 | `--action_code` | Create applications and components | false | `--action_code=true` |
 | `--action_cloud` | Create environments and services | false | `--action_cloud=true` |
 | `--action_deployment` | Create deployments | false | `--action_deployment=true` |
@@ -255,55 +249,7 @@ python run-phx.py <client_id> <client_secret> [options]
 
 ### Team Configuration and User Management
 
-The script supports two types of automatic user creation:
-
-1. **NEW in v4.8.3**: From `Responsable` field in applications/environments (enabled by default)
-2. From team configuration files with specific roles
-
-### Automatic User Creation from Responsable Field 🆕
-
-**NEW FEATURE**: The script automatically creates users from the `Responsable` field in your YAML configuration files.
-
-#### Configuration Options:
-
-**Command Line (Recommended):**
-```bash
-# Enable user creation (default)
---create_users_from_responsable=true
-
-# Disable user creation  
---create_users_from_responsable=false
-```
-
-**Configuration File (Alternative):**
-```yaml
-# In your core-structure.yaml file
-CreateUsersForApplications: true
-```
-
-#### Features:
-- ✅ **Enabled by default** - No configuration needed
-- ✅ **Hang prevention** - 30-second timeout protection
-- ✅ **Duplicate prevention** - Smart checking against existing users
-- ✅ **Progress tracking** - Shows processing status for each user
-- ✅ **Error resilience** - Continues even if some users fail
-- ✅ **Efficient processing** - Only processes unique emails
-
-#### Example Usage:
-```bash
-# Basic usage (user creation enabled by default)
-python run-phx.py CLIENT_ID CLIENT_SECRET --action_code=true
-
-# Explicitly enable user creation
-python run-phx.py CLIENT_ID CLIENT_SECRET --action_code=true --create_users_from_responsable=true
-
-# Disable user creation
-python run-phx.py CLIENT_ID CLIENT_SECRET --action_code=true --create_users_from_responsable=false
-```
-
-### User Creation from Team Configuration
-
-The script also supports automatic user creation from team configuration files. Users can be created with specific roles based on their `EmployeeRole` in the team configuration.
+The script now supports automatic user creation from team configuration files. Users can be created with specific roles based on their `EmployeeRole` in the team configuration.
 
 #### Team Member Configuration Format
 
@@ -667,7 +613,7 @@ DeploymentGroups:
         MultiConditionRule:
           RepositoryName: company/gateway
           SearchName: gateway-*
-          AssetType: REPOSITORY
+          AssetType: CONTAINER
         MULTI_MultiConditionRules:
           - RepositoryName: company/auth
             SearchName: auth-*
@@ -767,14 +713,13 @@ Environment Groups:
 #### Component Creation from Assets
 ```yaml
 Components:
-  - ComponentName: DatabaseAPI
-    AssetType: WEBSITE_API
-    SearchName: "database-api"
-    Fqdn:
-      - "db-api.company.com"
+  - ComponentName: DatabaseCluster
+    AssetType: CLOUD
     Tags:
       - "type:database"
       - "env:prod"
+    ProviderAccountId: 
+      - "123456789"
 ```
 
 ### 3. Security Integration
@@ -874,12 +819,11 @@ Services:
 ```yaml
 Services:
   - Service: MyService
-    Type: Cloud
     MultiConditionRules:
-      - AssetType: CONTAINER
-        SearchName: service1-container
-      - AssetType: INFRA
-        SearchName: service2-infra
+      - RepositoryName: repo1
+        SearchName: service1
+      - RepositoryName: repo2
+        SearchName: service2
 ```
 
 ### Component Configuration Options
@@ -898,12 +842,10 @@ Components:
 Components:
   - ComponentName: MyComponent
     MultiConditionRule:
-      AssetType: REPOSITORY
       RepositoryName: repo1
       SearchName: component1
     MULTI_MultiConditionRules:
-      - AssetType: SOURCE_CODE
-        RepositoryName: repo2
+      - RepositoryName: repo2
         SearchName: component2
 ```
 
