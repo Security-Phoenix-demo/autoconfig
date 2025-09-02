@@ -3,6 +3,62 @@
 V 4.5.2
 Date - August 2025
 
+
+# 🔧 Autoconfig – Developer-First CMDB-as-Code
+
+**Autoconfig** is a YAML-based automation framework that flips the legacy CMDB model on its head.
+
+Instead of forcing developers to submit tickets to update outdated configuration management databases, **Autoconfig enables teams to define ownership, application structure, environments, and cloud-service mappings directly in their own repositories**—where infrastructure and code already live.
+
+This configuration is automatically synced with the **Phoenix Security platform** to ensure:
+- 🔍 Accurate ownership attribution
+- ⚡ Contextual vulnerability triage
+- 🚀 Faster remediation through team-level accountability
+
+ # 🤝 Philosophy
+
+Let devs *own* what they build.  
+Let security *see* what’s at risk.  
+All through Git.
+
+Autoconfig brings configuration, ownership, and attribution into the developer workflow — replacing stale CMDBs with YAML-defined truth.
+
+# 🧠 Best Practices
+
+- Use **incremental YAML definitions**
+- Validate with linter before pushing
+- Schedule **daily CI/CD runs**
+- Keep teams and ownership up to date
+- Use meaningful `Tier` values to prioritize critical components
+
+---
+
+## 🧠 Why It Matters
+
+| Legacy CMDB | Autoconfig |
+|-------------|------------|
+| Manual and outdated | Git-driven and always current |
+| Lives outside the Dev workflow | Lives in your repo |
+| Requires ticketing and change boards | CI/CD-native automation |
+| No context for risk | Full code-to-cloud visibility |
+
+---
+
+## 🛠️ How It Works
+
+1. **Developers define**:
+   - Apps, services, components, teams in YAML
+   - Ownership using real team emails and roles
+   - Rules to associate code and cloud to the right owners
+
+2. **Autoconfig parses and validates** your YAML
+
+3. **It syncs to Phoenix Security via API**, configuring:
+   - Applications and components
+   - Cloud environments and services
+   - Team membership and user roles
+   - Code-to-cloud mappings
+
 ## 🎉 Recent Updates & Improvements
 
 ### **🆕 Version 4.5.2 Features**
