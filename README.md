@@ -44,7 +44,7 @@ Date - September 15, 2025
 - ✅ **Operation Categorization**: Reports organized by teams, applications, deployments, environments, components, etc.
 
 ### **🆕 Version 4.5.1 Features**
-- ✅ **Subfolder Support**: `run-config.yaml` now supports subfolder paths like `/mimecast/config.yaml` for better organization
+- ✅ **Subfolder Support**: `run-config.yaml` now supports subfolder paths like `/COMPANY/config.yaml` for better organization
 - ✅ **Enhanced Path Resolution**: Improved configuration file discovery and validation
 - ✅ **Multi-Client Support**: Organize configurations by client, environment, or team in subfolders
 - ✅ **Backward Compatibility**: All existing configurations continue to work without changes
@@ -58,7 +58,7 @@ Date - September 15, 2025
 - ✅ **Application Tag Processing**: Fixed missing Tag_label support in application creation API calls
 - ✅ **Component Integration Errors**: Added automatic retry mechanism for "Integration not found" errors
 - ✅ **RiskFactor Tag Parsing**: Fixed multi-colon tag processing (e.g., RiskFactor:authenticated_access: false)
-- ✅ **YAML Syntax Validation**: Enhanced mimecast_translator.py with proper indentation handling
+- ✅ **YAML Syntax Validation**: Enhanced COMPANY_translator.py with proper indentation handling
 - ✅ **Linter Schema Updates**: Added Tag_label support to application and component validation schemas
 - ✅ **AssetType Validation**: Added missing `CLOUD`, `WEB`, `FOSS`, `SAST` support (synchronized with Phoenix Security API)
 - ✅ **Cache Loading Race Condition**: Fixed critical issue where services created during processing were missed by stale cache
@@ -223,7 +223,7 @@ PHOENIX AUTOCONFIG EXECUTION REPORT
 ⏱️  Total Duration: 0:02:45
 
 📂 Configuration Files Processed: 2
-   • mimecast-core-structure.yaml
+   • COMPANY-core-structure.yaml
    • core-structure.yaml
 
 🔧 Actions Performed: Teams, Cloud, Code, Deployment
@@ -242,7 +242,7 @@ PHOENIX AUTOCONFIG EXECUTION REPORT
 --------------------------------------------------
 
 COMPONENTS Errors (2):
-  1. create_component - mimecast-admin-console -> Mimecast Administration Console
+  1. create_component - COMPANY-admin-console -> COMPANY Administration Console
      Error: Integration not found, retried successfully without ticketing
   2. create_component - dmarc-customer-service -> DMARC Customer Service  
      Error: Failed to create component even without ticketing: 400 Client Error

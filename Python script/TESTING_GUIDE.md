@@ -10,8 +10,8 @@ python3 run-phx.py Key pat1_PAT \
   --action_teams false --action_code true --action_cloud false --action_deployment false \
   --action_autolink_deploymentset false --action_autocreate_teams_from_pteam false \
   --action_create_components_from_assets false \
-  --api_domain https://api.bv.securityphoenix.cloud \
-  @run-config.yaml @core-structure-bv-7.yaml
+  --api_domain https://api.COMPANY2.securityphoenix.cloud \
+  @run-config.yaml @core-structure-COMPANY2-7.yaml
 ```
 
 **First, test your configuration:**
@@ -35,7 +35,7 @@ Validates your YAML configuration files using the built-in linter:
 python3 test_config_validation.py
 
 # Test a specific file
-python3 test_config_validation.py Resources/bv/core-structure-bv-7.yaml
+python3 test_config_validation.py Resources/COMPANY2/core-structure-COMPANY2-7.yaml
 
 # Get detailed error messages
 python3 test_config_validation.py --detailed
@@ -66,7 +66,7 @@ python3 test_dry_run.py 14b3d7dc-b6ee-41af-98fe-14c502bf332c pat1_492552c3c91748
   --action_teams false --action_code true --action_cloud false --action_deployment false \
   --action_autolink_deploymentset false --action_autocreate_teams_from_pteam false \
   --action_create_components_from_assets false \
-  --api_domain https://api.bv.securityphoenix.cloud
+  --api_domain https://api.COMPANY2.securityphoenix.cloud
 ```
 
 **What it tests:**
@@ -87,7 +87,7 @@ cd "Python script"
 python3 -c "
 from providers.Linter import *
 import yaml
-with open('Resources/bv/core-structure-bv-7.yaml', 'r') as f:
+with open('Resources/COMPANY2/core-structure-COMPANY2-7.yaml', 'r') as f:
     config = yaml.safe_load(f)
 for app in config.get('DeploymentGroups', []):
     valid, errors = validate_application(app)
@@ -122,7 +122,7 @@ python3 run-phx.py 14b3d7dc-b6ee-41af-98fe-14c502bf332c pat1_492552c3c9174826bbe
   --action_teams false --action_code true --action_cloud false --action_deployment false \
   --action_autolink_deploymentset false --action_autocreate_teams_from_pteam false \
   --action_create_components_from_assets false \
-  --api_domain https://api.bv.securityphoenix.cloud
+  --api_domain https://api.COMPANY2.securityphoenix.cloud
 ```
 
 ## 🔍 Understanding Test Results
@@ -150,7 +150,7 @@ python3 run-phx.py 14b3d7dc-b6ee-41af-98fe-14c502bf332c pat1_492552c3c9174826bbe
 
 #### File Not Found
 ```
-❌ Configuration file not found: Resources/bv/core-structure-bv-7.yaml
+❌ Configuration file not found: Resources/COMPANY2/core-structure-COMPANY2-7.yaml
 ```
 **Solution:** Check file paths in run-config.yaml and verify files exist.
 
@@ -164,8 +164,8 @@ python3 run-phx.py 14b3d7dc-b6ee-41af-98fe-14c502bf332c pat1_492552c3c9174826bbe
 
 Based on your current setup:
 - **Run Config:** `Resources/run-config.yaml`
-- **Main Config:** `Resources/bv/core-structure-bv-7.yaml`
-- **Teams Folder:** `Resources/bv/bv-Teams`
+- **Main Config:** `Resources/COMPANY2/core-structure-COMPANY2-7.yaml`
+- **Teams Folder:** `Resources/COMPANY2/COMPANY2-Teams`
 - **Hives:** Disabled (`EnableHives: false`)
 
 ## 🚨 Important Notes

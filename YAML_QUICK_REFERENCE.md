@@ -6,17 +6,17 @@
 
 ```yaml
 ConfigFiles:
-  - /bv/core-structure-bv-7.yaml      # Config files to process
+  - /COMPANY2/core-structure-COMPANY2-7.yaml      # Config files to process
 
 # User Management (NEW in v4.8.3)
 CreateUsersForApplications: true        # Auto-create users from Responsable field
 
 # Team Configuration
-TeamsFolder: /bv/bv-Teams              # Custom teams folder path
+TeamsFolder: /COMPANY2/COMPANY2-Teams              # Custom teams folder path
 
 # Hives Configuration  
 EnableHives: false                      # Enable/disable hives system
-HivesFile: bv/bv-hives.yaml            # Custom hives file path
+HivesFile: COMPANY2/COMPANY2-hives.yaml            # Custom hives file path
 
 # GitHub Integration
 GitHubRepositories: []                  # GitHub repo URLs

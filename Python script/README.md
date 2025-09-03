@@ -342,7 +342,7 @@ python3 run-phx.py client_id secret --debug-save-response --json-to-save=0 --act
 Debug responses are organized by run with the format:
 ```
 debug_responses/
-├── bv_2508270856/          # Domain: bv, Run ID: 2508270856 (25/08/27 08:56)
+├── COMPANY2_2508270856/          # Domain: COMPANY2, Run ID: 2508270856 (25/08/27 08:56)
 │   ├── team_creation_20250827_085601_001.json
 │   ├── team_fetch_20250827_085602_001.json
 │   ├── component_creation_20250827_085603_001.json
@@ -358,7 +358,7 @@ debug_responses/
 ```
 
 **Domain Extraction Examples:**
-- `https://api.bv.securityphoenix.cloud` → `bv`
+- `https://api.COMPANY2.securityphoenix.cloud` → `COMPANY2`
 - `api.demo.appsecphx.io` → `demo`
 - `localhost:8080` → `localhost`
 
