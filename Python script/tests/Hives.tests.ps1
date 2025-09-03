@@ -45,7 +45,7 @@ Describe 'Hives' {
         $narwhalTeam.Product.Count | Should -Be 3
     }
 
-    It 'Should contain ClearBank Email' {
+    It 'Should contain COMPANY Email' {
         $ResourcePath = Join-Path -Path $PSScriptRoot -ChildPath "/Resources"
         
         $output = PopulateHives  $ResourcePath

@@ -13,7 +13,7 @@ Examples:
     python3 test_config_validation.py
 
     # Test a specific configuration file
-    python3 test_config_validation.py Resources/bv/core-structure-bv-7.yaml
+    python3 test_config_validation.py Resources/COMPANY2/core-structure-COMPANY2-7.yaml
 
     # Test with detailed output
     python3 test_config_validation.py --detailed
@@ -274,7 +274,7 @@ def main():
         epilog="""
 Examples:
   python3 test_config_validation.py
-  python3 test_config_validation.py Resources/bv/core-structure-bv-7.yaml
+  python3 test_config_validation.py Resources/COMPANY2/core-structure-COMPANY2-7.yaml
   python3 test_config_validation.py --detailed
   python3 test_config_validation.py --summary-only
         """

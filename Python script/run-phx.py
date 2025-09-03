@@ -329,7 +329,7 @@ def get_config_files_from_resources_folder():
         Returns list of config files containing apps/environment data.
         Files are first loaded from Resources folder.
         Then they are filtered to only return ones that are configured in run-config.yaml
-        Supports subfolder paths like /mimecast/mimecast-core-structure.yaml
+        Supports subfolder paths like /COMPANY3/COMPANY3-core-structure.yaml
     """
     config_files_to_use = get_config_files_to_use()
     if phoenix_module.DEBUG:
@@ -342,7 +342,7 @@ def get_config_files_from_resources_folder():
     found_config_files = []
     
     for config_file in config_files_to_use:
-        # Handle subfolder paths (e.g., /mimecast/mimecast-core-structure.yaml)
+        # Handle subfolder paths (e.g., /COMPANY3/COMPANY3-core-structure.yaml)
         if config_file.startswith('/'):
             # Remove leading slash and construct full path
             relative_path = config_file[1:]  # Remove leading '/'

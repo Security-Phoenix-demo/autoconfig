@@ -13,8 +13,8 @@ Example (simulating your command):
     python3 test_dry_run.py #KEY pat1_PAT \\
         --action_teams false --action_code true --action_cloud false --action_deployment false \\
         --action_autolink_deploymentset false --action_autocreate_teams_from_pteam false \\
-        --action_create_components_from_assets false --api_domain https://api.bv.securityphoenix.cloud \\
-        @run-config.yaml @core-structure-bv-7.yaml
+        --action_create_components_from_assets false --api_domain https://api.COMPANY2.securityphoenix.cloud \\
+        @run-config.yaml @core-structure-COMPANY2-7.yaml
 """
 
 import os
@@ -318,7 +318,7 @@ Example:
   python3 test_dry_run.py 14b3d7dc-b6ee-41af-98fe-14c502bf332c pat1_492552c3c9174826bbec609a34f33aa589b7dbfcf0ab40e68cb913c17f13f71f \\
       --action_teams false --action_code true --action_cloud false --action_deployment false \\
       --action_autolink_deploymentset false --action_autocreate_teams_from_pteam false \\
-      --action_create_components_from_assets false --api_domain https://api.bv.securityphoenix.cloud
+      --action_create_components_from_assets false --api_domain https://api.COMPANY2.securityphoenix.cloud
         """
     )
     

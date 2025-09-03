@@ -45,7 +45,7 @@ The Phoenix Security system supports organizing configuration files using the `r
 # Configuration files to load (supports subfolders)
 ConfigFiles:
   - core-structure.yaml                     # Direct file in Resources/
-  - /mimecast/mimecast-core-structure.yaml  # Subfolder path
+  - /COMPANY3/COMPANY3-core-structure.yaml  # Subfolder path
   - /q2/q2_container_services_config.yaml   # Another subfolder
   - /client1/client1-applications.yaml      # Client-specific config
 
@@ -90,7 +90,7 @@ ConfigFiles:
 
 ### Path Syntax Rules
 
-- **Subfolder paths**: Start with `/` (e.g., `/mimecast/config.yaml`)
+- **Subfolder paths**: Start with `/` (e.g., `/COMPANY3/config.yaml`)
 - **Direct files**: No leading `/` (e.g., `core-structure.yaml`)
 - **Case sensitive**: Use exact folder and file names
 - **Supported extensions**: `.yaml` and `.yml`
